@@ -409,7 +409,6 @@ h1 .hollow{display:block;color:transparent;-webkit-text-stroke:2px var(--text)}
         <button data-world="abyss" aria-pressed="false" title="Under the sea: a fish school shaped by the music. Drag to look around (T switches)">Abyss</button>
         <button data-world="worm" aria-pressed="false" title="An endless tunnel of shifting patterns. Move the mouse to lean (T switches)">Wormhole</button>
         <button data-world="loom" aria-pressed="false" title="Ribbons knotted through each other, one frequency band each. Drag to look around (T switches)">Loom</button>
-        <button data-world="run" aria-pressed="false" title="A hero runs a canyon built from the song and fights monsters on the beat. Drops flip day and night (T switches)">Runner</button>
         <button data-world="temple" aria-pressed="false" title="Nested turning shells around a glowing core. Drag to look around, Fly goes inside (T switches)">Temple</button>
         <button data-world="mandala" aria-pressed="false" title="A stepped well of decorated rings, different for every song. Drag to look around, Fly looks straight down (T switches)">Mandala</button>
       </div>
@@ -2414,223 +2413,19 @@ async function loadFile(file){
   }
 }
 
-/* ================= Runner world =================
-   A hero runs down a canyon whose walls are the song's spectrum laid out along the road ahead. The whole run is choreographed from
-   the song before it plays: strikes land on downbeats, the beats between carry jumps and slides, every build-up is a climb and
-   every drop is a leap off the cliff that lands on the drop. Drops also flip day and night.
-   Models and animation clips are Quaternius packs (CC0), loaded on first use from models/*.js. */
-const RK=4, RUN_HB=26, RUN_HD=1.85;   // character scale (world units per metre), height of a build-up climb, distance at which a strike lands (m)
-const RUN={ready:false,loading:false,grp:new THREE.Group(),A:null,ev:[],ei:0,sp:[],si:0,lastT:-9,pool:[],live:[],hero:null,types:{},clips:{},lead:{},H:null,PN:4096,arc:null,busy:-1,camY:0,bars:[],barM:[],flips:[],loco:null};
-const runU={uSpecMap:{value:null},uProf:{value:null},uDur:{value:1},uSpd:{value:20},uDay:{value:0},uRing:{value:999},uRingA:{value:0},uNow:{value:0},uHeroZ:{value:0}};
-RUN.grp.visible=false; scene.add(RUN.grp);
-const runHemi=new THREE.HemisphereLight(0xcfd8ff,0x141018,.8), runSun=new THREE.DirectionalLight(0xfff0dd,1.2), runRim=new THREE.DirectionalLight(0x58a8ff,.9);
-runSun.position.set(.5,1,.6); runRim.position.set(-.6,.5,-.8); scene.add(runHemi,runSun,runRim);
-const runTerr=(()=>{
-  const g=new THREE.PlaneGeometry(560,760,112,190); g.rotateX(-Math.PI/2); g.translate(0,0,-320);
-  const m=new THREE.Mesh(g,new THREE.ShaderMaterial({extensions:{derivatives:true},
-    uniforms:{...runU,uA:U.uA,uB:U.uB,uWarm:U.uWarm,uFog:U.uFog,uHorizon:U.uHorizon,uPulse:U.uPulse,uBands:U.uBands,uCam:U.uCam,uTime:U.uTime},
-    vertexShader:`uniform sampler2D uSpecMap,uProf; uniform float uDur,uSpd,uNow,uPulse; uniform vec3 uBands; varying vec3 vW; varying float vLive,vG,vBase;
-      void main(){ vec4 w=modelMatrix*vec4(position,1.); float ax=abs(w.x), ts=-w.z/uSpd, tn=clamp(ts/uDur,0.,1.);
-        float k=smoothstep(17.,64.,ax), bf=clamp((ax-17.)/250.,0.,1.);
-        float v=texture2D(uSpecMap,vec2(bf*(11./12.)+.5/12.,tn)).r*step(0.,ts)*step(ts,uDur);
-        float live=exp(-pow((ts-uNow)*1.4,2.)); vLive=live;
-        float roll=7.+9.*sin(w.x*.045+w.z*.027)*sin(w.z*.016+1.3);
-        vec2 pr=texture2D(uProf,vec2(tn,.5)).rg; float gp=pr.g*(1.-smoothstep(34.,80.,ax)); vG=gp; vBase=pr.r*${RUN_HB}.;
-        w.y=k*(pow(v,1.2)*150.*(1.+.3*live*uPulse)+roll)*(.55+.45*smoothstep(0.,.6,bf+.25))+vBase-gp*38.;
-        vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }`,
-    fragmentShader:`uniform vec3 uA,uB,uWarm,uFog,uHorizon,uCam,uBands; uniform float uDay,uRing,uRingA,uPulse,uHeroZ,uTime,uSpd,uNow; varying vec3 vW; varying float vLive,vG,vBase;
-      float ln(float v,float wd){ float f=abs(fract(v-.5)-.5)/(fwidth(v)*wd); return 1.-min(f,1.); }
-      void main(){ vec3 n=normalize(cross(dFdx(vW),dFdy(vW))); if(n.y<0.) n=-n; float lit=clamp(dot(n,normalize(vec3(.35,.8,.45))),0.,1.);
-        float y=vW.y-vBase, hN=clamp(y/150.,0.,1.); vec3 base=mix(uA,uB,smoothstep(0.,.75,hN)); base=mix(base,uWarm,smoothstep(.7,1.,hN));
-        float grid=max(ln(vW.x/8.,1.2),ln(vW.z/8.,1.2)), cont=ln(y/10.,1.4)*step(1.,y);
-        float road=1.-smoothstep(13.,17.,abs(vW.x)), dash=step(.5,fract(vW.z/16.))*(1.-smoothstep(.25,.6,abs(abs(vW.x)-6.)));
-        float d=length(vW.xz-vec2(0.,uHeroZ));
-        vec3 night=base*(.035+.07*lit)+base*(grid*.32+cont*.95)*(.35+.9*hN+.8*vLive)+uWarm*dash*road*.8;
-        night+=base*road*exp(-d*.045)*(.12+.5*uPulse)+uA*vLive*uBands.x*(1.-road)*.12;
-        vec3 sand=mix(vec3(.60,.54,.44),base,.3);
-        vec3 day=sand*(.38+.62*lit)*(1.-.35*grid*(1.-road))*(1.-.5*cont)+base*hN*.25; day=mix(day,vec3(.46,.45,.44)*(.7+.3*lit)+vec3(.9)*dash*.3,road);
-        vec3 c=mix(night,day,uDay);
-        float rim=smoothstep(.02,.35,vG)*(1.-smoothstep(.35,.95,vG)); c=mix(c,c*.25,smoothstep(.3,1.,vG))+mix(uWarm,uA,.3)*rim*1.3;   // a chasm to jump: glowing lip, dark inside
-        c+=mix(uWarm,vec3(1.),.25)*uRingA*exp(-pow((d-uRing)/2.6,2.))*.55*exp(-uRing*.012)*(1.-.75*uDay);
-        float fd=length(vW-uCam), fg=1.-exp(-fd*.0021);
-        c=mix(c,mix(uFog,vec3(.52,.63,.80),uDay),fg);
-        gl_FragColor=vec4(c,1.); }`}));
-  m.frustumCulled=false; m.visible=false; scene.add(m); return m; })();
-const runDome=(()=>{ const m=new THREE.Mesh(new THREE.SphereGeometry(5200,32,16),new THREE.ShaderMaterial({side:THREE.BackSide,transparent:true,depthWrite:false,uniforms:{uDay:runU.uDay,uWarm:U.uWarm},
-  vertexShader:'varying vec3 vD; void main(){ vD=normalize(position); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }',
-  fragmentShader:`uniform float uDay; uniform vec3 uWarm; varying vec3 vD; void main(){ float h=clamp(vD.y,0.,1.); vec3 c=mix(vec3(.52,.63,.80),vec3(.12,.28,.62),pow(h,.55));
-    float s=pow(max(dot(normalize(vD),normalize(vec3(.2,.32,-1.))),0.),90.); c+=mix(vec3(1.,.9,.7),uWarm,.25)*s*.9; gl_FragColor=vec4(c,uDay); }`}));
-  m.frustumCulled=false; m.visible=false; scene.add(m); return m; })();
-// glowing beams across the road that the hero slides under
-for(let i=0;i<4;i++){ const b=new THREE.Mesh(new THREE.BoxGeometry(36,.9,.9),new THREE.MeshBasicMaterial({color:0xffffff})); b.visible=false; scene.add(b); RUN.barM.push(b); }
-const RUN_MON=['skeleton_a','skeleton_b','imp','puglin','lycan','tidebreaker'];
-function runLoad(){
-  if(RUN.loading||RUN.ready) return; RUN.loading=true; toast('Loading the hero and monsters. The canyon runs while they arrive.');
-  const sc=u=>new Promise((res,rej)=>{ const s=document.createElement('script'); s.src=u; s.onload=res; s.onerror=()=>rej(new Error(u)); document.head.appendChild(s); });
-  const CDN='https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/';
-  (async()=>{
-    window.GLB=window.GLB||{}; await sc(CDN+'loaders/GLTFLoader.js'); await sc(CDN+'utils/SkeletonUtils.js');
-    const L=new THREE.GLTFLoader(), q=()=>new THREE.Quaternion();
-    const load=async k=>{ await sc('models/'+k+'.js'); const bin=atob(window.GLB[k]); window.GLB[k]=null; const n=bin.length, u=new Uint8Array(n); for(let i=0;i<n;i++) u[i]=bin.charCodeAt(i); return new Promise((res,rej)=>L.parse(u.buffer,'',res,rej)); };
-    const names=['ual1','ual2','hellwarden'].concat(RUN_MON), gl=await Promise.all(names.map(load)), u1=gl[0];
-    for(const c of gl[0].animations.concat(gl[1].animations)) RUN.clips[c.name]=c;
-    const restOf=root=>{ root.updateMatrixWorld(true); const r={w:{},order:[],par:{},pw:{},pel:null};
-      root.traverse(b=>{ if(!b.isBone) return; r.w[b.name]=b.getWorldQuaternion(q()); r.order.push(b.name); if(b.parent.isBone) r.par[b.name]=b.parent.name; else r.pw[b.name]=b.parent.getWorldQuaternion(q()); if(b.name==='pelvis') r.pel=b.position.clone(); }); return r; };
-    const sRest=restOf(u1.scene), bk=u1.scene, bkMixer=new THREE.AnimationMixer(bk), bkB={}; bk.traverse(b=>{ if(b.isBone) bkB[b.name]=b; });
-    for(let i=2;i<names.length;i++){ const k=names[i], g=gl[i], rest=restOf(g.scene), local={}; g.scene.traverse(b=>{ if(b.isBone) local[b.name]=b.quaternion.clone();
-        if(b.isMesh){ for(const tx of [b.material.map,b.material.emissiveMap]) if(tx){ tx.encoding=THREE.LinearEncoding; tx.needsUpdate=true; } if(b.material.emissiveMap) b.material.emissiveIntensity=2.4; } });
-      RUN.types[k]={scene:g.scene,rest,local,clips:{},ratio:rest.pel.length()/sRest.pel.length()}; }
-    // Transfer a clip from the library mannequin to a character with different proportions: each bone keeps its own rest shape
-    // and takes on the mannequin's change in world rotation.
-    const bake=(type,name)=>{ const T=RUN.types[type]; if(T.clips[name]) return T.clips[name];
-      const src=RUN.clips[name], fps=30, n=Math.max(2,Math.ceil(src.duration*fps)+1), times=new Float32Array(n);
-      const bn=T.rest.order.filter(b=>sRest.w[b]), Q={}; bn.forEach(b=>Q[b]=new Float32Array(n*4)); const P=new Float32Array(n*3);
-      const act=bkMixer.clipAction(src); act.play(); const W={}, tq=q(), inv=q(), sp=new THREE.Vector3();
-      for(let i=0;i<n;i++){ const tt=Math.min(src.duration,i/fps); times[i]=tt; bkMixer.setTime(tt); bk.updateMatrixWorld(true);
-        for(const b of T.rest.order){ const pw=T.rest.par[b]?W[T.rest.par[b]]:T.rest.pw[b], s=bkB[b], wt=W[b]||(W[b]=q());
-          if(s&&sRest.w[b]){ s.getWorldQuaternion(tq); wt.copy(tq).multiply(inv.copy(sRest.w[b]).invert()).multiply(T.rest.w[b]); } else wt.copy(pw).multiply(T.local[b]);
-          if(Q[b]){ tq.copy(pw).invert().multiply(wt); tq.toArray(Q[b],i*4); } }
-        sp.copy(bkB.pelvis.position).sub(sRest.pel).multiplyScalar(T.ratio).add(T.rest.pel); sp.toArray(P,i*3); }
-      act.stop(); bkMixer.uncacheAction(src);
-      const tr=bn.map(b=>new THREE.QuaternionKeyframeTrack(b+'.quaternion',times,Q[b])); tr.push(new THREE.VectorKeyframeTrack('pelvis.position',times,P));
-      return T.clips[name]=new THREE.AnimationClip(type+'_'+name,src.duration,tr); };
-    // When in a swing does the blow land? Take the moment the sword hand moves fastest.
-    const impact=name=>{ const src=RUN.clips[name], act=bkMixer.clipAction(src); act.play(); const p=new THREE.Vector3(), l=new THREE.Vector3(); let best=0, bt=src.duration*.5;
-      for(let i=0;i<=Math.ceil(src.duration*60);i++){ const tt=Math.min(src.duration,i/60); bkMixer.setTime(tt); bk.updateMatrixWorld(true); bkB.hand_r.getWorldPosition(p); if(i>0){ const v=p.distanceTo(l); if(v>best){ best=v; bt=tt; } } l.copy(p); }
-      act.stop(); bkMixer.uncacheAction(src); return bt; };
-    for(const c of ['Sword_Regular_A','Sword_Regular_B','Sword_Regular_C','Sword_Attack','Melee_Hook','Punch_Cross']) RUN.lead[c]=impact(c);
-    const Actor=type=>{ const o=THREE.SkeletonUtils.clone(RUN.types[type].scene); let mat=null; o.traverse(m=>{ if(m.isMesh){ m.frustumCulled=false; if(!mat) mat=m.material.clone(); m.material=mat; } }); RUN.grp.add(o);
-      const a={type,o,mat,mixer:new THREE.AnimationMixer(o),cur:null,live:false};
-      a.play=(name,opt={})=>{ const act=a.mixer.clipAction(bake(type,name)); act.reset(); act.setLoop(opt.once?THREE.LoopOnce:THREE.LoopRepeat,Infinity); act.clampWhenFinished=!!opt.once; act.timeScale=opt.speed||1;
-        if(a.cur&&a.cur!==act) act.crossFadeFrom(a.cur,opt.fade==null?.14:opt.fade,false); act.play(); a.cur=act; return act; }; return a; };
-    RUN.hero=Actor('hellwarden'); RUN.hero.o.rotation.y=Math.PI;
-    for(let i=0;i<12;i++){ const a=Actor(RUN_MON[i%6]); a.o.visible=false; RUN.pool.push(a); }
-    for(const c of ['Sprint_Loop','Jog_Fwd_Loop','Sword_Regular_A','Sword_Regular_B','Sword_Regular_C','Sword_Attack','Melee_Hook','Punch_Cross','Sword_Regular_A_Rec','Sword_Regular_B_Rec','Melee_Hook_Rec','Jump_Loop','Jump_Land','Slide_Loop','Slide_Exit','NinjaJump_Idle_Loop','NinjaJump_Land']) bake('hellwarden',c);
-    for(const k of RUN_MON) for(const c of ['Sprint_Loop','Jog_Fwd_Loop','Walk_Loop','Zombie_Walk_Fwd_Loop','Hit_Knockback','Hit_Chest','Hit_Head','Death01']) bake(k,c);
-    RUN.ready=true; RUN.loading=false; RUN.lastT=-9;
-  })().catch(e=>{ console.error(e); RUN.loading=false; toast('The hero and monsters could not be loaded, so the canyon runs empty. Check that the models folder is published next to the page.'); });
-}
-function runH(ts){ if(!RUN.H) return 0; const f=clamp(ts/A.dur,0,1)*(RUN.PN-1), i=Math.min(RUN.PN-2,f|0), u=f-i; return RUN.H[i]*(1-u)+RUN.H[i+1]*u; }
-function runG(ts){ if(!RUN.G) return 0; return RUN.G[clamp(Math.round(ts/A.dur*(RUN.PN-1)),0,RUN.PN-1)]; }
-// Choreograph the whole song.
-function runPlan(){
-  RUN.A=A; let s=A.F*7919+17; const rnd=()=>((s=(s*1664525+1013904223)>>>0)/4294967296), pick=a=>a[(rnd()*a.length)|0];
-  const at=(arr,tt)=>samp(arr,tt*A.fps);
-  // 1. a steady beat grid that follows the detected beats where there are any and keeps counting where there are none
-  const spb0=60/(A.bpm||120), det=A.beats.map(b=>b.t), B=[]; let st=det.length?det[0]:.5; for(const b of A.beats) if(b.s>.3){ st=b.t; break; }
-  { let tt=st, spb=spb0, di=0; while(tt<A.dur-.4){ B.push(tt); let nx=tt+spb; while(di<det.length&&det[di]<nx-.12) di++;
-      if(di<det.length&&Math.abs(det[di]-nx)<.12){ spb=clamp(spb+((det[di]-tt)-spb)*.15,spb0*.94,spb0*1.06); nx+=(det[di]-nx)*.7; } tt=nx; }
-    for(let tt=st-spb0;tt>.4;tt-=spb0) B.unshift(tt); }
-  // which beat of four is the "one": the one with the most bass on it
-  let bp=0, bestS=-1; for(let p=0;p<4;p++){ let sm=0; for(let i=p;i<B.length;i+=4) sm+=at(A.bass,B[i]); if(sm>bestS){ bestS=sm; bp=p; } }
-  let stride=1; while(stride<4&&stride*spb0<.9) stride*=2;   // how many beats between strikes: fast songs strike every second or fourth beat
-  const N=RUN.PN, H=new Float32Array(N), G=new Float32Array(N), ev=[], sp=[], bars=[], zone=new Int8Array(B.length+4);
-  const fill=(arr,t0,t1,fn)=>{ const i0=Math.max(0,Math.ceil(t0/A.dur*(N-1))), i1=Math.min(N-1,Math.floor(t1/A.dur*(N-1))); for(let i=i0;i<=i1;i++){ const ts=i/(N-1)*A.dur; arr[i]=fn((ts-t0)/Math.max(1e-4,t1-t0)); } };
-  // 2. every drop: climb through the eight beats before it, leap off the edge, land on the drop into a waiting pack
-  for(const td of A.drops){ let di=0; while(di<B.length-1&&B[di+1]<=td+.02) di++; const b0=Math.max(0,di-8); if(td<4||b0>=di) continue;
-    for(let i=b0;i<=Math.min(B.length-1,di+2);i++) zone[i]=1;
-    const tb0=B[b0], te=td-.72; fill(H,tb0,te,u=>RUN_HB*u*u*(3-2*u));
-    ev.push({t:te,k:'leap',t1:td},{t:td,k:'land'});
-    const pk=['tidebreaker','skeleton_a','skeleton_b','lycan','imp']; for(let k=0;k<5;k++) sp.push({t:td,s:1,drop:true,type:pk[k],lane:k===0?0:((k%2?-1:1)*(1+.6*(k>2))),dz:k===0?-.6:-rnd()*1.6,own:k===0?.6:1.4+rnd()*2,run:rnd()}); }
-  // 3. the beats between: strikes on the strong beats, movement on the ones between
-  let nStrike=0, hold=0, sw=0, lastMove=''; const SW=['Sword_Regular_A','Sword_Regular_B','Sword_Attack','Sword_Regular_A','Sword_Regular_B','Sword_Regular_C'];
-  for(let i=0;i<B.length;i++){ const tb=B[i]; if(zone[i]||i<hold||tb<2.2||tb>A.dur-1.5) continue;
-    const inten=at(A.inten,tb), rel=((i-bp)%stride+stride)%stride, ph=((i-bp)%4+4)%4;
-    if(inten<.2){ if(ph===2&&rnd()<.5){ if(rnd()<.5){ fill(G,tb-.24,tb+.1,u=>1-Math.abs(u*2-1)); ev.push({t:tb-.36,k:'jump',t1:tb+.2},{t:tb+.2,k:'jland'}); } else { bars.push(tb); ev.push({t:tb-.36,k:'slide'},{t:tb+.2,k:'sexit'}); } } continue; }   // quiet passage: no enemies, just the run and the road
-    const strike=stride>1?rel===0:ph!==2, move=stride>1?rel===stride/2:ph===2;
-    if(strike){ nStrike++;
-      if(inten>.5&&nStrike%7===0&&i+3<B.length&&!zone[i+1]&&!zone[i+2]&&!zone[i+3]){   // a big one: three blows on three beats
-        const ts=[B[i],B[i+1],B[i+2]]; sp.push({t:tb,s:1,type:'tidebreaker',lane:0,own:.6,run:rnd(),combo:ts});
-        ['Sword_Regular_A','Sword_Regular_B','Sword_Regular_A'].forEach((c,k)=>ev.push({t:ts[k],k:'swing',clip:c,lane:0})); hold=i+4; continue; }
-      const bass=at(A.bass,tb), type=bass>.62&&rnd()<.55?'lycan':pick(['skeleton_a','skeleton_b','skeleton_a','skeleton_b','imp','puglin']), lane=(rnd()-.5)*1.3;
-      const clip=lastMove?SW[(sw++%2)]:SW[sw++%SW.length]; lastMove='';
-      ev.push({t:tb,k:'swing',clip,lane}); sp.push({t:tb,s:.35+.65*bass,type,lane,own:type==='lycan'?3.5+rnd()*2:1.2+rnd()*2,run:rnd()});
-    } else if(move){ const r=rnd(); lastMove='m';
-      if(r<.32){ fill(G,tb-.24,tb+.1,u=>1-Math.abs(u*2-1)); ev.push({t:tb-.36,k:'jump',t1:tb+.2},{t:tb+.2,k:'jland'}); }
-      else if(r<.58){ bars.push(tb); ev.push({t:tb-.36,k:'slide'},{t:tb+.2,k:'sexit'}); }
-      else if(r<.8){ const lane=(rnd()-.5)*1.3, clip=rnd()<.5?'Melee_Hook':'Punch_Cross'; ev.push({t:tb,k:'swing',clip,lane}); sp.push({t:tb,s:.3,type:rnd()<.5?'imp':'puglin',lane,own:1.5+rnd()*2,run:rnd()}); }
-      else lastMove=''; } }
-  ev.sort((a,b)=>a.t-b.t); sp.sort((a,b)=>a.t-b.t); RUN.ev=ev; RUN.sp=sp; RUN.bars=bars; RUN.H=H; RUN.G=G; RUN.flips=A.drops.slice(); RUN.B=B; RUN.stride=stride;
-  // textures for the canyon: the spectrum over time (12 bands across), and the road's height and chasms along the song
-  const SN=Math.min(2048,A.F), d=new Uint8Array(12*SN*4);
-  for(let r=0;r<SN;r++){ const f0=Math.floor(r*A.F/SN), f1=Math.max(f0+1,Math.floor((r+1)*A.F/SN)); for(let b=0;b<12;b++){ let m=0; for(let f=f0;f<f1&&f<A.F;f++) m=Math.max(m,A.spec[f*12+b]); const o=(r*12+b)*4; d[o]=d[o+1]=d[o+2]=clamp(m,0,1)*255; d[o+3]=255; } }
-  if(runU.uSpecMap.value) runU.uSpecMap.value.dispose(); if(runU.uProf.value) runU.uProf.value.dispose();
-  const tx=new THREE.DataTexture(d,12,SN,THREE.RGBAFormat); tx.magFilter=tx.minFilter=THREE.LinearFilter; tx.needsUpdate=true; runU.uSpecMap.value=tx;
-  const pd=new Uint8Array(N*4); for(let i=0;i<N;i++){ pd[i*4]=H[i]/RUN_HB*255; pd[i*4+1]=G[i]*255; pd[i*4+3]=255; }
-  const px=new THREE.DataTexture(pd,N,1,THREE.RGBAFormat); px.magFilter=px.minFilter=THREE.LinearFilter; px.needsUpdate=true; runU.uProf.value=px;
-  runU.uDur.value=A.dur; runU.uSpd.value=SPEED; RUN.lastT=-9;
-}
-function runStep(dt,t,along,on){
-  runTerr.visible=on; RUN.grp.visible=on&&RUN.ready; runDome.visible=on&&runU.uDay.value>.003; runHemi.visible=runSun.visible=runRim.visible=on;
-  if(!on){ for(const b of RUN.barM) b.visible=false; return; }
-  if(RUN.A!==A) runPlan();
-  runTerr.position.z=-Math.floor(along/4)*4; runU.uNow.value=t; runU.uHeroZ.value=-along; runDome.position.copy(camera.position);
-  let fl=0; for(const d of RUN.flips) if(d<=t) fl++; runU.uDay.value+=((fl%2)-runU.uDay.value)*Math.min(1,dt*(RM?30:1.6));   // day or night: flips on every drop
-  const day=runU.uDay.value; runHemi.intensity=.75+.5*day; runSun.intensity=.95+.6*day; runRim.intensity=.9*(1-day);
-  runU.uRing.value+=dt*150; runU.uRingA.value*=Math.exp(-dt*1.8);
-  RUN.camY+=((RUN.ready?RUN.hero.o.position.y*RK*.85:runH(t))-RUN.camY)*Math.min(1,dt*3.2);   // the camera rides with the hero through climbs and leaps
-  { let k=0; for(const tb of RUN.bars){ if(tb<t-.6||tb>t+9||k>=RUN.barM.length) continue; const b=RUN.barM[k++]; b.visible=true; b.position.set(0,runH(tb)+5.4,-tb*SPEED); b.material.color.copy(U.uWarm.value).lerp(U.uA.value,.4+.4*Math.sin(wall*9)); } for(;k<RUN.barM.length;k++) RUN.barM[k].visible=false; }
-  if(!RUN.ready) return;
-  RUN.grp.position.set(0,0,-along); RUN.grp.scale.setScalar(RK);
-  const pdt=playing?dt:0, gs=SPEED/RK, HD=RUN_HD, hero=RUN.hero, LOCO=gs>6?'Sprint_Loop':'Jog_Fwd_Loop';
-  const yAt=z=>runH(t-z*RK/SPEED)/RK, hopAt=z=>runG(t-z*RK/SPEED)*1.1;   // ground height (m) under a point z metres along the road from the hero
-  if(Math.abs(t-RUN.lastT)>.6||t<RUN.lastT-.01){   // a seek or a new song: clear the stage and pick the choreography up from here
-    for(const a of RUN.pool){ a.live=false; a.o.visible=false; } RUN.live=[]; RUN.si=0; while(RUN.si<RUN.sp.length&&RUN.sp[RUN.si].t<t+.35) RUN.si++;
-    RUN.ei=0; for(const e of RUN.ev) e.done=e.t<t+.3; RUN.arc=null; RUN.rec=null; RUN.busy=-1; RUN.loco=hero.play(LOCO,{fade:.1}); RUN.camY=runH(t); }
-  RUN.lastT=t;
-  const spb=60/(A.bpm||120); if(RUN.loco) RUN.loco.timeScale=clamp(RUN.loco.getClip().duration/(LOCO==='Sprint_Loop'?spb:2*spb),.7,1.6);   // footfalls on the tempo
-  // the hero's part
-  while(RUN.ei<RUN.ev.length&&RUN.ev[RUN.ei].done) RUN.ei++;
-  for(let k=RUN.ei;k<Math.min(RUN.ev.length,RUN.ei+4);k++){ const e=RUN.ev[k], ld=e.k==='swing'?(RUN.lead[e.clip]||.25):0; if(e.done||e.t-ld>t) continue; e.done=true;   // a few events ahead are checked, because a swing starts before its beat
-    if(e.k==='swing'){ hero.play(e.clip,{once:true,fade:.07}); RUN.busy=t+Math.max(ld+.22,Math.min(RUN.clips[e.clip].duration*.8,ld+.55)); RUN.rec=RUN.clips[e.clip+'_Rec']?{t:e.t,clip:e.clip+'_Rec'}:null; if(RUN.rec) RUN.busy=e.t+.42; hero.o.rotation.y=Math.PI+e.lane*.25; RUN.loco=null; }
-    else if(e.k==='jump'){ hero.play('Jump_Loop',{fade:.1}); RUN.arc={t0:e.t,t1:e.t1,h0:runH(e.t),h1:runH(e.t1),pk:6.5}; RUN.busy=1e9; RUN.loco=null; }
-    else if(e.k==='jland'){ hero.play('Jump_Land',{once:true,fade:.06}); RUN.busy=t+.26; }
-    else if(e.k==='slide'){ hero.play('Slide_Loop',{fade:.12}); RUN.busy=1e9; RUN.loco=null; }
-    else if(e.k==='sexit'){ hero.play('Slide_Exit',{once:true,fade:.08}); RUN.busy=t+.3; }
-    else if(e.k==='leap'){ hero.play('NinjaJump_Idle_Loop',{fade:.12}); RUN.arc={t0:e.t,t1:e.t1,h0:RUN_HB,h1:0,pk:9}; RUN.busy=1e9; RUN.loco=null; }
-    else if(e.k==='land'){ hero.play('NinjaJump_Land',{once:true,fade:.05}); RUN.busy=t+.62; runU.uRing.value=0; runU.uRingA.value=1; hero.mat.emissiveIntensity=9; } }
-  if(RUN.rec&&t>=RUN.rec.t){ hero.play(RUN.rec.clip,{once:true,fade:.04}); RUN.rec=null; }   // the strike clips end on the blow; the follow-through is a separate clip
-  if(RUN.busy>0&&t>=RUN.busy){ RUN.busy=-1; RUN.loco=hero.play(LOCO,{fade:.2}); }
-  { let y=runH(t); const a=RUN.arc; if(a){ if(t>=a.t1) RUN.arc=null; else { const u=clamp((t-a.t0)/(a.t1-a.t0),0,1); y=a.h0+(a.h1-a.h0)*u*u+4*a.pk*u*(1-u); } } hero.o.position.y=y/RK; }
-  hero.o.rotation.y+=(Math.PI-hero.o.rotation.y)*Math.min(1,dt*3);
-  // the monsters' part: each is launched so that it reaches the hero exactly at its moment
-  while(RUN.si<RUN.sp.length&&RUN.sp[RUN.si].t-t<2.6){ const h=RUN.sp[RUN.si++]; const a=RUN.pool.find(p=>!p.live&&p.type===h.type)||RUN.pool.find(p=>!p.live&&p.type!=='tidebreaker')||RUN.pool.find(p=>!p.live); if(!a) continue;
-    a.live=true; a.h=h; a.state='run'; a.ci=0; a.o.visible=true; a.o.rotation.set(0,0,0); a.o.position.set(h.lane,0,-99); a.push=0;
-    const rn=a.type==='tidebreaker'?'Walk_Loop':a.type==='lycan'?'Sprint_Loop':a.type==='puglin'?(h.run<.5?'Jog_Fwd_Loop':'Zombie_Walk_Fwd_Loop'):(h.run<.6?'Sprint_Loop':'Jog_Fwd_Loop');
-    a.play(rn,{fade:0,speed:rn==='Zombie_Walk_Fwd_Loop'?1.5:a.type==='lycan'?1.25:1}); RUN.live.push(a); }
-  for(const a of RUN.live){ const h=a.h, o=a.o, left=h.t-t;
-    if(a.state==='run'){ o.position.z=-HD+(h.dz||0)-Math.max(0,left)*(gs+h.own); o.position.y=yAt(o.position.z)+hopAt(o.position.z);
-      if(left<=0){ a.t=0;
-        if(h.combo){ a.state='stag'; a.ci=1; a.play('Hit_Chest',{once:true,fade:.05}); a.push=.5; hero.mat.emissiveIntensity=7; }
-        else { a.state='hit'; a.play('Hit_Knockback',{once:true,fade:.05}); const p=h.drop?1:h.s;
-          a.vz=-(5+9*p)-(h.drop?9:0); a.vx=(h.lane>=0?1:-1)*(1+2.5*p+(h.drop?3+2*Math.abs(h.lane):0)); a.vy=h.drop?9:1.5+4.5*p*(nitro?1.4:1); a.spin=h.drop?(h.lane>=0?-7:7):0;
-          if(!h.drop){ hero.mat.emissiveIntensity=4+5*p; if(p>.6&&runU.uRingA.value<.3){ runU.uRing.value=0; runU.uRingA.value=.4*p; } } } } }
-    else if(a.state==='stag'){ a.push*=Math.exp(-pdt*5); o.position.z=-HD-.25-a.push; o.position.y=yAt(o.position.z);   // the big one is driven back blow by blow
-      if(t>=h.combo[a.ci]){ a.ci++; hero.mat.emissiveIntensity=8;
-        if(a.ci>=h.combo.length){ a.state='hit'; a.t=0; a.play('Hit_Knockback',{once:true,fade:.05}); a.vz=-16; a.vx=0; a.vy=7; a.spin=5; runU.uRing.value=0; runU.uRingA.value=.6; }
-        else { a.play('Hit_Head',{once:true,fade:.05}); a.push=.6; } } }
-    else { a.t+=pdt; a.vz+=(gs-a.vz)*Math.min(1,pdt*2.6); a.vx*=Math.exp(-pdt*2.5); a.vy-=22*pdt; const g0=yAt(o.position.z);
-      o.position.z+=a.vz*pdt; o.position.x+=a.vx*pdt; o.position.y=Math.max(g0,o.position.y+a.vy*pdt); if(o.position.y>g0+.02) o.rotation.x+=a.spin*pdt; else { a.vy=0; o.rotation.x*=Math.exp(-pdt*12); }
-      if(a.state==='hit'&&a.t>.4){ a.state='dead'; a.play('Death01',{once:true,fade:.2}); }
-      if(o.position.z>16||a.t>6){ a.live=false; o.visible=false; } } }
-  RUN.live=RUN.live.filter(a=>a.live);
-  const hm=hero.mat; hm.emissiveIntensity+=(2.2+2.2*U.uBands.value.x-hm.emissiveIntensity)*Math.min(1,dt*5);
-  hero.mixer.update(pdt); for(const a of RUN.live) a.mixer.update(pdt);
-}
-
 /* ================= frame loop ================= */
 const attract={a:0,y:110}; let skyY=380, nitro=false, flash=0, party=0, diveT=0, search=0;
 const camUp=new THREE.Vector3(0,1,0), lkF=new THREE.Vector3(), lkR=new THREE.Vector3(), lkU=new THREE.Vector3(); let fovOver=0, lookYaw=0, lookPitch=0, loomIn=false;
 const diverV=new THREE.Vector3(), diverT=new THREE.Vector3(), ptrV=new THREE.Vector2();
 const fly={x:0,y:30,vx:0}, TRAIL=400; let world='city';
-const ORBW={abyss:1,loom:1,temple:1,mandala:1}, WORLDS=['city','terrain','abyss','worm','loom','run'];   // 'temple' and 'mandala' are built but hidden; add them back here and remove the CSS rule to restore them
+const ORBW={abyss:1,loom:1,temple:1,mandala:1}, WORLDS=['city','terrain','abyss','worm','loom'];   // 'temple' and 'mandala' are built but hidden; add them back here and remove the CSS rule to restore them
 const orbit={az:.6,el:.5,dist:PR*3.9,drag:false,lx:0,ly:0,idle:0};
 canvas.addEventListener('pointerdown',e=>{ if(mode!=='planet'&&!ORBW[world]) return; orbit.drag=true; orbit.lx=e.clientX; orbit.ly=e.clientY; try{canvas.setPointerCapture(e.pointerId)}catch(_){} });
 canvas.addEventListener('pointermove',e=>{ if(!orbit.drag) return; orbit.az-=(e.clientX-orbit.lx)*.006; orbit.el=clamp(orbit.el+(e.clientY-orbit.ly)*.005,-1.35,1.45); orbit.lx=e.clientX; orbit.ly=e.clientY; orbit.idle=0; });
 canvas.addEventListener('pointermove',e=>{ if(!orbit.drag||world!=='loom'||mode!=='surf') return; lookYaw=clamp(lookYaw+(e.movementX||0)*.005,-2.9,2.9); lookPitch=clamp(lookPitch-(e.movementY||0)*.004,-1.3,1.3); });
 const endDrag=()=>{ orbit.drag=false; }; canvas.addEventListener('pointerup',endDrag); canvas.addEventListener('pointercancel',endDrag);
 canvas.addEventListener('wheel',e=>{ if(mode!=='planet'&&!ORBW[world]) return; e.preventDefault(); orbit.dist=clamp(orbit.dist*Math.exp(e.deltaY*.0012),PR*2.2,PR*10); },{passive:false});
-function setWorld(w){ world=w; if(w==='run') runLoad(); document.querySelectorAll('#worldSeg button[data-world]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.world===w))); fly.x=clamp(fly.x,-20,20); fly.vx=0; }
+function setWorld(w){ world=w; document.querySelectorAll('#worldSeg button[data-world]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.world===w))); fly.x=clamp(fly.x,-20,20); fly.vx=0; }
 // Height a flyer must clear over the strip of blocks under x (0 over a street), looking a little ahead.
 function stripH(x,along){
   const ax=Math.abs(x); if(ax<AV/2-2 || !blockH) return 0;
@@ -2689,14 +2484,14 @@ function frame(ms){
   U.uCtr.value.set(0,0,-along); U.uSwim.value+=dt*.2;
   U.uBall.value+=((mode==='planet'?1:0)-U.uBall.value)*Math.min(1,dt*2.5); U.uAbyss.value+=((absOn?1:0)-U.uAbyss.value)*Math.min(1,dt*6);
   sparks.visible=!terr&&!aby;
-  const wormOn=riding&&world==='worm'; worm.visible=wormOn; const runOn=riding&&world==='run'; runStep(dt,t,along,runOn);
+  const wormOn=riding&&world==='worm'; worm.visible=wormOn;
   if(wormOn){ U.uWormZ.value+=dt*1.2*(1.1+(nitro?3.6:1.2)*sb+pulse*1.2); U.uAsp.value=camera.aspect; U.uPtr.value.lerp(ptrV.set(ptrX,ptrY*2-1),Math.min(1,dt*1.6)); }
-  const planetOn=riding&&mode==='planet'&&!aby&&world!=='worm'&&world!=='run';
+  const planetOn=riding&&mode==='planet'&&!aby&&world!=='worm';
   U.uPlanet.value+=((planetOn?1:0)-U.uPlanet.value)*Math.min(1,Math.min(.25,Math.max(0,dtRaw))*(RM?30:5.5)); if(planetOn&&U.uPlanet.value>.998) U.uPlanet.value=1; if(!planetOn&&U.uPlanet.value<.002) U.uPlanet.value=0;
   const pl=U.uPlanet.value; U.uPC.value=along;
   terrain.visible=terr; if(city) for(const m of city.meshes) m.visible=!terr&&!aby;
   ground.visible=!terr&&!aby&&pl===0; gpatch.visible=!terr&&!aby&&pl>0;
-  if(wormOn||runOn){ if(city) for(const m of city.meshes) m.visible=false; ground.visible=gpatch.visible=sparks.visible=terrain.visible=false; } gpatch.position.set(0,0,-along);
+  if(wormOn){ if(city) for(const m of city.meshes) m.visible=false; ground.visible=gpatch.visible=sparks.visible=false; } gpatch.position.set(0,0,-along);
   pcore.visible=terr&&pl>.6; atmoIn.visible=atmoOut.visible=pl>.02;
   pcore.position.set(0,-PR,-along); atmoIn.position.copy(pcore.position); atmoOut.position.copy(pcore.position);
   { const stp=planetOn?(2*Math.PI*PR/T_NZ):T_DZ; U.uTStep.value=stp; U.uTBase.value=Math.floor((along-(planetOn?Math.PI*PR:1380))/stp)*stp; }
@@ -2707,13 +2502,7 @@ function frame(ms){
     tLk.set(Math.sin(wall*.07+1)*18, attract.y+16, -300);
   } else {
     base=along;
-    if(runOn){ const sw=Math.sin(wall*.11);
-      if(mode==='surf'){ const a=1.2+ptrX*1.1; tOff.set(Math.sin(a)*36,6+ptrY*18,-8+Math.cos(a)*36); tLk.set(0,6,-9); }           // Fly: a tracking shot you swing with the mouse
-      else if(mode==='skyline'){ tOff.set(40*sw,34,62); tLk.set(0,7,-45); }                                                     // Skyline: high and wide over the canyon
-      else { tOff.set(2.5*sw,25+1.5*Math.sin(wall*.17),31); tLk.set(0,2,-22); }
-      tOff.y+=RUN.camY; tLk.y+=RUN.camY;                                                      // Cruise: overhead chase, hero low in the centre, canyon coming at you
-      loomIn=true;
-    } else if(aby){
+    if(aby){
       if(!orbit.drag){ orbit.idle+=dt; if(orbit.idle>1.5&&!RM) orbit.az+=dt*.07; }
       if(mode==='surf'&&absOn){ tOff.set(0,36,0); tLk.set(Math.sin(wall*.2)*70,330,Math.cos(wall*.2)*70); }
       else if(loomOn&&(mode==='surf'||mode==='skyline')){
@@ -2780,7 +2569,7 @@ function frame(ms){
     const ox=camera.position.x, oz=camera.position.z+along, dd=v.x*v.x+v.z*v.z;
     const tt=clamp(dd>1e-5?-(ox*v.x+oz*v.z)/dd:300,60,1500);
     diverT.set(ox+v.x*tt,camera.position.y+v.y*tt,oz+v.z*tt); U.uDiver.value.lerp(diverT,Math.min(1,dt*1.8)); U.uRay.value.lerp(v,Math.min(1,dt*.9)).normalize(); }
-  orb.visible=riding&&mode==='skyline'&&!terr&&!aby&&!runOn&&pl===0; if(orb.visible) orb.position.set(0,9,-along);
+  orb.visible=riding&&mode==='skyline'&&!terr&&!aby&&pl===0; if(orb.visible) orb.position.set(0,9,-along);
   // uniforms
   U.uTime.value=wall; U.uCam.value.copy(camera.position); U.uBands.value.set(sb,sm,sh);
   U.uPulse.value=pulse; U.uWaveR.value=waveR; U.uWaveAmp.value=waveAmp; U.uPlay.value=riding?along:base+170;
