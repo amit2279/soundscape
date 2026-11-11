@@ -376,10 +376,11 @@ h1 .hollow{display:block;color:transparent;-webkit-text-stroke:2px var(--text)}
 @media (max-width:1650px){#worldSeg button{padding:0 7px;font-size:11px}.brand .track{display:none}}
 #worldSeg button[data-world="mandala"]{display:none}
 .swwrap{position:relative;display:inline-flex}
-.swdrop{position:absolute;top:calc(100% + 10px);left:50%;transform:translateX(-50%);z-index:40;display:flex;flex-direction:column;flex-wrap:wrap;align-items:center;gap:10px;padding:12px 10px;border-radius:24px;max-height:calc(100vh - 170px);transition:opacity .22s ease,transform .3s cubic-bezier(.2,.8,.2,1),visibility 0s}
+.swdrop{position:absolute;top:calc(100% + 10px);left:50%;transform:translateX(-50%);z-index:40;display:flex;flex-direction:row;flex-wrap:wrap;justify-content:center;align-items:center;gap:10px;padding:10px 14px;border-radius:24px;width:max-content;max-width:calc(100vw - 16px);transition:opacity .22s ease,transform .3s cubic-bezier(.2,.8,.2,1),visibility 0s}
 .swdrop.closed,#app.nohud .swdrop,#app[data-state="landing"] .swdrop,#app[data-state="loading"] .swdrop{opacity:0;transform:translate(-50%,-12px);pointer-events:none;visibility:hidden;transition:opacity .2s ease,transform .26s ease,visibility 0s .26s}
-.swdrop:not(.closed) .sw{animation:swin .38s cubic-bezier(.2,.9,.3,1.12) backwards;animation-delay:calc(var(--i)*26ms)}
-@keyframes swin{from{transform:translateY(calc(-34px*var(--i) - 30px));opacity:0}}
+.swdrop:not(.closed) .sw{animation:swin .38s cubic-bezier(.2,.9,.3,1.12) backwards}
+@keyframes swin{from{transform:translate(calc((var(--n) - var(--i))*34px),-34px);opacity:0}}
+.shufwrap{display:inline-grid;place-items:center;cursor:pointer}
 @media (prefers-reduced-motion:reduce){.swdrop:not(.closed) .sw{animation:none}}
 .panel .pb .ptog{flex:none}
 .fxstack{position:absolute;right:16px;top:50%;transform:translateY(-50%);z-index:6;display:flex;flex-direction:column;flex-wrap:nowrap;gap:8px;padding:8px;border-radius:28px;transition:right .38s cubic-bezier(.2,.8,.2,1),transform .42s cubic-bezier(.2,.8,.2,1),opacity .28s ease}
@@ -2237,9 +2238,9 @@ $('#cCry').addEventListener('change',e=>{ kCrystal.value=e.target.checked?1:0; }
   const top=document.querySelector('.top'), tools=document.querySelector('.tools'), panel=$('#panel'), ph=panel.querySelector('.ph');
   const mid=document.createElement('div'); mid.className='topmid'; mid.appendChild($('#worldSeg')); mid.appendChild($('#nitroWrap')); top.insertBefore(mid,tools);
   const pc=document.createElement('div'); pc.className='swdrop plate closed'; pc.id='swdrop'; pc.setAttribute('role','group'); pc.setAttribute('aria-label','Color theme');
-  pc.appendChild($('#swatches')); pc.appendChild($('#btnShuffle'));
-  pc.querySelectorAll('.sw').forEach((b,i)=>b.style.setProperty('--i',i));
-  const setSw=open=>{ pc.classList.toggle('closed',!open); $('#btnTheme').setAttribute('aria-expanded',String(open)); };
+  pc.appendChild($('#swatches')); const shufB=$('#btnShuffle');
+  { const sws=pc.querySelectorAll('.sw'); sws.forEach((b,i)=>b.style.setProperty('--i',i)); pc.style.setProperty('--n',(sws.length-1)/2); }
+  const setSw=open=>{ pc.classList.toggle('closed',!open); pc.style.marginLeft='0px'; if(open){ const r=pc.getBoundingClientRect(); pc.style.marginLeft=(r.right>innerWidth-8?innerWidth-8-r.right:r.left<8?8-r.left:0)+'px'; } $('#btnTheme').setAttribute('aria-expanded',String(open)); };
   document.addEventListener('pointerdown',e=>{ if(!pc.classList.contains('closed')&&!pc.contains(e.target)&&!e.target.closest('#btnTheme')) setSw(false); });
 
   const q=document.createElement('label'); q.className='pr'; const qs=document.createElement('span'); qs.textContent='Quality'; q.appendChild(qs); q.appendChild($('#qual'));
@@ -2247,7 +2248,8 @@ $('#cCry').addEventListener('change',e=>{ kCrystal.value=e.target.checked?1:0; }
   const st=document.querySelector('.stats'); st.style.display='none';
   document.querySelector('.themes').remove(); document.querySelector('label.qual').remove();
   const tb=document.createElement('button'); tb.className='tbtn icon plate'; tb.id='btnTheme'; tb.title='Colors'; tb.setAttribute('aria-label','Colors'); tb.setAttribute('aria-expanded','false');
-  tb.innerHTML='<span class="swcur"></span>'; tb.addEventListener('click',()=>setSw(pc.classList.contains('closed'))); { const w=document.createElement('span'); w.className='swwrap'; $('#btnSnap').before(w); w.append(tb,pc); }   // the colour column hangs from the button, so it follows the toolbar wherever it goes
+  tb.innerHTML='<span class="swcur"></span>'; tb.addEventListener('click',()=>setSw(pc.classList.contains('closed'))); { const w=document.createElement('span'); w.className='swwrap'; $('#btnSnap').before(w); w.append(tb,pc);
+    const sh=document.createElement('span'); sh.className='tbtn icon plate shufwrap'; sh.title=shufB.title; sh.appendChild(shufB); sh.addEventListener('click',e=>{ if(e.target===sh) shufB.click(); }); w.after(sh); }   // the colour column hangs from the button, so it follows the toolbar wherever it goes
   tools.insertBefore($('#btnLoad'),tools.firstChild);
   { const old=document.querySelector('.dock .seg button[data-mode="planet"]'), pb=old.cloneNode(true); old.remove(); pb.id='btnPlanet'; pb.removeAttribute('data-mode');
     pb.title='Roll the current world into a planet in deep space, and click again to unroll it. Drag to orbit, scroll to zoom (4)';
