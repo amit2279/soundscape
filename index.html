@@ -440,6 +440,7 @@ h1 .hollow{display:block;color:transparent;-webkit-text-stroke:2px var(--text)}
         <button data-world="terrain" aria-pressed="false" title="A particle landscape that the music sculpts as it plays (T switches)">Terrain</button>
         <button data-world="abyss" aria-pressed="false" title="Under the sea: a fish school shaped by the music. Drag to look around (T switches)">Abyss</button>
         <button data-world="worm" aria-pressed="false" title="An endless tunnel of shifting patterns. Move the mouse to lean (T switches)">Wormhole</button>
+        <button data-world="tun" aria-pressed="false" title="A winding road tunnel made of dots, every dot dancing to its own frequency. Move the mouse to lean (T switches)">Tunnel</button>
         <button data-world="loom" aria-pressed="false" title="Ribbons knotted through each other, one frequency band each. Drag to look around (T switches)">Loom</button>
         <button data-world="mandala" aria-pressed="false" title="A stepped well of decorated rings, different for every song. Drag to look around, Fly looks straight down (T switches)">Mandala</button>
       </div>
@@ -665,7 +666,7 @@ const U = {
   uGrowC:{value:new THREE.Vector3()}, uFogD:{value:1/2100}, uLen:{value:1}, uRows:{value:1},
   uSkyTop:{value:C('#000')}, uSkyMid:{value:C('#000')}, uHorizon:{value:C('#000')}, uFog:{value:C('#000')},
   uA:{value:C('#000')}, uB:{value:C('#000')}, uWarm:{value:C('#000')}, uCool:{value:C('#000')}, uFacade:{value:C('#000')},
-  uData:{value:null}, uBlocks:{value:null}, uPx:{value:1}, uSpec:{value:new Float32Array(12)}, uNitro:{value:1}, uFlash:{value:0}, uSearch:{value:0}, uNeon:{value:0}, uDay:{value:0}, uHeight:{value:null}, uTBase:{value:0}, uTStep:{value:3}, uPlanet:{value:0}, uPC:{value:0}, uAmp:{value:1}, uPSize:{value:1}, uAtmo:{value:1}, uShowP:{value:1}, uAbyss:{value:0}, uBall:{value:0}, uSwim:{value:0}, uVoid:{value:0}, uWormZ:{value:0}, uAsp:{value:1}, uPtr:{value:new THREE.Vector2()}, uDiver:{value:new THREE.Vector3(0,9999,0)}, uRay:{value:new THREE.Vector3(0,1,0)}, uCtr:{value:new THREE.Vector3()}, uSpecTex:{value:null},
+  uData:{value:null}, uBlocks:{value:null}, uPx:{value:1}, uSpec:{value:new Float32Array(12)}, uNitro:{value:1}, uFlash:{value:0}, uSearch:{value:0}, uNeon:{value:0}, uDay:{value:0}, uHeight:{value:null}, uTBase:{value:0}, uTStep:{value:3}, uPlanet:{value:0}, uPC:{value:0}, uAmp:{value:1}, uPSize:{value:1}, uAtmo:{value:1}, uShowP:{value:1}, uAbyss:{value:0}, uBall:{value:0}, uSwim:{value:0}, uVoid:{value:0}, uWormZ:{value:0}, uTunZ:{value:0}, uTunW:{value:999}, uAsp:{value:1}, uPtr:{value:new THREE.Vector2()}, uDiver:{value:new THREE.Vector3(0,9999,0)}, uRay:{value:new THREE.Vector3(0,1,0)}, uCtr:{value:new THREE.Vector3()}, uSpecTex:{value:null},
   uBPos:{value:Array.from({length:10},()=>new THREE.Vector3())}, uBT:{value:new Float32Array(10).fill(-99)}
 };
 const specData=new Uint8Array(48), specTex=new THREE.DataTexture(specData,12,1,THREE.RGBAFormat); specTex.magFilter=specTex.minFilter=THREE.LinearFilter; specTex.needsUpdate=true; U.uSpecTex.value=specTex;
@@ -1757,6 +1758,51 @@ void main(){
   o+=pal(uTime*.07)*exp(-r*r*400.)*1.5;
   gl_FragColor=vec4(o,1.); }`}));
 worm.frustumCulled=false; worm.renderOrder=999; worm.visible=false; scene.add(worm);
+/* ---------- Tunnel: a winding road tunnel made of nothing but dots ----------
+   Every dot belongs to one frequency band and swells with it; colour drifts down the tube; beats send a bright ring away from you. */
+const tun=new THREE.Mesh(new THREE.PlaneGeometry(2,2),new THREE.ShaderMaterial({uniforms:U,depthTest:false,depthWrite:false,
+  vertexShader:`varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.,1.); }`,
+  fragmentShader:`precision highp float; uniform float uTime,uTunZ,uAsp,uPulse,uNeon,uNitro,uTunW; uniform vec2 uPtr; uniform vec3 uA,uB,uWarm,uBands; uniform sampler2D uSpecTex; varying vec2 vUv;
+${GLSL_COMMON}
+float lvl(float b){ return texture2D(uSpecTex,vec2((mod(b,12.)+.5)/12.,.5)).r; }
+vec2 path(float z){ return vec2(sin(z*.0105)*64.+sin(z*.026+1.3)*20.,sin(z*.0083+2.)*12.+sin(z*.019)*5.); }
+const float R=22., FL=-7.5;
+// one layer of scattered dots on a grid: returns coverage, and through "id" which dot it was
+float dots(vec2 g,float aa,float keep,out vec2 id,out float hh){ id=floor(g); vec2 f=fract(g)-.5; hh=hash(id+.37);
+  vec2 off=(vec2(hash(id+3.1),hash(id+7.7))-.5)*.46; float L=lvl(floor(hash(id+5.3)*11.99));
+  float r=(.10+.3*pow(hash(id+11.9),1.8))*(.8+.7*L+.25*uPulse);
+  return step(keep,hh)*(1.-smoothstep(r-aa,r+aa,length(f-off)))*(.8+1.3*L); }
+void main(){
+  vec2 p=(vUv-.5)*2.; p.x*=uAsp;
+  float z0=uTunZ; vec3 ro=vec3(path(z0)+vec2(uPtr.x*5.,FL+3.4+uPtr.y*1.5),z0);
+  vec3 ta=vec3(path(z0+46.)+vec2(uPtr.x*9.,FL+4.6+uPtr.y*4.),z0+46.);
+  vec3 fw=normalize(ta-ro), rt=normalize(cross(vec3(0.,1.,0.),fw)), up=cross(fw,rt);
+  float bank=(path(z0+30.).x-2.*path(z0+15.).x+path(z0).x)*.012; p=mat2(cos(bank),-sin(bank),sin(bank),cos(bank))*p;   // lean into the bends
+  vec3 rd=normalize(fw*1.15+rt*p.x+up*p.y);
+  float t=0., dW=1., dF=1.; vec3 pos=ro; vec2 q=vec2(0.);
+  for(int i=0;i<64;i++){ pos=ro+rd*t; q=pos.xy-path(pos.z); dW=R-length(q); dF=q.y-FL; float d=min(dW,dF); if(d<.03||t>900.) break; t+=d*.72; }
+  vec3 col=vec3(0.); float fog=exp(-t*.0024), aa=.03+t*.0011;
+  float ring=exp(-pow((t-uTunW)/16.,2.));
+  if(t<900.){
+    if(dF<dW){   // the road: an edge line of beads each side and a dashed centre line
+      float x=q.x, hw=sqrt(max(R*R-FL*FL,1.))-2.2;
+      float e=1.-smoothstep(.5,.5+aa*4.,length(vec2((abs(x)-hw)/1.1,(fract(pos.z/2.6)-.5)*2.6/.8)));
+      float c=1.-smoothstep(.5,.5+aa*4.,length(vec2(x/.9,(fract(pos.z/5.)-.5)*5./1.5)));
+      vec3 lc=mix(vec3(1.),pal(pos.z*.003-uTime*.06),.35+.5*max(uNeon,uNitro));
+      col=lc*(e*(1.1+1.1*lvl(1.))+c*(1.2+1.4*uBands.x))+lc*ring*(e+c)*1.2;
+    } else {     // the tube: two layers of dots, a fine one and a scattering of big ones, slowly corkscrewing
+      float th=atan(q.x,q.y)+pos.z*.0021+uTime*.02; vec2 id; float hh;
+      vec2 g1=vec2(th/6.28318*46.,pos.z/3.); float d1=dots(g1,aa*.36,.24,id,hh);
+      vec3 c1=mix(vec3(1.),mix(mix(uA,uB,hh),pal(hh*.35+pos.z*.0035-uTime*.07+th*.08),.6),.3+.6*max(uNeon,uNitro));
+      vec2 id2; float h2; vec2 g2=vec2((th+.7)/6.28318*17.,pos.z/8.1+.5); float d2=dots(g2,aa*.14,.5,id2,h2);
+      vec3 c2=mix(vec3(1.),pal(h2+pos.z*.002-uTime*.05),.25+.65*max(uNeon,uNitro));
+      col=c1*d1+c2*d2*1.15+(c1*d1+c2*d2)*ring*1.6;
+    }
+  }
+  col*=fog; col+=mix(uA,uB,.5+.5*sin(uTime*.2))*.035*uBands.x*exp(-abs(p.y)*1.5);   // a breath of colour in the dark
+  gl_FragColor=vec4(col,1.); }`}));
+tun.frustumCulled=false; tun.renderOrder=999; tun.visible=false; scene.add(tun);
+
 
 /* ---------- searchlights ---------- */
 const beamMat = new THREE.ShaderMaterial({ uniforms:U, transparent:true, depthWrite:false, side:THREE.DoubleSide, blending:THREE.AdditiveBlending,
@@ -2589,7 +2635,7 @@ const attract={a:0,y:110}; let skyY=380, nitro=false, flash=0, party=0, diveT=0,
 const camUp=new THREE.Vector3(0,1,0), lkF=new THREE.Vector3(), lkR=new THREE.Vector3(), lkU=new THREE.Vector3(); let fovOver=0, lookYaw=0, lookPitch=0, loomIn=false;
 const diverV=new THREE.Vector3(), diverT=new THREE.Vector3(), ptrV=new THREE.Vector2();
 const fly={x:0,y:30,vx:0}, TRAIL=400; let world='city';
-const ORBW={abyss:1,loom:1,temple:1,mandala:1}, WORLDS=['city','terrain','abyss','worm','loom'];   // 'temple' and 'mandala' are built but hidden; add them back here and remove the CSS rule to restore them
+const ORBW={abyss:1,loom:1,temple:1,mandala:1}, WORLDS=['city','terrain','abyss','worm','tun','loom'];   // 'temple' and 'mandala' are built but hidden; add them back here and remove the CSS rule to restore them
 const orbit={az:.6,el:.5,dist:PR*3.9,drag:false,lx:0,ly:0,idle:0};
 canvas.addEventListener('pointerdown',e=>{ if(mode!=='planet'&&!ORBW[world]) return; orbit.drag=true; orbit.lx=e.clientX; orbit.ly=e.clientY; try{canvas.setPointerCapture(e.pointerId)}catch(_){} });
 canvas.addEventListener('pointermove',e=>{ if(!orbit.drag) return; orbit.az-=(e.clientX-orbit.lx)*.006; orbit.el=clamp(orbit.el+(e.clientY-orbit.ly)*.005,-1.35,1.45); orbit.lx=e.clientX; orbit.ly=e.clientY; orbit.idle=0; });
@@ -2665,12 +2711,15 @@ function frame(ms){
   sparks.visible=!terr&&!aby;
   const wormOn=riding&&world==='worm'; worm.visible=wormOn;
   if(wormOn){ U.uWormZ.value+=dt*1.2*(1.1+(nitro?3.6:1.2)*sb+pulse*1.2); U.uAsp.value=camera.aspect; U.uPtr.value.lerp(ptrV.set(ptrX,ptrY*2-1),Math.min(1,dt*1.6)); }
-  const planetOn=riding&&mode==='planet'&&!aby&&world!=='worm';
+  const tunOn=riding&&world==='tun'; tun.visible=tunOn;
+  if(tunOn){ U.uTunZ.value+=dt*(RM?20:(34+(nitro?150:62)*sb+pulse*26)); U.uTunW.value+=dt*330; if(pulse>.8&&U.uTunW.value>120) U.uTunW.value=0;   // each strong beat sends a ring of light down the tube
+    U.uAsp.value=camera.aspect; U.uPtr.value.lerp(ptrV.set(ptrX,ptrY*2-1),Math.min(1,dt*1.6)); }
+  const planetOn=riding&&mode==='planet'&&!aby&&world!=='worm'&&world!=='tun';
   U.uPlanet.value+=((planetOn?1:0)-U.uPlanet.value)*Math.min(1,Math.min(.25,Math.max(0,dtRaw))*(RM?30:5.5)); if(planetOn&&U.uPlanet.value>.998) U.uPlanet.value=1; if(!planetOn&&U.uPlanet.value<.002) U.uPlanet.value=0;
   const pl=U.uPlanet.value; U.uPC.value=along;
   terrain.visible=terr; if(city) for(const m of city.meshes) m.visible=!terr&&!aby;
   ground.visible=!terr&&!aby&&pl===0; gpatch.visible=!terr&&!aby&&pl>0;
-  if(wormOn){ if(city) for(const m of city.meshes) m.visible=false; ground.visible=gpatch.visible=sparks.visible=false; } gpatch.position.set(0,0,-along);
+  if(wormOn||tunOn){ if(city) for(const m of city.meshes) m.visible=false; ground.visible=gpatch.visible=sparks.visible=false; } gpatch.position.set(0,0,-along);
   pcore.visible=terr&&pl>.6; atmoIn.visible=atmoOut.visible=pl>.02;
   pcore.position.set(0,-PR,-along); atmoIn.position.copy(pcore.position); atmoOut.position.copy(pcore.position);
   { const stp=planetOn?(2*Math.PI*PR/T_NZ):T_DZ; U.uTStep.value=stp; U.uTBase.value=Math.floor((along-(planetOn?Math.PI*PR:1380))/stp)*stp; }
