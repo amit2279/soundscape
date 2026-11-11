@@ -2200,7 +2200,7 @@ scrub.addEventListener('pointerdown', e => { if(!A) return; dragging=true; scrub
 scrub.addEventListener('pointermove', e => { if(!A) return; const t=scrubT(e), r=scrub.getBoundingClientRect(), tip=$('#tip');
   tip.style.left=clamp(e.clientX-r.left,40,r.width-40)+'px'; $('#tipT').textContent=fmt(t); const i=secAt(t); $('#tipD').textContent=i>=0?A.segs[i].name:''; if(dragging) seek(t); });
 scrub.addEventListener('pointerup', () => { dragging=false; });
-scrub.addEventListener('keydown', e => { if(e.key==='ArrowRight'){ seek(now()+5); e.preventDefault(); e.stopPropagation(); } if(e.key==='ArrowLeft'){ seek(now()-5); e.preventDefault(); e.stopPropagation(); } });
+// (the timeline no longer takes the arrow keys: they belong to driving; [ and ] skip five seconds)
 
 let signTimer=0;
 function showSign(i){ const s=A.segs[i]; $('#signNum').textContent=i+1; $('#signSmall').textContent='Now entering · district '+(i+1)+' of '+A.segs.length; $('#signName').textContent=s.name;
@@ -2479,6 +2479,14 @@ function stripH(x,along){
   const lvl=Math.max(sp[Math.min(11,k*2+(x>0?1:0))],mx*.6);
   return h*lerp(1,.52+(.74*lvl+.06)*1.25,U.uNitro.value);
 }
+// Exact roof height of the building whose footprint contains (x,z), or 0 over streets, crossings and open lots. Used for free-roam collision.
+function blockTop(x,z){
+  if(!blockH) return 0; const lx=Math.abs(x)-AV/2; if(lx<0) return 0; const k=Math.floor(lx/PX); if(k>=COLS) return 0; const cx=lx-k*PX; if(cx<1.5||cx>BW-1.5) return 0;
+  const rf=-z/PZ+PRE, r=Math.floor(rf); if(r<0||r>=ROWS) return 0; const cz=(rf-r)*PZ; if(cz<SZ/2+1.5||cz>PZ-SZ/2-1.5) return 0;
+  const h=blockH[r*12+(x<0?COLS-1-k:COLS+k)]; if(!h) return 0;
+  const sp=U.uSpec.value; let mx=0; for(let b=0;b<12;b++) mx=Math.max(mx,sp[b]);
+  return h*lerp(1,.52+(.74*Math.max(sp[Math.min(11,k*2+(x>0?1:0))],mx*.6)+.06)*1.25,U.uNitro.value);
+}
 setNitro(nitro);
 const off=new THREE.Vector3(0,110,0), lk=new THREE.Vector3(0,40,-420), tOff=new THREE.Vector3(), tLk=new THREE.Vector3(), lookAt=new THREE.Vector3();
 let snapCam=true, roll=0, growT=0, last=performance.now(), wall=0, sb=.2, sm=.2, sh=.2, sI=.3, pulse=0, waveR=9999, waveAmp=0, lastSec=-1, slow=0, frames=0;
@@ -2579,9 +2587,10 @@ function frame(ms){
       const fx=Math.sin(fr.yaw), fz=-Math.cos(fr.yaw); let nx=fr.x+fx*fr.v*dt, nz=fr.z+fz*fr.v*dt;
       if(terr){ nx=clamp(nx,-450,450); nz=clamp(nz,-(along+300),-(along-1300)); const fl=hAt(nx,-nz)+9; fr.y+=(Math.max(fr.yT,fl)-fr.y)*Math.min(1,dt*4); if(fr.y<fl) fr.y=fl; }
       else { nx=clamp(nx,-(HALFW+1100),HALFW+1100); nz=clamp(nz,-(cityLen+700),700);
-        const hit=(x,z)=>{ const h=stripH(x,-z); return h>0&&fr.y<h+4; };
-        if(hit(nx,nz)&&!hit(fr.x,fr.z)){ if(!hit(nx,fr.z)) nz=fr.z; else if(!hit(fr.x,nz)) nx=fr.x; else { nx=fr.x; nz=fr.z; } fr.v*=Math.exp(-dt*5); }   // slide along a wall instead of passing through it
-        fr.y+=(fr.yT-fr.y)*Math.min(1,dt*3.5); }
+        const hit=(x,z)=>{ const h=blockTop(x,z); return h>0&&fr.y<h+3; };
+        if(hit(nx,nz)&&!hit(fr.x,fr.z)){ if(!hit(nx,fr.z)) nz=fr.z; else if(!hit(fr.x,nz)) nx=fr.x; else { nx=fr.x; nz=fr.z; } fr.v*=Math.exp(-dt*2.5); }   // slide along a wall instead of passing through it
+        const top=blockTop(nx,nz), yT=top>0&&fr.y>=top+3?Math.max(fr.yT,top+6):fr.yT;   // over a roof you skim it, you don't sink into it
+        fr.y+=(yT-fr.y)*Math.min(1,dt*3.5); }
       fr.x=nx; fr.z=nz;
       tOff.set(fr.x,fr.y,fr.z+base); tLk.set(fr.x+fx*120,fr.y-2-Math.min(45,fr.y*.2),fr.z+fz*120+base);
     } else if(mode==='surf'){
