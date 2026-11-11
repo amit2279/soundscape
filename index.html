@@ -270,7 +270,7 @@ h1 .hollow{display:block;color:transparent;-webkit-text-stroke:2px var(--text)}
 
 .hint{white-space:normal;text-align:center;line-height:2;max-width:min(980px,calc(100% - 32px));overflow:visible}
 
-#app[data-state="landing"] .topmid,#app[data-state="loading"] .topmid{display:none}
+#app[data-state="landing"] .topmid,#app[data-state="loading"] .topmid,#app[data-state="landing"] .tools,#app[data-state="loading"] .tools{display:none}
 
 .psep{height:1px;background:var(--hair);margin:3px 0}
 .ptog{display:flex;flex-wrap:wrap;gap:8px}
@@ -897,7 +897,14 @@ uniform float uGrow,uNitro,uPulse,uAmp; uniform vec3 uGrowC; uniform float uSpec
 varying vec3 vL,vN,vW,vP,vDim,vB; varying vec4 vInfo; varying vec2 vBld; varying float vLvl;
 ${BEND}
 void main(){
-  vec3 pp=position;
+  vec3 pp=position, pr=position;
+  if(aShape<.5&&aInfo.w<.5&&min(aDim.x,aDim.z)>5.){   // plain towers get rounded vertical edges: the outer two grid columns of each side wrap round the corner
+    vec2 hd=aDim.xz*.5; float R=min(2.4,.34*min(hd.x,hd.y)); vec2 rr=R/hd, a=abs(position.xz)*2., sg=sign(position.xz);
+    vec2 sN=mix(a*3.*(1.-rr),(1.-rr)+(a-1./3.)*1.5*rr,step(1./3.+1e-4,a));
+    pr.xz=sN*sg*.5;
+    vec2 Q=sN*sg*hd, c=clamp(Q,-(hd-R),hd-R), d=Q-c; if(length(d)>R+1e-3) Q=c+normalize(d)*R;
+    pp.xz=Q/aDim.xz;
+  }
   if(aShape>.5){
     float ya=(aBld.x+position.y*aDim.y)/max(aBld.y,1.);
     vec2 q=pp.xz*2.;
@@ -919,9 +926,9 @@ void main(){
   float dly=clamp(length(w.xz-uGrowC.xz)/1700.,0.,1.)*.62;
   float g=smoothstep(dly,dly+.38,uGrow); g=1.-pow(1.-g,3.);
   w.y*=g;
-  vL=vec3(position.x*aDim.x,aBld.x+position.y*aDim.y,position.z*aDim.z);
+  vL=vec3(pr.x*aDim.x,aBld.x+position.y*aDim.y,pr.z*aDim.z);
   w.y*=seamK(w.xyz);
-  vN=normal; vW=w.xyz; vP=position; vDim=aDim; vInfo=aInfo; vBld=aBld;
+  vN=normal; vW=w.xyz; vP=vec3(pr.x,position.y,pr.z); vDim=aDim; vInfo=aInfo; vBld=aBld;
   vB=bend(w.xyz); gl_Position=projectionMatrix*viewMatrix*vec4(vB,1.);
 }`,
   fragmentShader:`precision highp float;
@@ -987,7 +994,9 @@ void main(){
     float fw=max(fwidth(g.x),fwidth(g.y));
     float aa=clamp(1.4-fw*2.4,0.,1.);
     float mx=step(.14,f.x)*step(f.x,.86), my=step(.22,f.y)*step(f.y,.8);
-    float mask=mix(.42,mx*my,aa);
+    vec2 wp=(f-vec2(.5,.51))*vec2(bay,fl), wh=vec2(.36*bay,.29*fl); float wr=min(wh.x,wh.y)*.55;   // windows are rounded rectangles
+    float wd=length(max(abs(wp)-wh+wr,0.))-wr, win=1.-smoothstep(-.06,.06,wd);
+    float mask=mix(.42,win,aa);
     float r=hash(cell+seed*17.);
     float rf=hash(vec2(cell.y,seed*31.));
     float litFrac=.36+.2*uBands.y;
@@ -2076,7 +2085,7 @@ function buildCity(an, seed){
     }
   }
   const meshes=[], tex=[];
-  const geo=boxGeo.clone();
+  const geo=new THREE.BoxGeometry(1,1,1,6,1,6).translate(0,.5,0);   // six columns a side, so the corners can be rounded in the shader
   geo.setAttribute('aShape', new THREE.InstancedBufferAttribute(new Float32Array(count),1));
   geo.setAttribute('aDim', new THREE.InstancedBufferAttribute(new Float32Array(D),3));
   geo.setAttribute('aInfo', new THREE.InstancedBufferAttribute(new Float32Array(I),4));
