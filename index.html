@@ -441,6 +441,7 @@ h1 .hollow{display:block;color:transparent;-webkit-text-stroke:2px var(--text)}
         <button data-world="abyss" aria-pressed="false" title="Under the sea: a fish school shaped by the music. Drag to look around (T switches)">Abyss</button>
         <button data-world="worm" aria-pressed="false" title="An endless tunnel of shifting patterns. Move the mouse to lean (T switches)">Wormhole</button>
         <button data-world="tun" aria-pressed="false" title="A winding road tunnel made of dots, every dot dancing to its own frequency. Move the mouse to lean (T switches)">Tunnel</button>
+        <button data-world="ill" aria-pressed="false" title="Black-and-white optical illusions that pour, spin and ripple with the music. Click the picture or press G for the next one (T switches)">Illusions</button>
         <button data-world="loom" aria-pressed="false" title="Ribbons knotted through each other, one frequency band each. Drag to look around (T switches)">Loom</button>
         <button data-world="mandala" aria-pressed="false" title="A stepped well of decorated rings, different for every song. Drag to look around, Fly looks straight down (T switches)">Mandala</button>
       </div>
@@ -500,7 +501,7 @@ h1 .hollow{display:block;color:transparent;-webkit-text-stroke:2px var(--text)}
   </aside>
   <div class="snapview" id="snapview" hidden><div class="plate snapbox"><img id="snapimg" alt="Snapshot of the current scene"><p>Right-click the picture, or press and hold it, to save it.</p><button class="btn" id="snapClose">Close</button></div></div>
   <div class="flashfx" id="flashfx"></div>
-  <div class="hint plate" id="hint"><kbd>Space</kbd>pause<kbd>1</kbd><kbd>2</kbd><kbd>3</kbd>cameras<kbd>4</kbd>planet<kbd>&uarr; &darr; &larr; &rarr;</kbd>or<kbd>W A S D</kbd>drive anywhere<kbd>Q</kbd><kbd>E</kbd>height<kbd>Shift</kbd>boost<kbd>[</kbd><kbd>]</kbd>skip 5 s<kbd>T</kbd>next world<kbd>N</kbd>nitro<kbd>K</kbd>kaleidoscope<kbd>C</kbd>controls<kbd>P</kbd>snapshot<kbd>H</kbd>hide tools<kbd>?</kbd>shortcuts</div>
+  <div class="hint plate" id="hint"><kbd>Space</kbd>pause<kbd>1</kbd><kbd>2</kbd><kbd>3</kbd>cameras<kbd>4</kbd>planet<kbd>&uarr; &darr; &larr; &rarr;</kbd>or<kbd>W A S D</kbd>drive anywhere<kbd>Q</kbd><kbd>E</kbd>height<kbd>Shift</kbd>boost<kbd>[</kbd><kbd>]</kbd>skip 5 s<kbd>T</kbd>next world<kbd>G</kbd>next illusion<kbd>N</kbd>nitro<kbd>K</kbd>kaleidoscope<kbd>C</kbd>controls<kbd>P</kbd>snapshot<kbd>H</kbd>hide tools<kbd>?</kbd>shortcuts</div>
 
   <div class="keypad" id="keypad" role="group" aria-label="Driving keys">
     <div class="kcol"><button class="key wide" data-k="shift" aria-label="Boost">Shift</button><span>Boost</span></div>
@@ -666,7 +667,7 @@ const U = {
   uGrowC:{value:new THREE.Vector3()}, uFogD:{value:1/2100}, uLen:{value:1}, uRows:{value:1},
   uSkyTop:{value:C('#000')}, uSkyMid:{value:C('#000')}, uHorizon:{value:C('#000')}, uFog:{value:C('#000')},
   uA:{value:C('#000')}, uB:{value:C('#000')}, uWarm:{value:C('#000')}, uCool:{value:C('#000')}, uFacade:{value:C('#000')},
-  uData:{value:null}, uBlocks:{value:null}, uPx:{value:1}, uSpec:{value:new Float32Array(12)}, uNitro:{value:1}, uFlash:{value:0}, uSearch:{value:0}, uNeon:{value:0}, uDay:{value:0}, uHeight:{value:null}, uTBase:{value:0}, uTStep:{value:3}, uPlanet:{value:0}, uPC:{value:0}, uAmp:{value:1}, uPSize:{value:1}, uAtmo:{value:1}, uShowP:{value:1}, uAbyss:{value:0}, uBall:{value:0}, uSwim:{value:0}, uVoid:{value:0}, uWormZ:{value:0}, uTunZ:{value:0}, uTunW:{value:999}, uAsp:{value:1}, uPtr:{value:new THREE.Vector2()}, uDiver:{value:new THREE.Vector3(0,9999,0)}, uRay:{value:new THREE.Vector3(0,1,0)}, uCtr:{value:new THREE.Vector3()}, uSpecTex:{value:null},
+  uData:{value:null}, uBlocks:{value:null}, uPx:{value:1}, uSpec:{value:new Float32Array(12)}, uNitro:{value:1}, uFlash:{value:0}, uSearch:{value:0}, uNeon:{value:0}, uDay:{value:0}, uHeight:{value:null}, uTBase:{value:0}, uTStep:{value:3}, uPlanet:{value:0}, uPC:{value:0}, uAmp:{value:1}, uPSize:{value:1}, uAtmo:{value:1}, uShowP:{value:1}, uAbyss:{value:0}, uBall:{value:0}, uSwim:{value:0}, uVoid:{value:0}, uWormZ:{value:0}, uTunZ:{value:0}, uTunW:{value:999}, uIllA:{value:0}, uIllB:{value:0}, uIllMix:{value:1}, uIllT:{value:0}, uAsp:{value:1}, uPtr:{value:new THREE.Vector2()}, uDiver:{value:new THREE.Vector3(0,9999,0)}, uRay:{value:new THREE.Vector3(0,1,0)}, uCtr:{value:new THREE.Vector3()}, uSpecTex:{value:null},
   uBPos:{value:Array.from({length:10},()=>new THREE.Vector3())}, uBT:{value:new Float32Array(10).fill(-99)}
 };
 const specData=new Uint8Array(48), specTex=new THREE.DataTexture(specData,12,1,THREE.RGBAFormat); specTex.magFilter=specTex.minFilter=THREE.LinearFilter; specTex.needsUpdate=true; U.uSpecTex.value=specTex;
@@ -1802,6 +1803,68 @@ void main(){
   col*=fog; col+=mix(uA,uB,.5+.5*sin(uTime*.2))*.035*uBands.x*exp(-abs(p.y)*1.5);   // a breath of colour in the dark
   gl_FragColor=vec4(col,1.); }`}));
 tun.frustumCulled=false; tun.renderOrder=999; tun.visible=false; scene.add(tun);
+/* ---------- Illusions: black-and-white optical scenes that pour, spin and ripple with the music ----------
+   Six scenes share one shader. Three are patterns on a funnel (lines, halftone dots, dashes with a spiral band), then a dotted
+   tube with travelling ripples, a striped ribbon road under stars, and a field of lines wound round a twist.
+   Flow speed follows the song's energy, the funnel's throat breathes with the bass, every line and dot has its own frequency band. */
+const ill=new THREE.Mesh(new THREE.PlaneGeometry(2,2),new THREE.ShaderMaterial({uniforms:U,depthTest:false,depthWrite:false,
+  vertexShader:`varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.,1.); }`,
+  fragmentShader:`precision highp float; uniform float uTime,uAsp,uPulse,uNeon,uNitro,uIllA,uIllB,uIllMix,uIllT,uTunW; uniform vec2 uPtr; uniform vec3 uA,uB,uBands; uniform sampler2D uSpecTex; varying vec2 vUv;
+${GLSL_COMMON}
+const float TAU=6.28318;
+float lvl(float b){ return texture2D(uSpecTex,vec2((mod(b,12.)+.5)/12.,.5)).r; }
+// A funnel (a plane that pours down a hole) seen from above at an angle. Gives the hit point as angle, a depth coordinate that is
+// evenly spaced on the surface, the distance from the axis, and the distance along the ray.
+bool funnel(vec2 p,float A,out float th,out float s,out float rho,out float t){
+  vec3 ro=vec3(uPtr.x*.9,2.15+uPtr.y*.5,-4.3), ta=vec3(0.,-.6,0.);
+  vec3 fw=normalize(ta-ro), rt=normalize(cross(vec3(0.,1.,0.),fw)), up=cross(fw,rt), rd=normalize(fw*1.45+rt*p.x+up*p.y), q=ro;
+  t=0.; float f=1.;
+  for(int i=0;i<80;i++){ q=ro+rd*t; rho=length(q.xz); f=q.y+A/max(rho,.03); if(abs(f)<.004||t>70.) break; t+=clamp(f*.42,-.25,1.2); }
+  th=atan(q.z,q.x); s=log(max(rho,.001))+q.y*.32;
+  return t<70.&&q.y>-11.&&abs(f)<.08; }
+float sLines(vec2 p){ float th,s,rho,t; if(!funnel(p,.5*(1.+.35*uBands.x),th,s,rho,t)) return 0.;
+  th+=.1*uBands.y*sin(s*5.-uIllT*3.); float u=th/TAU*56., d=abs(fract(u)-.5)/56.*TAU*rho, w=min(.011+.03*lvl(floor(u))+.006*uPulse,.3/56.*TAU*rho), aa=min(t*.0022,.25/56.*TAU*rho);   // lines thin out as they crowd into the throat, so it stays a hole and not a white blob
+  return (1.-smoothstep(w,w+aa,d))*exp(-rho*.05)*smoothstep(-4.2,-1.,s); }
+float sDots(vec2 p){ float th,s,rho,t; if(!funnel(p,.62*(1.+.3*uBands.x),th,s,rho,t)) return 0.;
+  th+=s*.85+uIllT*.22; const float N=46.; vec2 g=vec2(th/TAU*N,s*N/TAU+uIllT*1.5), id=floor(g), f=fract(g)-.5;
+  float r=.2+.2*sin(g.y*.42+th*3.-uIllT*1.3)+.16*lvl(floor(hash(vec2(id.y,3.))*12.))+.05*uPulse, aa=t*.0022*N/TAU/max(rho,.05);
+  return (1.-smoothstep(r,r+aa,length(f)))*exp(-rho*.045)*smoothstep(-4.6,-1.4,s); }
+float sDash(vec2 p){ float th,s,rho,t; if(!funnel(p,.55*(1.+.3*uBands.x),th,s,rho,t)) return 0.;
+  float th2=th+s*.45; const float N=40.; vec2 g=vec2(th2/TAU*N,s*N/TAU+uIllT*1.9), f=fract(g)-.5; float aa=t*.0022*N/TAU/max(rho,.05);
+  float L=lvl(floor(hash(vec2(floor(g.x),7.))*12.));
+  float dash=(1.-smoothstep(.07,.07+aa,abs(f.x)))*(1.-smoothstep(.16+.2*L,.16+.2*L+aa,abs(f.y)));
+  float rb=abs(fract((th+s*1.25)/TAU-uIllT*.07)-.5), band=1.-smoothstep(.022+.03*uBands.x,.03+.03*uBands.x+aa*.05,rb);
+  return max(dash,band)*exp(-rho*.045)*smoothstep(-4.6,-1.4,s); }
+float sTube(vec2 p){ float r=length(p)+1e-4, th=atan(p.y,p.x), lr=log(r), l2=lr;
+  for(int i=0;i<3;i++){ float fi=float(i), c=fract(uIllT*.11+fi/3.)*3.4-2.6; l2+=(.05+.16*lvl(fi*4.+1.))*sin(th*(3.+fi*2.)+uIllT*(1.+fi)+fi*2.)*exp(-pow((lr-c)*3.2,2.)); }
+  l2+=.12*exp(-pow((lr-(uTunW*.004-2.4))*5.,2.));
+  const float N=76.; vec2 g=vec2(th/TAU*N,l2*N/TAU-uIllT*1.6), f=fract(g)-.5; float rr=.15+.12*lvl(floor(hash(vec2(floor(g.y),1.))*12.));
+  return (1.-smoothstep(rr,rr+.5/N/r*N*.08+.03,length(f)))*smoothstep(-3.3,-2.,lr); }
+float sRoad(vec2 p){ float h=.18+uPtr.y*.08, o=0.;
+  vec2 sg=floor(p*46.); float st=step(.972,hash(sg))*(1.-smoothstep(.1,.32,length(fract(p*46.)-.5)))*(.5+.5*sin(uTime*2.+hash(sg+2.)*40.)+uBands.z);
+  if(p.y<h){ float z=1./(h-p.y), x=(p.x-uPtr.x*.2)*z-sin(z*.33+uIllT*.5)*z*.22-sin(z*.09+1.)*z*.3;
+    float seg=floor(z*1.5+uIllT*3.), W=1.9+.8*hash(vec2(seg,1.))+.6*lvl(mod(seg,12.));
+    float stripe=step(.5,fract(x*1.5+hash(vec2(seg,2.))*.5+.25)), aa=z*.004;
+    o=stripe*(1.-smoothstep(W,W+aa*4.,abs(x)))*exp(-z*.06); st*=step(W,abs(x)); }
+  return max(o,st); }
+float sFlow(vec2 p){ float r2=dot(p,p), a=(2.6+1.8*uBands.x)*exp(-r2*1.5)*sin(uIllT*.35)+.7*exp(-r2*.5)*sin(uIllT*.2+1.), c=cos(a), sn=sin(a);
+  vec2 q=mat2(c,-sn,sn,c)*p; q.x*=1.+1.6*exp(-r2*2.2);
+  float ph=sign(q.y)*log(1.+abs(q.y)*7.)*7.+.5, d=abs(fract(ph)-.5), w=fwidth(ph)*1.1+.0001;
+  float line=1.-smoothstep(.05,.05+w,d);
+  float bead=1.-smoothstep(.1,.2,length(vec2((fract(q.x*2.2+hash(vec2(floor(ph),5.))*9.-uIllT*.4*(hash(vec2(floor(ph),8.))-.5)*4.)-.5)*.6,d*2.)));
+  return clamp(line*(.45+.5*lvl(mod(floor(ph)+24.,12.)))+bead*.9,0.,1.5)*smoothstep(1.9,1.2,abs(q.y)); }
+float scene(float id,vec2 p){ if(id<.5) return sLines(p); if(id<1.5) return sDots(p); if(id<2.5) return sDash(p); if(id<3.5) return sTube(p); if(id<4.5) return sRoad(p); return sFlow(p); }
+void main(){
+  vec2 p=(vUv-.5)*2.; p.x*=uAsp;
+  float I=scene(uIllB,p);
+  if(uIllMix<.999){ float n=hash(floor(p*90.)), k=smoothstep(uIllMix*1.3-.3,uIllMix*1.3,n+length(p)*.0); I=mix(I,scene(uIllA,p),k); }   // one scene dissolves into the next, grain by grain
+  float sat=.9*max(uNeon,uNitro);
+  vec3 col=mix(vec3(1.),pal(length(p)*.35-uTime*.09+atan(p.y,p.x)*.08)*1.15,sat)*I;
+  gl_FragColor=vec4(col,1.); }`}));
+ill.material.extensions={derivatives:true}; ill.frustumCulled=false; ill.renderOrder=999; ill.visible=false; scene.add(ill);
+const ILL_N=6; let illBeat=0, illV=.6;
+function illNext(to){ U.uIllA.value=U.uIllB.value; let n=typeof to==='number'?to:(U.uIllB.value+1+((Math.random()*2)|0))%ILL_N; if(n===U.uIllA.value) n=(n+1)%ILL_N; U.uIllB.value=n; U.uIllMix.value=0; }
+
 
 
 /* ---------- searchlights ---------- */
@@ -2538,7 +2601,7 @@ window.addEventListener('keydown',e=>{
   if(autoShuf&&k.length===1&&'1234tnk'.includes(k)) stopShuffle();
   if(k===' '){ e.preventDefault(); if(app.dataset.state==='landing'){ if(buffer) startRide(); } else $('#play').click(); }
   else if(k==='1') setMode('cruise'); else if(k==='2') setMode('surf'); else if(k==='3') setMode('skyline'); else if(k==='4') togglePlanet();
-  else if(k==='h') app.classList.toggle('nohud'); else if(k==='n') setNitro(!nitro); else if(k==='?'||k==='/') $('#hint').classList.toggle('on'); else if(k==='k') setKal(!kaleido); else if(k==='c') togglePanel(); else if(k==='p') snapshot(); else if(k==='t') setWorld(WORLDS[(WORLDS.indexOf(world)+1)%WORLDS.length]); else if(k==='f') toggleFs();
+  else if(k==='h') app.classList.toggle('nohud'); else if(k==='n') setNitro(!nitro); else if(k==='?'||k==='/') $('#hint').classList.toggle('on'); else if(k==='k') setKal(!kaleido); else if(k==='c') togglePanel(); else if(k==='p') snapshot(); else if(k==='t') setWorld(WORLDS[(WORLDS.indexOf(world)+1)%WORLDS.length]); else if(k==='f') toggleFs(); else if(k==='g'&&world==='ill') illNext();
   else if(k===']'&&started) seek(now()+5); else if(k==='['&&started) seek(now()-5);
   // Driving keys never touch the music. The first press in City or Terrain takes the camera off its rail and hands it to you.
   if(k.startsWith('arrow')) e.preventDefault();
@@ -2635,11 +2698,12 @@ let tunV=24; const attract={a:0,y:110}; let skyY=380, nitro=false, flash=0, part
 const camUp=new THREE.Vector3(0,1,0), lkF=new THREE.Vector3(), lkR=new THREE.Vector3(), lkU=new THREE.Vector3(); let fovOver=0, lookYaw=0, lookPitch=0, loomIn=false;
 const diverV=new THREE.Vector3(), diverT=new THREE.Vector3(), ptrV=new THREE.Vector2();
 const fly={x:0,y:30,vx:0}, TRAIL=400; let world='city';
-const ORBW={abyss:1,loom:1,temple:1,mandala:1}, WORLDS=['city','terrain','abyss','worm','tun','loom'];   // 'temple' and 'mandala' are built but hidden; add them back here and remove the CSS rule to restore them
+const ORBW={abyss:1,loom:1,temple:1,mandala:1}, WORLDS=['city','terrain','abyss','worm','tun','ill','loom'];   // 'temple' and 'mandala' are built but hidden; add them back here and remove the CSS rule to restore them
 const orbit={az:.6,el:.5,dist:PR*3.9,drag:false,lx:0,ly:0,idle:0};
 canvas.addEventListener('pointerdown',e=>{ if(mode!=='planet'&&!ORBW[world]) return; orbit.drag=true; orbit.lx=e.clientX; orbit.ly=e.clientY; try{canvas.setPointerCapture(e.pointerId)}catch(_){} });
 canvas.addEventListener('pointermove',e=>{ if(!orbit.drag) return; orbit.az-=(e.clientX-orbit.lx)*.006; orbit.el=clamp(orbit.el+(e.clientY-orbit.ly)*.005,-1.35,1.45); orbit.lx=e.clientX; orbit.ly=e.clientY; orbit.idle=0; });
 canvas.addEventListener('pointermove',e=>{ if(!orbit.drag||world!=='loom'||mode!=='surf') return; lookYaw=clamp(lookYaw+(e.movementX||0)*.005,-2.9,2.9); lookPitch=clamp(lookPitch-(e.movementY||0)*.004,-1.3,1.3); });
+canvas.addEventListener('click',()=>{ if(world==='ill'&&started) illNext(); });
 const endDrag=()=>{ orbit.drag=false; }; canvas.addEventListener('pointerup',endDrag); canvas.addEventListener('pointercancel',endDrag);
 canvas.addEventListener('wheel',e=>{ if(mode!=='planet'&&!ORBW[world]) return; e.preventDefault(); orbit.dist=clamp(orbit.dist*Math.exp(e.deltaY*.0012),PR*2.2,PR*10); },{passive:false});
 function setWorld(w){ world=w; fr.on=false; app.dataset.world=w; document.querySelectorAll('#worldSeg button[data-world]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.world===w))); fly.x=clamp(fly.x,-20,20); fly.vx=0; }
@@ -2689,10 +2753,10 @@ function frame(ms){
   { const kt=RM?1:Math.min(1,dt*2.6); for(const k in TT) U[k].value.lerp(TT[k],kt); U.uNeon.value+=(neonT-U.uNeon.value)*kt; U.uDay.value+=(dayT-U.uDay.value)*kt; }
   { const sp=U.uSpec.value; for(let b=0;b<12;b++){ specData[b*4]=clamp(sp[b],0,1)*255; specData[b*4+3]=255; } specTex.needsUpdate=true; }
   sI+=(samp(A.inten,f)-sI)*Math.min(1,dt*1.5);
-  if(playing){ while(beatIdx<A.beats.length && A.beats[beatIdx].t<=t){ const s=A.beats[beatIdx].s; if(t-A.beats[beatIdx].t<.2){ pulse=Math.max(pulse,.45+.55*s); if(autoShuf&&(++shufBeat%32)===0) fadeRoll(); if(kPass&&kaleido&&(++kBeat%8)===0&&kPass.uniforms.uMix.value>=1){ const ku=kPass.uniforms;
+  if(playing){ while(beatIdx<A.beats.length && A.beats[beatIdx].t<=t){ const s=A.beats[beatIdx].s; if(t-A.beats[beatIdx].t<.2){ pulse=Math.max(pulse,.45+.55*s); if(world==='ill'&&(++illBeat%16)===0&&U.uIllMix.value>=1) illNext(); if(autoShuf&&(++shufBeat%32)===0) fadeRoll(); if(kPass&&kaleido&&(++kBeat%8)===0&&kPass.uniforms.uMix.value>=1){ const ku=kPass.uniforms;
       const ci=Math.max(0,KSEG.indexOf(ku.uSegB.value)); let ni=ci; while(ni===ci) ni=clamp(ci+((Math.random()*5)|0)-2,0,KSEG.length-1);
       ku.uSeg.value=ku.uSegB.value; ku.uSegB.value=KSEG[ni]; ku.uMix.value=0; kPolyA.value=kPolyB.value; kPolyB.value=kPolyB.value===5?(Math.random()<.5?3:4):(kPolyB.value===4?(Math.random()<.5?5:3):(Math.random()<.5?5:4)); } if(s>.45){ waveR=0; waveAmp=Math.max(waveAmp,.35+.65*s); if(party>0||sI>.74) burst(along); if(nitro&&world==='city') emitSparks(along,s*(party>0?1.5:1)); } } beatIdx++; }
-    while(dropIdx<A.drops.length && A.drops[dropIdx]<=t){ if(t-A.drops[dropIdx]<.3){ flash=1; party=7; diveT=3.6; waveR=0; waveAmp=1.5; pulse=1; for(let i=0;i<4;i++) burst(along); } dropIdx++; }
+    while(dropIdx<A.drops.length && A.drops[dropIdx]<=t){ if(t-A.drops[dropIdx]<.3){ if(world==='ill') illNext(); flash=1; party=7; diveT=3.6; waveR=0; waveAmp=1.5; pulse=1; for(let i=0;i<4;i++) burst(along); } dropIdx++; }
     const si=secAt(t); if(si!==secIdx){ secIdx=si; showSign(si); } }
   pulse*=Math.exp(-dt*5.2); waveR+=dt*820; waveAmp*=Math.exp(-dt*1.5);
   flash*=Math.exp(-dt*2.4); party=Math.max(0,party-dt); diveT=Math.max(0,diveT-dt);
@@ -2711,15 +2775,18 @@ function frame(ms){
   sparks.visible=!terr&&!aby;
   const wormOn=riding&&world==='worm'; worm.visible=wormOn;
   if(wormOn){ U.uWormZ.value+=dt*1.2*(1.1+(nitro?3.6:1.2)*sb+pulse*1.2); U.uAsp.value=camera.aspect; U.uPtr.value.lerp(ptrV.set(ptrX,ptrY*2-1),Math.min(1,dt*1.6)); }
+  const illOn=riding&&world==='ill'; ill.visible=illOn;
+  if(illOn){ illV+=((RM?.25:(.32+(nitro?1.5:.75)*sI+.25*sb))-illV)*Math.min(1,dt*1.1); U.uIllT.value+=dt*illV; U.uIllMix.value=Math.min(1,U.uIllMix.value+dt/(RM?.05:1.4));
+    U.uTunW.value+=dt*330; if(pulse>.8&&U.uTunW.value>160) U.uTunW.value=0; U.uAsp.value=camera.aspect; U.uPtr.value.lerp(ptrV.set(ptrX,ptrY*2-1),Math.min(1,dt*1.6)); }
   const tunOn=riding&&world==='tun'; tun.visible=tunOn;
   if(tunOn){ tunV+=((RM?16:(20+(nitro?58:26)*sI+(nitro?14:7)*sb))-tunV)*Math.min(1,dt*.9); U.uTunZ.value+=dt*tunV;   // speed eases toward the song's overall energy: no lurching on single beats U.uTunW.value+=dt*330; if(pulse>.8&&U.uTunW.value>120) U.uTunW.value=0;   // each strong beat sends a ring of light down the tube
     U.uAsp.value=camera.aspect; U.uPtr.value.lerp(ptrV.set(ptrX,ptrY*2-1),Math.min(1,dt*1.6)); }
-  const planetOn=riding&&mode==='planet'&&!aby&&world!=='worm'&&world!=='tun';
+  const planetOn=riding&&mode==='planet'&&!aby&&world!=='worm'&&world!=='tun'&&world!=='ill';
   U.uPlanet.value+=((planetOn?1:0)-U.uPlanet.value)*Math.min(1,Math.min(.25,Math.max(0,dtRaw))*(RM?30:5.5)); if(planetOn&&U.uPlanet.value>.998) U.uPlanet.value=1; if(!planetOn&&U.uPlanet.value<.002) U.uPlanet.value=0;
   const pl=U.uPlanet.value; U.uPC.value=along;
   terrain.visible=terr; if(city) for(const m of city.meshes) m.visible=!terr&&!aby;
   ground.visible=!terr&&!aby&&pl===0; gpatch.visible=!terr&&!aby&&pl>0;
-  if(wormOn||tunOn){ if(city) for(const m of city.meshes) m.visible=false; ground.visible=gpatch.visible=sparks.visible=false; } gpatch.position.set(0,0,-along);
+  if(wormOn||tunOn||illOn){ if(city) for(const m of city.meshes) m.visible=false; ground.visible=gpatch.visible=sparks.visible=false; } gpatch.position.set(0,0,-along);
   pcore.visible=terr&&pl>.6; atmoIn.visible=atmoOut.visible=pl>.02;
   pcore.position.set(0,-PR,-along); atmoIn.position.copy(pcore.position); atmoOut.position.copy(pcore.position);
   { const stp=planetOn?(2*Math.PI*PR/T_NZ):T_DZ; U.uTStep.value=stp; U.uTBase.value=Math.floor((along-(planetOn?Math.PI*PR:1380))/stp)*stp; }
