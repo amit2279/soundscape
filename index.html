@@ -480,7 +480,7 @@ h1 .hollow{display:block;color:transparent;-webkit-text-stroke:2px var(--text)}
   </aside>
   <div class="snapview" id="snapview" hidden><div class="plate snapbox"><img id="snapimg" alt="Snapshot of the current scene"><p>Right-click the picture, or press and hold it, to save it.</p><button class="btn" id="snapClose">Close</button></div></div>
   <div class="flashfx" id="flashfx"></div>
-  <div class="hint plate" id="hint"><kbd>Space</kbd>pause<kbd>1</kbd><kbd>2</kbd><kbd>3</kbd>cameras<kbd>4</kbd>planet<kbd>W A S D</kbd>steer in Fly<kbd>T</kbd>next world<kbd>N</kbd>nitro<kbd>K</kbd>kaleidoscope<kbd>C</kbd>controls<kbd>P</kbd>snapshot<kbd>H</kbd>hide tools<kbd>?</kbd>shortcuts</div>
+  <div class="hint plate" id="hint"><kbd>Space</kbd>pause<kbd>1</kbd><kbd>2</kbd><kbd>3</kbd>cameras<kbd>4</kbd>planet<kbd>&uarr; &darr; &larr; &rarr;</kbd>or<kbd>W A S D</kbd>drive anywhere<kbd>Q</kbd><kbd>E</kbd>height<kbd>Shift</kbd>boost<kbd>[</kbd><kbd>]</kbd>skip 5 s<kbd>T</kbd>next world<kbd>N</kbd>nitro<kbd>K</kbd>kaleidoscope<kbd>C</kbd>controls<kbd>P</kbd>snapshot<kbd>H</kbd>hide tools<kbd>?</kbd>shortcuts</div>
 
   <footer class="dock plate">
     <button class="play" id="play" aria-label="Play or pause">
@@ -494,7 +494,7 @@ h1 .hollow{display:block;color:transparent;-webkit-text-stroke:2px var(--text)}
     </div>
     <div class="seg" role="group" aria-label="Camera">
       <button data-mode="cruise" aria-pressed="true" title="The camera flies itself (1)">Cruise</button>
-      <button data-mode="surf" aria-pressed="false" title="Fly it yourself: mouse left and right to steer between the blocks, up and down for height, or W A S D (2)">Fly</button>
+      <button data-mode="surf" aria-pressed="false" title="Fly it yourself with the mouse, or press the arrow keys or W A S D to drive anywhere you like: Q and E for height, Shift to boost (2)">Fly</button>
       <button data-mode="skyline" aria-pressed="false" title="Watch from far back. In Loom this puts you in the centre of the ring (3)">Skyline</button>
       <button data-mode="planet" aria-pressed="false" title="Roll the world into a party planet in deep space. Drag to orbit, scroll to zoom (4)">Planet</button>
     </div>
@@ -623,6 +623,7 @@ let quality = 5; // 5 full resolution with glow ... 1 very low resolution, no gl
 const QDPR=[0,.4,.55,.75,1,1.75];
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(62, 1, 1, 9000);
+const fr={on:false,x:0,y:20,z:0,yaw:0,v:0,st:0,yT:20};   // free roam: once you drive with the keys in Fly, the camera is yours and no longer rides the song's position
 const C = hex => new THREE.Color(hex);
 const U = {
   uTime:{value:0}, uCam:{value:new THREE.Vector3()}, uBands:{value:new THREE.Vector3(.2,.2,.2)},
@@ -2208,7 +2209,7 @@ function toast(msg){ const el=$('#toast'); el.textContent=msg; el.classList.add(
 
 let mode='cruise', lastCam='cruise';
 function togglePlanet(){ setMode(mode==='planet'?lastCam:'planet'); }
-function setMode(m){ if(m==='surf'&&mode!=='surf'){ fly.x=mode==='skyline'?0:clamp(off.x,-20,20); fly.y=mode==='skyline'?40:off.y; fly.vx=0; ky=0; } mode=m; if(m!=='planet') lastCam=m; { const bp=document.querySelector('#btnPlanet'); if(bp) bp.setAttribute('aria-pressed',String(m==='planet')); } document.querySelectorAll('.dock .seg button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode===m))); }
+function setMode(m){ fr.on=false; if(m==='surf'&&mode!=='surf'){ fly.x=mode==='skyline'?0:clamp(off.x,-20,20); fly.y=mode==='skyline'?40:off.y; fly.vx=0; ky=0; } mode=m; if(m!=='planet') lastCam=m; { const bp=document.querySelector('#btnPlanet'); if(bp) bp.setAttribute('aria-pressed',String(m==='planet')); } document.querySelectorAll('.dock .seg button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode===m))); }
 document.querySelectorAll('.dock .seg button').forEach(b=>b.addEventListener('click',()=>setMode(b.dataset.mode)));
 
 const swBox=$('#swatches');
@@ -2367,7 +2368,12 @@ window.addEventListener('keydown',e=>{
   if(k===' '){ e.preventDefault(); if(app.dataset.state==='landing'){ if(buffer) startRide(); } else $('#play').click(); }
   else if(k==='1') setMode('cruise'); else if(k==='2') setMode('surf'); else if(k==='3') setMode('skyline'); else if(k==='4') togglePlanet();
   else if(k==='h') app.classList.toggle('nohud'); else if(k==='n') setNitro(!nitro); else if(k==='?'||k==='/') $('#hint').classList.toggle('on'); else if(k==='k') setKal(!kaleido); else if(k==='c') togglePanel(); else if(k==='p') snapshot(); else if(k==='t') setWorld(WORLDS[(WORLDS.indexOf(world)+1)%WORLDS.length]); else if(k==='f') toggleFs();
-  else if(k==='arrowright'&&started) seek(now()+5); else if(k==='arrowleft'&&started) seek(now()-5);
+  else if(k===']'&&started) seek(now()+5); else if(k==='['&&started) seek(now()-5);
+  // Driving keys never touch the music. The first press in City or Terrain takes the camera off its rail and hands it to you.
+  if(k.startsWith('arrow')) e.preventDefault();
+  if(started&&app.dataset.state==='riding'&&(world==='city'||world==='terrain')&&mode!=='planet'&&(k.startsWith('arrow')||(k.length===1&&'wasdqe'.includes(k)))&&!fr.on){
+    stopShuffle(); if(mode!=='surf') setMode('surf');
+    const d=camera.getWorldDirection(new THREE.Vector3()); fr.on=true; fr.x=camera.position.x; fr.y=fr.yT=Math.max(5,camera.position.y); fr.z=camera.position.z; fr.yaw=Math.atan2(d.x,-d.z); fr.v=SPEED; fr.st=0; }
 });
 window.addEventListener('keyup',e=>{ keys[e.key.toLowerCase()]=false; });
 window.addEventListener('pointermove',e=>{ ptrX=clamp(e.clientX/innerWidth*2-1,-1,1); ptrY=clamp(1-e.clientY/innerHeight,0,1); });
@@ -2458,7 +2464,7 @@ canvas.addEventListener('pointermove',e=>{ if(!orbit.drag) return; orbit.az-=(e.
 canvas.addEventListener('pointermove',e=>{ if(!orbit.drag||world!=='loom'||mode!=='surf') return; lookYaw=clamp(lookYaw+(e.movementX||0)*.005,-2.9,2.9); lookPitch=clamp(lookPitch-(e.movementY||0)*.004,-1.3,1.3); });
 const endDrag=()=>{ orbit.drag=false; }; canvas.addEventListener('pointerup',endDrag); canvas.addEventListener('pointercancel',endDrag);
 canvas.addEventListener('wheel',e=>{ if(mode!=='planet'&&!ORBW[world]) return; e.preventDefault(); orbit.dist=clamp(orbit.dist*Math.exp(e.deltaY*.0012),PR*2.2,PR*10); },{passive:false});
-function setWorld(w){ world=w; document.querySelectorAll('#worldSeg button[data-world]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.world===w))); fly.x=clamp(fly.x,-20,20); fly.vx=0; }
+function setWorld(w){ world=w; fr.on=false; document.querySelectorAll('#worldSeg button[data-world]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.world===w))); fly.x=clamp(fly.x,-20,20); fly.vx=0; }
 // Height a flyer must clear over the strip of blocks under x (0 over a street), looking a little ahead.
 function stripH(x,along){
   const ax=Math.abs(x); if(ax<AV/2-2 || !blockH) return 0;
@@ -2562,6 +2568,22 @@ function frame(ms){
       tLk.set(0,-PR*.72,0);
     } else if(mode==='skyline'){
       tOff.set(HALFW+250+Math.sin(wall*.05)*60, (terr?720:skyY)+Math.sin(wall*.07)*30, terr?900:380); tLk.set(0,terr?170:40,terr?330:-220);
+    } else if(mode==='surf'&&fr.on){
+      // Free roam: up and down are throttle and brake, left and right turn, Q and E change height, Shift is a boost.
+      const up=(keys.arrowup||keys.w)?1:0, dn=(keys.arrowdown||keys.s)?1:0, turn=((keys.arrowright||keys.d)?1:0)-((keys.arrowleft||keys.a)?1:0);
+      const tv=up?(keys.shift?230:125):dn?-50:0;
+      fr.v+=(tv-fr.v)*Math.min(1,dt*(up?1.5:dn?(fr.v>0?3.2:1.4):.75));
+      fr.st+=(turn-fr.st)*Math.min(1,dt*6);
+      fr.yaw+=fr.st*dt*(.85+.75*Math.min(1,Math.abs(fr.v)/70))*(fr.v<-2?-1:1);
+      fr.yT=clamp(fr.yT+((keys.e?1:0)-(keys.q?1:0))*dt*(40+fr.yT*.6),4.6,1200);
+      const fx=Math.sin(fr.yaw), fz=-Math.cos(fr.yaw); let nx=fr.x+fx*fr.v*dt, nz=fr.z+fz*fr.v*dt;
+      if(terr){ nx=clamp(nx,-450,450); nz=clamp(nz,-(along+300),-(along-1300)); const fl=hAt(nx,-nz)+9; fr.y+=(Math.max(fr.yT,fl)-fr.y)*Math.min(1,dt*4); if(fr.y<fl) fr.y=fl; }
+      else { nx=clamp(nx,-(HALFW+1100),HALFW+1100); nz=clamp(nz,-(cityLen+700),700);
+        const hit=(x,z)=>{ const h=stripH(x,-z); return h>0&&fr.y<h+4; };
+        if(hit(nx,nz)&&!hit(fr.x,fr.z)){ if(!hit(nx,fr.z)) nz=fr.z; else if(!hit(fr.x,nz)) nx=fr.x; else { nx=fr.x; nz=fr.z; } fr.v*=Math.exp(-dt*5); }   // slide along a wall instead of passing through it
+        fr.y+=(fr.yT-fr.y)*Math.min(1,dt*3.5); }
+      fr.x=nx; fr.z=nz;
+      tOff.set(fr.x,fr.y,fr.z+base); tLk.set(fr.x+fx*120,fr.y-2-Math.min(45,fr.y*.2),fr.z+fz*120+base);
     } else if(mode==='surf'){
       const ap=Math.abs(ptrX), st=ap<.07?0:Math.sign(ptrX)*Math.pow((ap-.07)/.93,1.35);
       const steer=clamp(st+(keys.d?1:0)-(keys.a?1:0),-1,1);
@@ -2592,7 +2614,7 @@ function frame(ms){
   }
   const k=snapCam?1:1-Math.exp(-dt*(loomIn?3.2:riding&&mode==='surf'?10:((mode==='planet'||aby)&&orbit.drag?14:((pl>0&&pl<1)||mode==='planet'?6:(diveT>0?3.6:2.2))))); snapCam=false;
   const px=off.x; off.lerp(tOff,k); lk.lerp(tLk,k);
-  const vx=dt>0?(off.x-px)/dt:0; roll+=((riding&&!aby&&mode!=='skyline'&&mode!=='planet'?clamp(-vx*.014,-.4,.4):0)-roll)*Math.min(1,dt*4);
+  const vx=dt>0?(off.x-px)/dt:0; roll+=((fr.on&&mode==='surf'?-fr.st*.32*Math.min(1,Math.abs(fr.v)/80):riding&&!aby&&mode!=='skyline'&&mode!=='planet'?clamp(-vx*.014,-.4,.4):0)-roll)*Math.min(1,dt*4);
   const shake=(CAM_PULSE&&riding&&mode!=='skyline'&&mode!=='planet'&&!RM&&!kaleido)?pulse*.32*sb:0;
   camera.position.set(off.x, off.y+shake, -base+off.z);
   lookAt.set(lk.x, lk.y, -base+lk.z); camera.up.copy(camUp); camera.lookAt(lookAt); camera.rotateZ(roll);
