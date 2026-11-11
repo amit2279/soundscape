@@ -2199,9 +2199,9 @@ function setMode(m){ if(m==='surf'&&mode!=='surf'){ fly.x=mode==='skyline'?0:cla
 document.querySelectorAll('.dock .seg button').forEach(b=>b.addEventListener('click',()=>setMode(b.dataset.mode)));
 
 const swBox=$('#swatches');
-[['auto','From the song']].concat(Object.keys(THEMES).map(k=>[k,THEMES[k].name])).forEach(([k,name])=>{
+[['auto','From the song']].concat(Object.keys(THEMES).sort((a,b)=>(a==='mono'||a==='paper'?1:0)-(b==='mono'||b==='paper'?1:0)).map(k=>[k,THEMES[k].name])).forEach(([k,name])=>{
   const b=document.createElement('button'); b.className='sw'; b.dataset.k=k; b.title=name; b.setAttribute('aria-label','Theme: '+name); b.setAttribute('aria-pressed','false');
-  if(k!=='auto') b.style.background=THEMES[k].paper?'radial-gradient(circle at 32% 68%,#111 0 17%,transparent 19%),radial-gradient(circle at 68% 38%,#111 0 11%,transparent 13%),#f2f2f2':swBg(THEMES[k]);
+  if(k!=='auto') b.style.background=THEMES[k].paper?swBg({a:'#161616',b:'#5c5c5c',top:'#ffffff',mid:'#ececec',hor:'#c2c2c2'}):swBg(THEMES[k]);
   b.addEventListener('click',()=>{ autoShuf=false; themeKey=k; applyTheme(); }); swBox.appendChild(b); });
 
 function cutTo(fn){ const c=$('#cut'); if(RM){ fn(); return; } c.classList.add('on'); setTimeout(()=>{ fn(); requestAnimationFrame(()=>c.classList.remove('on')); },330); }
