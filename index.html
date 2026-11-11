@@ -441,7 +441,7 @@ h1 .hollow{display:block;color:transparent;-webkit-text-stroke:2px var(--text)}
         <button data-world="abyss" aria-pressed="false" title="Under the sea: a fish school shaped by the music. Drag to look around (T switches)">Abyss</button>
         <button data-world="worm" aria-pressed="false" title="An endless tunnel of shifting patterns. Move the mouse to lean (T switches)">Wormhole</button>
         <button data-world="tun" aria-pressed="false" title="A winding road tunnel made of dots, every dot dancing to its own frequency. Move the mouse to lean (T switches)">Tunnel</button>
-        <button data-world="ill" aria-pressed="false" title="Black-and-white optical illusions that pour, spin and ripple with the music. Click the picture or press G for the next one (T switches)">Illusions</button>
+        <button data-world="ill" aria-pressed="false" title="Black-and-white optical illusions that pour, spin and ripple with the music. It stays on one until you click the picture or press G (T switches)">Illusions</button>
         <button data-world="loom" aria-pressed="false" title="Ribbons knotted through each other, one frequency band each. Drag to look around (T switches)">Loom</button>
         <button data-world="mandala" aria-pressed="false" title="A stepped well of decorated rings, different for every song. Drag to look around, Fly looks straight down (T switches)">Mandala</button>
       </div>
@@ -1859,7 +1859,8 @@ void main(){
   float I=scene(uIllB,p);
   if(uIllMix<.999){ float n=hash(floor(p*90.)), k=smoothstep(uIllMix*1.3-.3,uIllMix*1.3,n+length(p)*.0); I=mix(I,scene(uIllA,p),k); }   // one scene dissolves into the next, grain by grain
   float sat=.9*max(uNeon,uNitro);
-  vec3 col=mix(vec3(1.),pal(length(p)*.35-uTime*.09+atan(p.y,p.x)*.08)*1.15,sat)*I;
+  vec3 tint=mix(uA,uB,.5+.5*sin(length(p)*2.4-uTime*.45+atan(p.y,p.x))); tint/=max(max(tint.r,tint.g),max(tint.b,.4)); tint=mix(tint,vec3(1.),.14);   // the current theme's two colours, flowing through the pattern
+  vec3 col=mix(tint,pal(length(p)*.35-uTime*.09+atan(p.y,p.x)*.08)*1.15,sat)*I;
   gl_FragColor=vec4(col,1.); }`}));
 ill.material.extensions={derivatives:true}; ill.frustumCulled=false; ill.renderOrder=999; ill.visible=false; scene.add(ill);
 const ILL_N=6; let illBeat=0, illV=.6;
@@ -2753,10 +2754,10 @@ function frame(ms){
   { const kt=RM?1:Math.min(1,dt*2.6); for(const k in TT) U[k].value.lerp(TT[k],kt); U.uNeon.value+=(neonT-U.uNeon.value)*kt; U.uDay.value+=(dayT-U.uDay.value)*kt; }
   { const sp=U.uSpec.value; for(let b=0;b<12;b++){ specData[b*4]=clamp(sp[b],0,1)*255; specData[b*4+3]=255; } specTex.needsUpdate=true; }
   sI+=(samp(A.inten,f)-sI)*Math.min(1,dt*1.5);
-  if(playing){ while(beatIdx<A.beats.length && A.beats[beatIdx].t<=t){ const s=A.beats[beatIdx].s; if(t-A.beats[beatIdx].t<.2){ pulse=Math.max(pulse,.45+.55*s); if(world==='ill'&&(++illBeat%16)===0&&U.uIllMix.value>=1) illNext(); if(autoShuf&&(++shufBeat%32)===0) fadeRoll(); if(kPass&&kaleido&&(++kBeat%8)===0&&kPass.uniforms.uMix.value>=1){ const ku=kPass.uniforms;
+  if(playing){ while(beatIdx<A.beats.length && A.beats[beatIdx].t<=t){ const s=A.beats[beatIdx].s; if(t-A.beats[beatIdx].t<.2){ pulse=Math.max(pulse,.45+.55*s); if(autoShuf&&(++shufBeat%32)===0) fadeRoll(); if(kPass&&kaleido&&(++kBeat%8)===0&&kPass.uniforms.uMix.value>=1){ const ku=kPass.uniforms;
       const ci=Math.max(0,KSEG.indexOf(ku.uSegB.value)); let ni=ci; while(ni===ci) ni=clamp(ci+((Math.random()*5)|0)-2,0,KSEG.length-1);
       ku.uSeg.value=ku.uSegB.value; ku.uSegB.value=KSEG[ni]; ku.uMix.value=0; kPolyA.value=kPolyB.value; kPolyB.value=kPolyB.value===5?(Math.random()<.5?3:4):(kPolyB.value===4?(Math.random()<.5?5:3):(Math.random()<.5?5:4)); } if(s>.45){ waveR=0; waveAmp=Math.max(waveAmp,.35+.65*s); if(party>0||sI>.74) burst(along); if(nitro&&world==='city') emitSparks(along,s*(party>0?1.5:1)); } } beatIdx++; }
-    while(dropIdx<A.drops.length && A.drops[dropIdx]<=t){ if(t-A.drops[dropIdx]<.3){ if(world==='ill') illNext(); flash=1; party=7; diveT=3.6; waveR=0; waveAmp=1.5; pulse=1; for(let i=0;i<4;i++) burst(along); } dropIdx++; }
+    while(dropIdx<A.drops.length && A.drops[dropIdx]<=t){ if(t-A.drops[dropIdx]<.3){ flash=1; party=7; diveT=3.6; waveR=0; waveAmp=1.5; pulse=1; for(let i=0;i<4;i++) burst(along); } dropIdx++; }
     const si=secAt(t); if(si!==secIdx){ secIdx=si; showSign(si); } }
   pulse*=Math.exp(-dt*5.2); waveR+=dt*820; waveAmp*=Math.exp(-dt*1.5);
   flash*=Math.exp(-dt*2.4); party=Math.max(0,party-dt); diveT=Math.max(0,diveT-dt);
