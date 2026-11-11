@@ -740,7 +740,7 @@ void main(){
   float tw=.6+.4*sin(uTime*2.+h3(floor(g)+3.)*40.)+uBands.z*uNitro*1.2;
   c+=(1.-uDay)*vec3(.9,.92,1.)*st*tw*smoothstep(.06,.34,e)*(1.-cl)*smoothstep(.5,.15,length(fract(g)-.5));
   c+=(uHorizon*.5+vec3(.12))*uFlash*(.35+.65*exp(-max(e,0.)*3.));
-  if(e<0.) c=uFog;
+  c=mix(uFog,c,smoothstep(0.,.1,e));   // everything, the moon's or sun's glow included, melts into the haze colour at the horizon, so there is no line
   if(uPlanet>.001){
     vec3 sp=uSkyTop*.3+vec3(.003,.003,.01);
     sp+=mix(uA,uB,fbm(d.yz*2.5+7.))*smoothstep(.5,.92,fbm(d.xy*2.+d.z*1.3+3.))*.11*uAtmo;
