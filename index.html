@@ -975,7 +975,7 @@ ${GLSL_COMMON}
 void main(){
   float seed=vInfo.x; vec3 n=normalize(vN);
   vec3 V=normalize(uCam-vB); float dist=length(uCam-vB);
-  float Ht=vBld.y; vec3 col; float dMask=0., dLit=0.; vec3 dWc=vec3(0.);
+  float Ht=vBld.y; vec3 col; float dMask=0., dLit=0.; vec3 dWc=vec3(0.); vec2 dCell=vec2(0.);
   vec3 facade=mix(uFacade,uFacade*2.1+uSkyTop*.3,hash(vec2(seed,1.7)));
   float band=vInfo.z;
   vec3 acc=mix(uA,uB,band/11.);
@@ -1032,7 +1032,7 @@ void main(){
     float mx=step(.14,f.x)*step(f.x,.86), my=step(.22,f.y)*step(f.y,.8);
     vec2 wp=(f-vec2(.5,.51))*vec2(bay,fl), wh=vec2(.36*bay,.29*fl); float wr=min(wh.x,wh.y)*.55;   // windows are rounded rectangles
     float wd=length(max(abs(wp)-wh+wr,0.))-wr, win=1.-smoothstep(-.06,.06,wd);
-    float mask=mix(.42,win,aa); dMask=mask;
+    float mask=mix(.42,win,aa); dMask=mask; dCell=cell;
     float r=hash(cell+seed*17.);
     float rf=hash(vec2(cell.y,seed*31.));
     float litFrac=.36+.2*uBands.y;
@@ -1065,13 +1065,21 @@ void main(){
     float crown=smoothstep(Ht-2.2,Ht-1.4,y)*step(60.,Ht)*step(.5,hash(vec2(seed,4.4)));
     col+=acc*crown*(.6+1.2*uPulse);
   }
-  if(uDay>.001&&!(vInfo.w>1.5&&vInfo.w<3.5)){   // daylight: painted walls lit by the sky, windows as glass that mirrors it; signs keep their own light
-    float dif=max(dot(n,normalize(vec3(.45,.7,.55))),0.);
-    vec3 fa=mix(vec3(.82,.79,.74),vec3(.58,.64,.74),hash(vec2(seed,1.7))); fa=mix(fa,acc,.08+.1*hash(vec2(seed,2.9)));
-    vec3 wallD=fa*(.46+.72*dif);
-    vec3 glassD=mix(uSkyTop*.6+uHorizon*.28,vec3(1.),pow(1.-max(dot(n,V),0.),3.)*.55)*(.62+.5*dif); glassD=mix(glassD,dWc*.9,dLit*.16);
-    vec3 dc=mix(wallD,glassD,dMask*.92)+col*.1;
-    if(n.y>.5) dc=fa*.62+col*.2;
+  if(uDay>.001&&!(vInfo.w>1.5&&vInfo.w<3.5)){   // daylight: every building gets its own paint, hard sun-and-shade, dark glass with sky and sun in it; signs keep their own light
+    float dif=max(dot(n,normalize(vec3(.45,.7,.55))),0.), hp=hash(vec2(seed,1.7)), hk=hash(vec2(seed,2.9)), hy=vL.y;
+    float pi=floor(hp*10.); vec3 fa=pi<1.?vec3(.97,.43,.36):pi<2.?vec3(.10,.60,.62):pi<3.?vec3(.97,.74,.18):pi<4.?vec3(.22,.50,.93):pi<5.?vec3(.42,.84,.62):pi<6.?vec3(.95,.94,.90):pi<7.?vec3(.84,.40,.24):pi<8.?vec3(.64,.48,.92):pi<9.?vec3(.98,.48,.68):vec3(.93,.90,.84);
+    fa=mix(fa,vec3(.93,.92,.89),step(.62,hk)*.78);                               // about four in ten stay white or concrete, so the colours have something to stand against
+    float tower=step(110.,Ht)*step(.55,hash(vec2(seed,6.1)));                     // some tall ones are all glass
+    fa=mix(fa,mix(vec3(.10,.30,.52),vec3(.08,.42,.48),hk),tower);
+    float shade=.34+.95*dif;                                                     // sunlit faces bright, the others clearly in shade
+    vec3 wallD=fa*shade*(.86+.14*smoothstep(0.,26.,hy));
+    wallD=mix(wallD,vec3(.97)*shade,step(.9,fract(hy/23.+hk))*(1.-tower)*step(abs(n.y),.5)*.55);   // a pale band every few floors
+    float fres=pow(1.-max(dot(n,V),0.),3.);
+    vec3 glassD=mix(vec3(.05,.11,.22),uSkyTop*.85+vec3(.1),.25+.45*fres+.3*smoothstep(0.,max(Ht,1.),hy))*(.55+.6*dif);
+    glassD+=vec3(1.,.95,.8)*step(.9,hash(dCell+seed*3.))*dif*1.1;                 // the sun catching a pane here and there
+    glassD=mix(glassD,dWc,dLit*.12);
+    vec3 dc=mix(wallD,glassD,dMask*mix(.96,1.,tower))+col*.06;
+    if(n.y>.5) dc=mix(fa*.7,vec3(.5,.52,.55),.35)+col*.25;
     col=mix(col,dc,uDay);
   }
   float fogF=1.-exp(-pow(dist*uFogD,2.));
@@ -2774,7 +2782,7 @@ function frame(ms){
   // uniforms
   U.uTime.value=wall; U.uCam.value.copy(camera.position); U.uBands.value.set(sb,sm,sh);
   U.uPulse.value=pulse; U.uWaveR.value=waveR; U.uWaveAmp.value=waveAmp; U.uPlay.value=riding?along:base+170;
-  U.uFogD.value+=((planetOn?1/60000:(riding&&mode==='skyline')?1/3400:(terr?1/1500:1/2100))*CT.haze-U.uFogD.value)*Math.min(1,dt*3);
+  U.uFogD.value+=((planetOn?1/60000:(riding&&mode==='skyline')?1/3400:(terr?1/1500:1/2100))*CT.haze*(1-.42*U.uDay.value)-U.uFogD.value)*Math.min(1,dt*3);
   render();
   // HUD
   if(riding){
