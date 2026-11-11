@@ -1728,7 +1728,7 @@ function resize(over){
   if (composer) { composer.setPixelRatio(dpr); composer.setSize(w, h); }
   camera.aspect = w/h; camera.updateProjectionMatrix();
   U.uPx.value = dpr * h / 900;
-  if(typeof over!=='number') sizeScrub();
+  if(typeof over!=='number') sizeScrub(true);
 }
 
 const swBg=t=>`radial-gradient(circle at 26% 74%,${t.a} 0%,${t.a}00 52%),radial-gradient(circle at 76% 70%,${t.b} 0%,${t.b}00 52%),linear-gradient(to bottom,${t.top} 0%,${t.mid} 38%,${t.hor} 100%)`;
@@ -2166,19 +2166,23 @@ function setState(s){ app.dataset.state=s; }
 /* ================= UI ================= */
 const scrub=$('#scrub'), sky2d=$('#skyline'), sctx=sky2d.getContext('2d');
 let baseDim=null, baseLit=null;
-function sizeScrub(){ const r=scrub.getBoundingClientRect(); const d=Math.min(2,window.devicePixelRatio||1); if(r.width<2) return; sky2d.width=Math.round(r.width*d); sky2d.height=Math.round(r.height*d); drawSkylineBase(); }
+let scrubDpr=1;
+function sizeScrub(force){ const r=scrub.getBoundingClientRect(); const d=Math.min(3,window.devicePixelRatio||1); if(r.width<2) return; const w=Math.round(r.width*d), h=Math.round(r.height*d);
+  if(force!==true&&w===sky2d.width&&h===sky2d.height&&baseDim) return; scrubDpr=d; sky2d.width=w; sky2d.height=h; drawSkylineBase(); if(started) drawScrub(now()); }
+// The timeline is redrawn at the real pixel size whenever its box changes (window resize, full screen), so the bars never get stretched.
+if(window.ResizeObserver){ let ro=0; new ResizeObserver(()=>{ clearTimeout(ro); ro=setTimeout(sizeScrub,60); }).observe(scrub); } else window.addEventListener('resize',()=>setTimeout(sizeScrub,80));
 function drawSkylineBase(){
   if(!A || !rowProfile || sky2d.width<2) return;
   const w=sky2d.width, h=sky2d.height, t=themeKey==='auto'?autoTheme:THEMES[themeKey];
   let mx=1; for(let r=PRE;r<ROWS-POST;r++) mx=Math.max(mx,rowProfile[r]);
   const make=lit=>{ const c=document.createElement('canvas'); c.width=w; c.height=h; const g=c.getContext('2d');
-    const bw=Math.max(2,Math.round(w/260)), base=h-Math.round(h*.16);
+    const d=scrubDpr, bw=Math.max(2,Math.round(4*d)), gap=Math.max(1,Math.round(1.2*d)), rad=(bw-gap)/2, base=h-Math.round(h*.16);
     if(lit){ const gr=g.createLinearGradient(0,0,w,0); gr.addColorStop(0,t.a); gr.addColorStop(1,t.b); g.fillStyle=gr; } else g.fillStyle='rgba(255,255,255,.2)';
     for(let x=0;x<w;x+=bw){ const tt=(x+bw/2)/w*A.dur, r=clamp(PRE+Math.floor(tt*SPEED/PZ),0,ROWS-1), i=clamp((tt*A.fps)|0,0,A.F-1);
-      const v=.55*rowProfile[r]/mx+.45*A.bass[i]*A.inten[i]; const bh=Math.max(2,v*(base-3)); g.fillRect(x,base-bh,bw-1,bh); }
-    g.fillStyle=lit?t.warm:'rgba(255,255,255,.28)'; g.fillRect(0,base+3,w,1);
+      const v=.55*rowProfile[r]/mx+.45*A.bass[i]*A.inten[i]; const bh=Math.max(bw-gap,v*(base-3)); g.beginPath(); if(g.roundRect) g.roundRect(x,base-bh,bw-gap,bh,[rad,rad,0,0]); else g.rect(x,base-bh,bw-gap,bh); g.fill(); }
+    g.fillStyle=lit?t.warm:'rgba(255,255,255,.28)'; g.fillRect(0,base+Math.round(2*d),w,Math.max(1,Math.round(d)));
     g.fillStyle=lit?'rgba(255,255,255,.9)':'rgba(255,255,255,.45)';
-    A.segs.forEach((s,i)=>{ if(i) g.fillRect(Math.round(s.t0/A.dur*w),0,Math.max(1,Math.round(w/900)),h); });
+    A.segs.forEach((s,i)=>{ if(i) g.fillRect(Math.round(s.t0/A.dur*w),0,Math.max(1,Math.round(1.5*d)),h); });
     return c; };
   baseDim=make(false); baseLit=make(true);
 }
@@ -2186,7 +2190,7 @@ function drawScrub(t){
   if(!baseDim) return; const w=sky2d.width, h=sky2d.height, x=Math.round(t/Math.max(.01,dur)*w);
   sctx.clearRect(0,0,w,h); sctx.drawImage(baseDim,0,0);
   if(x>0) sctx.drawImage(baseLit,0,0,x,h,0,0,x,h);
-  sctx.fillStyle='#fff'; sctx.fillRect(clamp(x-1,0,w-2),0,2,h);
+  { const pw=Math.max(2,Math.round(2*scrubDpr)); sctx.fillStyle='#fff'; sctx.fillRect(clamp(x-pw/2,0,w-pw),0,pw,h); }
 }
 function secAt(t){ if(!A) return -1; for(let i=A.segs.length-1;i>=0;i--) if(t>=A.segs[i].t0) return i; return 0; }
 let dragging=false;
@@ -2387,7 +2391,7 @@ async function install(buf, name, seed, demo){
   $('#endTxt').textContent='You flew '+(cityLen/1000).toFixed(1)+' km of avenue past '+stats.bld.toLocaleString('en-US')+' buildings.';
   scrub.setAttribute('aria-valuemax', Math.round(dur));
   buildTerrain(an,seed); U.uSeed.value=(seed%997)/31+.37;
-  sizeScrub(); syncIdx();
+  sizeScrub(true); syncIdx();
   // attract view: look toward the tallest stretch
   let bestR=PRE, bv=0; for(let r=PRE;r<ROWS-POST;r++){ let s=0; for(let j=0;j<6&&r+j<ROWS;j++) s+=rowProfile[r+j]; if(s>bv){ bv=s; bestR=r; } }
   attract.a=Math.max(-200,(bestR-PRE)*PZ-900); let top=0; for(let r=Math.max(0,bestR-9);r<Math.min(ROWS,bestR+2);r++) top=Math.max(top,rowProfile[r]);
