@@ -2362,8 +2362,11 @@ window.addEventListener('drop',e=>{ e.preventDefault(); dragDepth=0; $('#veil').
 
 const keys={}; let ptrX=0, ptrY=.12, kx=0, ky=0;
 window.addEventListener('keydown',e=>{
-  if(e.target&&e.target.tagName==='INPUT') return;
-  const k=e.key.toLowerCase(); keys[k]=true;
+  const k=e.key.toLowerCase(), drive=k.startsWith('arrow')||(k.length===1&&'wasdqe'.includes(k));
+  // Driving keys always drive. If a slider, the timeline or a button has keyboard focus, take the focus away so the key cannot move it.
+  if(drive&&started){ const ae=document.activeElement; if(ae&&ae!==document.body&&ae.blur) ae.blur(); if(k.startsWith('arrow')) e.preventDefault(); }
+  else if(e.target&&e.target.tagName==='INPUT') return;
+  keys[k]=true;
   if(autoShuf&&k.length===1&&'1234tnk'.includes(k)) stopShuffle();
   if(k===' '){ e.preventDefault(); if(app.dataset.state==='landing'){ if(buffer) startRide(); } else $('#play').click(); }
   else if(k==='1') setMode('cruise'); else if(k==='2') setMode('surf'); else if(k==='3') setMode('skyline'); else if(k==='4') togglePlanet();
@@ -2579,7 +2582,8 @@ function frame(ms){
     } else if(mode==='surf'&&fr.on){
       // Free roam: up and down are throttle and brake, left and right turn, Q and E change height, Shift is a boost.
       const up=(keys.arrowup||keys.w)?1:0, dn=(keys.arrowdown||keys.s)?1:0, turn=((keys.arrowright||keys.d)?1:0)-((keys.arrowleft||keys.a)?1:0);
-      const tv=up?(keys.shift?230:125):dn?-50:0;
+      // Top speed follows the music: faster songs and louder passages drive faster, and each beat gives a small surge.
+      const mus=clamp((A.bpm||120)/120,.7,1.5)*(.5+1.05*sI)+.3*pulse, tv=up?105*mus*(keys.shift?1.8:1):dn?-50:0;
       fr.v+=(tv-fr.v)*Math.min(1,dt*(up?1.5:dn?(fr.v>0?3.2:1.4):.75));
       fr.st+=(turn-fr.st)*Math.min(1,dt*6);
       fr.yaw+=fr.st*dt*(.85+.75*Math.min(1,Math.abs(fr.v)/70))*(fr.v<-2?-1:1);
