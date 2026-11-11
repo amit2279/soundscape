@@ -1860,7 +1860,7 @@ void main(){
   if(uIllMix<.999){ float n=hash(floor(p*90.)), k=smoothstep(uIllMix*1.3-.3,uIllMix*1.3,n+length(p)*.0); I=mix(I,scene(uIllA,p),k); }   // one scene dissolves into the next, grain by grain
   float sat=.9*max(uNeon,uNitro);
   vec3 tint=mix(uA,uB,.5+.5*sin(length(p)*2.4-uTime*.45+atan(p.y,p.x))); tint/=max(max(tint.r,tint.g),max(tint.b,.4)); tint=mix(tint,vec3(1.),.14);   // the current theme's two colours, flowing through the pattern
-  vec3 col=mix(tint,pal(length(p)*.35-uTime*.09+atan(p.y,p.x)*.08)*1.15,sat)*I;
+  vec3 col=mix(tint,pal(length(p)*.35-uTime*.09+p.y/(length(p)+.001)*.1)*1.15,sat)*I;   // no raw angle here: it jumps on one side of the centre and drew a seam through the rainbow
   gl_FragColor=vec4(col,1.); }`}));
 ill.material.extensions={derivatives:true}; ill.frustumCulled=false; ill.renderOrder=999; ill.visible=false; scene.add(ill);
 const ILL_N=6; let illBeat=0, illV=.6;
