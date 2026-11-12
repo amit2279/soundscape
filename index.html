@@ -667,7 +667,7 @@ const U = {
   uGrowC:{value:new THREE.Vector3()}, uFogD:{value:1/2100}, uLen:{value:1}, uRows:{value:1},
   uSkyTop:{value:C('#000')}, uSkyMid:{value:C('#000')}, uHorizon:{value:C('#000')}, uFog:{value:C('#000')},
   uA:{value:C('#000')}, uB:{value:C('#000')}, uWarm:{value:C('#000')}, uCool:{value:C('#000')}, uFacade:{value:C('#000')},
-  uData:{value:null}, uBlocks:{value:null}, uPx:{value:1}, uSpec:{value:new Float32Array(12)}, uNitro:{value:1}, uFlash:{value:0}, uSearch:{value:0}, uNeon:{value:0}, uDay:{value:0}, uHeight:{value:null}, uTBase:{value:0}, uTStep:{value:3}, uPlanet:{value:0}, uPC:{value:0}, uAmp:{value:1}, uPSize:{value:1}, uAtmo:{value:1}, uShowP:{value:1}, uAbyss:{value:0}, uBall:{value:0}, uSwim:{value:0}, uVoid:{value:0}, uWormZ:{value:0}, uTunZ:{value:0}, uTunW:{value:999}, uTunD:{value:0}, uIllA:{value:0}, uIllB:{value:0}, uIllMix:{value:1}, uIllT:{value:0}, uPA:{value:0}, uPB:{value:0}, uPMix:{value:1}, uPShow:{value:0}, uSpecS:{value:new Float32Array(12)}, uBassS:{value:0}, uAsp:{value:1}, uPtr:{value:new THREE.Vector2()}, uDiver:{value:new THREE.Vector3(0,9999,0)}, uRay:{value:new THREE.Vector3(0,1,0)}, uCtr:{value:new THREE.Vector3()}, uSpecTex:{value:null},
+  uData:{value:null}, uBlocks:{value:null}, uPx:{value:1}, uSpec:{value:new Float32Array(12)}, uNitro:{value:1}, uFlash:{value:0}, uSearch:{value:0}, uNeon:{value:0}, uDay:{value:0}, uHeight:{value:null}, uTBase:{value:0}, uTStep:{value:3}, uPlanet:{value:0}, uPC:{value:0}, uAmp:{value:1}, uPSize:{value:1}, uAtmo:{value:1}, uShowP:{value:1}, uAbyss:{value:0}, uBall:{value:0}, uSwim:{value:0}, uVoid:{value:0}, uWormZ:{value:0}, uTunZ:{value:0}, uTunW:{value:999}, uTunD:{value:0}, uIllA:{value:0}, uIllB:{value:0}, uIllMix:{value:1}, uIllT:{value:0}, uIllFade:{value:1}, uPA:{value:0}, uPB:{value:0}, uPMix:{value:1}, uPShow:{value:0}, uSpecS:{value:new Float32Array(12)}, uBassS:{value:0}, uAsp:{value:1}, uPtr:{value:new THREE.Vector2()}, uDiver:{value:new THREE.Vector3(0,9999,0)}, uRay:{value:new THREE.Vector3(0,1,0)}, uCtr:{value:new THREE.Vector3()}, uSpecTex:{value:null},
   uBPos:{value:Array.from({length:10},()=>new THREE.Vector3())}, uBT:{value:new Float32Array(10).fill(-99)}
 };
 const specData=new Uint8Array(48), specTex=new THREE.DataTexture(specData,12,1,THREE.RGBAFormat); specTex.magFilter=specTex.minFilter=THREE.LinearFilter; specTex.needsUpdate=true; U.uSpecTex.value=specTex;
@@ -1809,7 +1809,7 @@ tun.frustumCulled=false; tun.renderOrder=999; tun.visible=false; scene.add(tun);
    Flow speed follows the song's energy, the funnel's throat breathes with the bass, every line and dot has its own frequency band. */
 const ill=new THREE.Mesh(new THREE.PlaneGeometry(2,2),new THREE.ShaderMaterial({uniforms:U,depthTest:false,depthWrite:false,
   vertexShader:`varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.,1.); }`,
-  fragmentShader:`precision highp float; uniform float uTime,uAsp,uPulse,uNeon,uNitro,uIllA,uIllB,uIllMix,uIllT,uTunW; uniform vec2 uPtr; uniform vec3 uA,uB,uBands; uniform sampler2D uSpecTex; varying vec2 vUv;
+  fragmentShader:`precision highp float; uniform float uTime,uAsp,uPulse,uNeon,uNitro,uIllA,uIllB,uIllMix,uIllT,uTunW,uIllFade; uniform vec2 uPtr; uniform vec3 uA,uB,uBands; uniform sampler2D uSpecTex; varying vec2 vUv;
 ${GLSL_COMMON}
 const float TAU=6.28318;
 float lvl(float b){ return texture2D(uSpecTex,vec2((mod(b,12.)+.5)/12.,.5)).r; }
@@ -1861,7 +1861,7 @@ void main(){
   float sat=.9*max(uNeon,uNitro);
   vec3 tint=mix(uA,uB,.5+.5*sin(length(p)*2.4-uTime*.45+atan(p.y,p.x))); tint/=max(max(tint.r,tint.g),max(tint.b,.4)); tint=mix(tint,vec3(1.),.14);   // the current theme's two colours, flowing through the pattern
   vec3 col=mix(tint,pal(length(p)*.35-uTime*.09+p.y/(length(p)+.001)*.1)*1.15,sat)*I;   // no raw angle here: it jumps on one side of the centre and drew a seam through the rainbow
-  gl_FragColor=vec4(col,1.); }`}));
+  gl_FragColor=vec4(col*uIllFade,1.); }`}));
 ill.material.extensions={derivatives:true}; ill.frustumCulled=false; ill.renderOrder=999; ill.visible=false; scene.add(ill);
 /* ---------- Illusions, part two: structures made of particles ----------
    One cloud of points. Each structure is a rule that places every point on a 3D surface; switching structures makes every point
@@ -1927,9 +1927,12 @@ const ILL_N=12; let illBeat=0, illV=.6, illCur=0;
 // Scenes 0 to 5 are drawn patterns, 6 to 11 are particle structures. Drawn patterns dissolve into each other; particle structures
 // morph point by point; going between the two kinds, one fades out as the other fades in.
 const ILL_ORDER=[0,1,2,3,4,/*5: twisted lines, switched off*/6,7,8,9,10,11];
-function illNext(to){ const n=typeof to==='number'?to:ILL_ORDER[(ILL_ORDER.indexOf(illCur)+1)%ILL_ORDER.length]; illCur=n;
-  if(n<6){ U.uIllA.value=U.uIllB.value; U.uIllB.value=n; U.uIllMix.value=0; }
-  else { if(U.uIllB.value!==6){ U.uIllA.value=U.uIllB.value; U.uIllB.value=6; U.uIllMix.value=0; } U.uPA.value=U.uPB.value; U.uPB.value=n-6; U.uPMix.value=0; } }
+let illPend=null, illK=1;
+// Changing illusion: the picture fades to black, the new one is put in place while it is dark, and it fades back up.
+// The one exception is going from one particle structure to another: there the points themselves fly into the new shape.
+function illNext(to){ const from=illPend!=null?illPend:illCur, n=typeof to==='number'?to:ILL_ORDER[(ILL_ORDER.indexOf(from)+1)%ILL_ORDER.length];
+  if(illPend==null&&illCur>=6&&n>=6){ illCur=n; U.uPA.value=U.uPB.value; U.uPB.value=n-6; U.uPMix.value=0; } else illPend=n; }
+function illApply(n){ illCur=n; U.uIllMix.value=1; if(n<6){ U.uIllA.value=U.uIllB.value=n; } else { U.uIllA.value=U.uIllB.value=6; U.uPA.value=U.uPB.value=n-6; U.uPMix.value=1; } }
 
 
 
@@ -2841,10 +2844,11 @@ function frame(ms){
   sparks.visible=!terr&&!aby;
   const wormOn=riding&&world==='worm'; worm.visible=wormOn;
   if(wormOn){ U.uWormZ.value+=dt*1.2*(1.1+(nitro?3.6:1.2)*sb+pulse*1.2); U.uAsp.value=camera.aspect; U.uPtr.value.lerp(ptrV.set(ptrX,ptrY*2-1),Math.min(1,dt*1.6)); }
-  const illOn=riding&&world==='ill'; ill.visible=illOn; part.visible=illOn&&(illCur>=6||U.uPShow.value>.01);
-  if(illOn){ illV+=((RM?.25:(.45+(nitro?2.2:1.25)*sI+.4*sb))-illV)*Math.min(1,dt*1.1); U.uIllT.value+=dt*illV; U.uIllMix.value=Math.min(1,U.uIllMix.value+dt/(RM?.05:1.4));
+  const illOn=riding&&world==='ill'; ill.visible=illOn; part.visible=illOn&&illCur>=6;
+  if(illOn){ illV+=((RM?.25:(.45+(nitro?2.2:1.25)*sI+.4*sb))-illV)*Math.min(1,dt*1.1); U.uIllT.value+=dt*illV;
+    if(illPend!=null){ illK-=dt/(RM?.05:.32); if(illK<=0){ illK=0; illApply(illPend); illPend=null; } } else illK=Math.min(1,illK+dt/(RM?.05:.5)); U.uIllFade.value=illK*illK*(3-2*illK);
     { const sp=U.uSpec.value, ss=U.uSpecS.value, ke=Math.min(1,dt*1.6); for(let i=0;i<12;i++) ss[i]+=(sp[i]-ss[i])*ke; U.uBassS.value+=(sb-U.uBassS.value)*Math.min(1,dt*1.1); }   // eased copies of the spectrum: surfaces move toward the music's level instead of snapping to it
-    U.uPMix.value=Math.min(1,U.uPMix.value+dt/(RM?.05:2.6)); U.uPShow.value+=((illCur>=6?1:0)-U.uPShow.value)*Math.min(1,dt*2.2); part.position.set(0,0,-along);
+    U.uPMix.value=Math.min(1,U.uPMix.value+dt/(RM?.05:2.6)); U.uPShow.value=illCur>=6?U.uIllFade.value:0; part.position.set(0,0,-along);
     U.uTunW.value+=dt*330; if(pulse>.8&&U.uTunW.value>160) U.uTunW.value=0; U.uAsp.value=camera.aspect; U.uPtr.value.lerp(ptrV.set(ptrX,ptrY*2-1),Math.min(1,dt*1.6)); }
   const tunOn=riding&&world==='tun'; tun.visible=tunOn;
   if(tunOn){ tunV+=((RM?16:(20+(nitro?58:26)*sI+(nitro?14:7)*sb))-tunV)*Math.min(1,dt*.9); U.uTunZ.value+=dt*tunV;
