@@ -667,7 +667,7 @@ const U = {
   uGrowC:{value:new THREE.Vector3()}, uFogD:{value:1/2100}, uLen:{value:1}, uRows:{value:1},
   uSkyTop:{value:C('#000')}, uSkyMid:{value:C('#000')}, uHorizon:{value:C('#000')}, uFog:{value:C('#000')},
   uA:{value:C('#000')}, uB:{value:C('#000')}, uWarm:{value:C('#000')}, uCool:{value:C('#000')}, uFacade:{value:C('#000')},
-  uData:{value:null}, uBlocks:{value:null}, uPx:{value:1}, uSpec:{value:new Float32Array(12)}, uNitro:{value:1}, uFlash:{value:0}, uSearch:{value:0}, uNeon:{value:0}, uDay:{value:0}, uHeight:{value:null}, uTBase:{value:0}, uTStep:{value:3}, uPlanet:{value:0}, uPC:{value:0}, uAmp:{value:1}, uPSize:{value:1}, uAtmo:{value:1}, uShowP:{value:1}, uAbyss:{value:0}, uBall:{value:0}, uSwim:{value:0}, uVoid:{value:0}, uWormZ:{value:0}, uTunZ:{value:0}, uTunW:{value:999}, uTunD:{value:0}, uIllA:{value:0}, uIllB:{value:0}, uIllMix:{value:1}, uIllT:{value:0}, uPA:{value:0}, uPB:{value:0}, uPMix:{value:1}, uPShow:{value:0}, uAsp:{value:1}, uPtr:{value:new THREE.Vector2()}, uDiver:{value:new THREE.Vector3(0,9999,0)}, uRay:{value:new THREE.Vector3(0,1,0)}, uCtr:{value:new THREE.Vector3()}, uSpecTex:{value:null},
+  uData:{value:null}, uBlocks:{value:null}, uPx:{value:1}, uSpec:{value:new Float32Array(12)}, uNitro:{value:1}, uFlash:{value:0}, uSearch:{value:0}, uNeon:{value:0}, uDay:{value:0}, uHeight:{value:null}, uTBase:{value:0}, uTStep:{value:3}, uPlanet:{value:0}, uPC:{value:0}, uAmp:{value:1}, uPSize:{value:1}, uAtmo:{value:1}, uShowP:{value:1}, uAbyss:{value:0}, uBall:{value:0}, uSwim:{value:0}, uVoid:{value:0}, uWormZ:{value:0}, uTunZ:{value:0}, uTunW:{value:999}, uTunD:{value:0}, uIllA:{value:0}, uIllB:{value:0}, uIllMix:{value:1}, uIllT:{value:0}, uPA:{value:0}, uPB:{value:0}, uPMix:{value:1}, uPShow:{value:0}, uSpecS:{value:new Float32Array(12)}, uBassS:{value:0}, uAsp:{value:1}, uPtr:{value:new THREE.Vector2()}, uDiver:{value:new THREE.Vector3(0,9999,0)}, uRay:{value:new THREE.Vector3(0,1,0)}, uCtr:{value:new THREE.Vector3()}, uSpecTex:{value:null},
   uBPos:{value:Array.from({length:10},()=>new THREE.Vector3())}, uBT:{value:new Float32Array(10).fill(-99)}
 };
 const specData=new Uint8Array(48), specTex=new THREE.DataTexture(specData,12,1,THREE.RGBAFormat); specTex.magFilter=specTex.minFilter=THREE.LinearFilter; specTex.needsUpdate=true; U.uSpecTex.value=specTex;
@@ -1873,56 +1873,61 @@ const part=(()=>{ const n=PART_G*PART_G, pos=new Float32Array(n*3), aR=new Float
   for(let i=0;i<n;i++){ aR[i*4]=rnd(); aR[i*4+1]=rnd(); aR[i*4+2]=rnd(); aR[i*4+3]=rnd(); aG[i*2]=(i%PART_G+.5)/PART_G; aG[i*2+1]=(Math.floor(i/PART_G)+.5)/PART_G; }
   const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3)); g.setAttribute('aR',new THREE.BufferAttribute(aR,4)); g.setAttribute('aG',new THREE.BufferAttribute(aG,2));
   const m=new THREE.Points(g,new THREE.ShaderMaterial({uniforms:U,transparent:true,depthTest:false,depthWrite:false,blending:THREE.AdditiveBlending,
-    vertexShader:`attribute vec4 aR; attribute vec2 aG; uniform float uTime,uIllT,uPA,uPB,uPMix,uPShow,uPx,uPulse,uTunW,uNitro,uNeon; uniform float uSpec[12]; uniform vec3 uBands; varying float vB,vH,vD;
+    vertexShader:`attribute vec4 aR; attribute vec2 aG; uniform float uTime,uIllT,uPA,uPB,uPMix,uPShow,uPx,uBassS; uniform float uSpec[12]; uniform float uSpecS[12]; varying float vB,vH,vD,vL;
 const float TAU=6.28318;
-vec3 shape(float id,float L){
-  float T=uIllT;
+// Each structure returns a position and, in w, how visible the point is (so sheets that scroll can fade at their far and near edges).
+// The music never throws a point off its surface: it only moves the surface itself, slowly, and changes colour and glow.
+vec4 shape(float id){
+  float T=uIllT, B=uBassS;
   if(id<.5){            // organic tunnel: rings of points on a tube whose wall bulges and pinches
     float zz=fract(aR.y+T*.045), k=13., zc=(floor(zz*k)+pow(fract(zz*k),2.6))/k, th=aR.x*TAU, z=mix(-78.,9.,zc);
-    float R=5.2*(1.+.26*sin(th*3.+zc*21.+T*.5)+.15*sin(th*5.-zc*34.+T*.3)+.1*sin(th*2.+T*.2))+1.6*L+.5*aR.z;
-    return vec3(cos(th)*R,sin(th)*R*.92,z); }
+    float R=5.2*(1.+(.22+.1*B)*sin(th*3.+zc*21.+T*.5)+.15*sin(th*5.-zc*34.+T*.3)+.1*sin(th*2.+T*.2))+.5*aR.z;
+    return vec4(cos(th)*R,sin(th)*R*.92,z,smoothstep(0.,.06,zz)); }
   if(id<1.5){           // a dotted tube that bends away and breaks up, like the inside of a wave
-    float b=fract(aG.y+T*.018), th=aG.x*TAU, a=b*1.9, R=6.+2.*L*step(.6,b);
+    float b=fract(aG.y+T*.018), th=aG.x*TAU, a=b*1.9, R=6.;
     vec3 c=vec3(21.*(1.-cos(a)),-3.*b*b,-21.*sin(a)), nx=vec3(cos(a),0.,-sin(a));
     float tb=smoothstep(.45,1.,b); R*=1.-.45*tb*(.5+.5*sin(th*2.+b*9.-T));
     vec3 p=c+(nx*cos(th)+vec3(0.,1.,0.)*sin(th))*R;
-    return p+tb*tb*2.4*vec3(sin(th*7.+T+aR.x*6.),cos(b*40.+T*1.3+aR.y*6.),sin(b*31.-T))*(.5+L); }
+    p+=tb*tb*2.4*vec3(sin(th*7.+T+aR.x*6.),cos(b*40.+T*1.3+aR.y*6.),sin(b*31.-T))*(.7+.5*B);
+    return vec4(p,smoothstep(0.,.05,b)*smoothstep(1.,.9,b)); }
   if(id<2.5){           // a loose swarm streaming past
-    float z=mix(-90.,10.,fract(aR.y+T*(.05+.05*aR.w))), th=aR.x*TAU+z*.028+T*.05, R=3.4+5.2*aR.z*aR.z+1.5*L;
-    return vec3(cos(th)*R,sin(th)*R,z); }
-  if(id<3.5){           // a field of dots that rolls like water and drains into a pit
-    float x=(aG.x-.5)*52., z=(aG.y-.5)*52., d2=x*x+z*z, rip=sin(sqrt(d2)*.9-T*2.2)*exp(-d2*.004);
-    float y=1.25*sin(x*.42+T*.5)*cos(z*.38-T*.35)+.7*sin(x*.9-z*.7+T*.8)*(.3+L)+.9*rip*(.3+uBands.x)-8.*exp(-d2/15.);
-    return vec3(x,y-2.,z-6.); }
+    float f=fract(aR.y+T*(.05+.05*aR.w)), z=mix(-90.,10.,f), th=aR.x*TAU+z*.028+T*.05, R=3.4+5.2*aR.z*aR.z;
+    return vec4(cos(th)*R,sin(th)*R,z,smoothstep(0.,.08,f)); }
+  if(id<3.5){           // a sea of dots: it is made in the distance and flows toward you; the swell rises and falls with the music
+    float v=fract(aG.y+T*.03), x=(aG.x-.5)*60., z=(v-.5)*64.-8., zw=z-T*1.92;   // zw moves with the points, so the waves travel with the surface
+    float A=.5+2.3*B, A2=.25+1.6*uSpecS[5];
+    float y=A*sin(x*.2+zw*.11)*cos(zw*.21-x*.07)+A*.55*sin(x*.42-zw*.33+1.7)+A2*sin(x*.85+zw*.7)*cos(zw*.5);
+    return vec4(x,y-4.,z,smoothstep(0.,.14,v)*smoothstep(1.,.93,v)); }
   if(id<4.5){           // a sheet that comes down as a wall and runs out as a floor
     float v=fract(aG.y+T*.022), x=(aG.x-.5)*46., z=(v-.5)*64.-14.;
-    float y=11./(1.+exp(.5*(x+3.)))+.016*x*z+.5*sin(z*.35+x*.2+T*.7)*(.4+L)-3.;
-    return vec3(x,y,z)+vec3(0.,(aR.z-.5)*.5,0.); }
+    float y=11./(1.+exp(.5*(x+3.)))+.016*x*z+(.3+.8*B)*sin(z*.35+x*.2+T*.7)-3.;
+    return vec4(x,y+(aR.z-.5)*.5,z,smoothstep(0.,.1,v)*smoothstep(1.,.92,v)); }
   // a sphere with a crater punched into it, slowly turning
   float ph=aR.x*TAU+T*.08, ct=aR.y*2.-1., st=sqrt(1.-ct*ct); vec3 dir=vec3(st*cos(ph),ct,st*sin(ph));
   vec3 cr=normalize(vec3(cos(T*.08-.9)*.8,.35,sin(T*.08-.9)*.8)); float ang=acos(clamp(dot(dir,cr),-1.,1.));
-  float R=9.5*(1.-.3*exp(-ang*ang*7.)*(1.+.35*uBands.x)+.035*sin(ang*26.-T*2.)*exp(-ang*1.6))+.9*L*aR.z;
-  return dir*R; }
-void main(){ int bi=int(floor(aR.w*11.99)); float L=uSpec[bi]; vB=aR.w;
-  float m=smoothstep(aR.z*.55,aR.z*.55+.45,uPMix); m=m*m*(3.-2.*m);   // each point leaves at its own moment and eases in
-  vec3 p=mix(shape(uPA,L),shape(uPB,L),m); p+=sin(m*3.14159)*vec3(aR.x-.5,aR.y-.5,aR.w-.5)*9.;   // a little scatter in mid-flight
+  float R=9.5*(1.-.3*exp(-ang*ang*7.)*(1.+.4*B)+.035*sin(ang*26.-T*2.)*exp(-ang*1.6));
+  return vec4(dir*R,1.); }
+void main(){ int bi=int(floor(aR.w*11.99)); float L=uSpec[bi], Ls=uSpecS[bi]; vB=aR.w; vL=L;
+  float m=smoothstep(aR.z*.55,aR.z*.55+.45,uPMix); m=m*m*(3.-2.*m);   // each point leaves at its own moment and eases into its place in the next structure
+  vec4 a=shape(uPA), b=shape(uPB); vec3 p=mix(a.xyz,b.xyz,m); p+=sin(m*3.14159)*vec3(aR.x-.5,aR.y-.5,aR.w-.5)*5.;
   vec4 mv=modelViewMatrix*vec4(p,1.); gl_Position=projectionMatrix*mv; vD=-mv.z;
-  float sz=(.9+3.2*aR.z*aR.z*aR.z+.5*aR.w)*(1.+1.5*L+.35*uPulse);
+  float sz=(.9+3.2*aR.z*aR.z*aR.z+.5*aR.w)*(1.+.35*Ls);
   gl_PointSize=clamp(sz*uPx*20./max(vD,.4),1.,60.)*step(.2,vD);
-  vH=(.3+.75*L)*exp(-vD*.021)*uPShow*smoothstep(.2,2.5,vD); }`,
-    fragmentShader:`precision highp float; uniform float uTime,uNeon,uNitro; uniform vec3 uA,uB; varying float vB,vH,vD;
+  vH=(.42+1.3*L*L+.4*Ls)*exp(-vD*.021)*uPShow*smoothstep(.2,2.5,vD)*mix(a.w,b.w,m); }`,
+    fragmentShader:`precision highp float; uniform float uTime,uNeon,uNitro; uniform vec3 uA,uB; varying float vB,vH,vD,vL;
 ${GLSL_COMMON}
-void main(){ vec2 q=gl_PointCoord-.5; float d=length(q); if(d>.5) discard; float a=smoothstep(.5,.32,d);
-  vec3 tint=mix(uA,uB,vB); tint/=max(max(tint.r,tint.g),max(tint.b,.4)); tint=mix(tint,vec3(1.),.3);
-  vec3 col=mix(tint,pal(vB*.8+vD*.012-uTime*.08)*1.15,.9*max(uNeon,uNitro));
+void main(){ vec2 q=gl_PointCoord-.5; float d=length(q); if(d>.5) discard; float a=smoothstep(.5,.3,d)+.6*smoothstep(.22,0.,d)*vL;   // loud points get a hot core
+  vec3 tint=mix(uA,uB,fract(vB+vL*.35+uTime*.02)); tint/=max(max(tint.r,tint.g),max(tint.b,.4)); tint=mix(tint,vec3(1.),.06+.45*vL);
+  vec3 col=mix(tint,pal(vB*.8+vD*.012+vL*.3-uTime*.08)*1.15,.9*max(uNeon,uNitro));
   gl_FragColor=vec4(col*a*vH,1.); }`}));
   m.frustumCulled=false; m.renderOrder=1000; m.visible=false; scene.add(m); return m; })();
 // where the camera sits and looks for each structure (x,y,z then look-at x,y,z), relative to the cloud's centre
-const PART_CAM=[[0,0,11,0,0,-30],[-1,0,-2,7,-1,-20],[0,0,11,0,0,-30],[0,10,24,0,-3,-6],[9,3,20,-4,3,-14],[8,3,13,-4,1,0]];
+const PART_CAM=[[0,0,11,0,0,-30],[-1,0,-2,7,-1,-20],[0,0,11,0,0,-30],[0,7,27,0,-5,-8],[9,3,20,-4,3,-14],[8,3,13,-4,1,0]];
 const ILL_N=12; let illBeat=0, illV=.6, illCur=0;
 // Scenes 0 to 5 are drawn patterns, 6 to 11 are particle structures. Drawn patterns dissolve into each other; particle structures
 // morph point by point; going between the two kinds, one fades out as the other fades in.
-function illNext(to){ const n=typeof to==='number'?to:(illCur+1)%ILL_N; illCur=n;
+const ILL_ORDER=[0,1,2,3,4,/*5: twisted lines, switched off*/6,7,8,9,10,11];
+function illNext(to){ const n=typeof to==='number'?to:ILL_ORDER[(ILL_ORDER.indexOf(illCur)+1)%ILL_ORDER.length]; illCur=n;
   if(n<6){ U.uIllA.value=U.uIllB.value; U.uIllB.value=n; U.uIllMix.value=0; }
   else { if(U.uIllB.value!==6){ U.uIllA.value=U.uIllB.value; U.uIllB.value=6; U.uIllMix.value=0; } U.uPA.value=U.uPB.value; U.uPB.value=n-6; U.uPMix.value=0; } }
 
@@ -2838,6 +2843,7 @@ function frame(ms){
   if(wormOn){ U.uWormZ.value+=dt*1.2*(1.1+(nitro?3.6:1.2)*sb+pulse*1.2); U.uAsp.value=camera.aspect; U.uPtr.value.lerp(ptrV.set(ptrX,ptrY*2-1),Math.min(1,dt*1.6)); }
   const illOn=riding&&world==='ill'; ill.visible=illOn; part.visible=illOn&&(illCur>=6||U.uPShow.value>.01);
   if(illOn){ illV+=((RM?.25:(.32+(nitro?1.5:.75)*sI+.25*sb))-illV)*Math.min(1,dt*1.1); U.uIllT.value+=dt*illV; U.uIllMix.value=Math.min(1,U.uIllMix.value+dt/(RM?.05:1.4));
+    { const sp=U.uSpec.value, ss=U.uSpecS.value, ke=Math.min(1,dt*1.6); for(let i=0;i<12;i++) ss[i]+=(sp[i]-ss[i])*ke; U.uBassS.value+=(sb-U.uBassS.value)*Math.min(1,dt*1.1); }   // eased copies of the spectrum: surfaces move toward the music's level instead of snapping to it
     U.uPMix.value=Math.min(1,U.uPMix.value+dt/(RM?.05:2.6)); U.uPShow.value+=((illCur>=6?1:0)-U.uPShow.value)*Math.min(1,dt*2.2); part.position.set(0,0,-along);
     U.uTunW.value+=dt*330; if(pulse>.8&&U.uTunW.value>160) U.uTunW.value=0; U.uAsp.value=camera.aspect; U.uPtr.value.lerp(ptrV.set(ptrX,ptrY*2-1),Math.min(1,dt*1.6)); }
   const tunOn=riding&&world==='tun'; tun.visible=tunOn;
@@ -2861,7 +2867,7 @@ function frame(ms){
     tLk.set(Math.sin(wall*.07+1)*18, attract.y+16, -300);
   } else {
     base=along;
-    if(illOn&&illCur>=6){ const c=PART_CAM[illCur-6], sw=Math.sin(wall*.13); tOff.set(c[0]+ptrX*5+sw*.8,c[1]+(ptrY-.5)*5,c[2]); tLk.set(c[3],c[4],c[5]); loomIn=true; }   // particle structures: a fixed vantage point you can lean round with the mouse
+    if(illOn&&illCur>=6){ const c=PART_CAM[illCur-6], sw=Math.sin(wall*.13), ml=illCur<9?0:1; tOff.set(c[0]+ptrX*5*ml+sw*.8*ml,c[1]+(ptrY-.5)*4*ml,c[2]); tLk.set(c[3],c[4],c[5]); loomIn=true; }   // particle structures: a fixed vantage point you can lean round with the mouse
     else if(aby){
       if(!orbit.drag){ orbit.idle+=dt; if(orbit.idle>1.5&&!RM) orbit.az+=dt*.07; }
       if(mode==='surf'&&absOn){ tOff.set(0,36,0); tLk.set(Math.sin(wall*.2)*70,330,Math.cos(wall*.2)*70); }
