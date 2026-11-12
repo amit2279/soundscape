@@ -1881,31 +1881,31 @@ vec4 shape(float id){
   float T=uIllT, B=uBassS;
   if(id<.5){            // organic tunnel: rings of points on a tube whose wall bulges and pinches
     float zz=fract(aR.y+T*.045), k=13., zc=(floor(zz*k)+pow(fract(zz*k),2.6))/k, th=aR.x*TAU, z=mix(-78.,9.,zc);
-    float R=5.2*(1.+(.22+.1*B)*sin(th*3.+zc*21.+T*.5)+.15*sin(th*5.-zc*34.+T*.3)+.1*sin(th*2.+T*.2))+.5*aR.z;
+    float R=5.2*max(.38,1.+(.24+.3*B)*sin(th*3.+zc*21.+T*.5)+(.12+.12*uSpecS[5])*sin(th*5.-zc*34.+T*.3)+(.08+.1*uSpecS[2])*sin(th*2.+T*.2))+.5*aR.z;   // the wall may pinch hard but never crosses the axis
     return vec4(cos(th)*R,sin(th)*R*.92,z,smoothstep(0.,.06,zz)); }
   if(id<1.5){           // a dotted tube that bends away and breaks up, like the inside of a wave
     float b=fract(aG.y+T*.018), th=aG.x*TAU, a=b*1.9, R=6.;
     vec3 c=vec3(21.*(1.-cos(a)),-3.*b*b,-21.*sin(a)), nx=vec3(cos(a),0.,-sin(a));
-    float tb=smoothstep(.45,1.,b); R*=1.-.45*tb*(.5+.5*sin(th*2.+b*9.-T));
+    float tb=smoothstep(.45,1.,b); R*=1.-.45*tb*(.5+.5*sin(th*2.+b*9.-T)); R*=1.+(.05+.2*B)*sin(th*4.+b*26.-T*1.4);
     vec3 p=c+(nx*cos(th)+vec3(0.,1.,0.)*sin(th))*R;
-    p+=tb*tb*2.4*vec3(sin(th*7.+T+aR.x*6.),cos(b*40.+T*1.3+aR.y*6.),sin(b*31.-T))*(.7+.5*B);
+    p+=tb*tb*2.4*vec3(sin(th*7.+T+aR.x*6.),cos(b*40.+T*1.3+aR.y*6.),sin(b*31.-T))*(.8+1.8*B);
     return vec4(p,smoothstep(0.,.05,b)*smoothstep(1.,.9,b)); }
   if(id<2.5){           // a loose swarm streaming past
-    float f=fract(aR.y+T*(.05+.05*aR.w)), z=mix(-90.,10.,f), th=aR.x*TAU+z*.028+T*.05, R=3.4+5.2*aR.z*aR.z;
+    float f=fract(aR.y+T*(.05+.05*aR.w)), z=mix(-90.,10.,f), th=aR.x*TAU+z*.028+T*.05, R=(3.4+5.2*aR.z*aR.z)*(1.+(.1+.45*B)*sin(z*.09+T*.8+th*2.));
     return vec4(cos(th)*R,sin(th)*R,z,smoothstep(0.,.08,f)); }
   if(id<3.5){           // a sea of dots: it is made in the distance and flows toward you; the swell rises and falls with the music
     float v=fract(aG.y+T*.03), x=(aG.x-.5)*60., z=(v-.5)*64.-8., zw=z-T*1.92;   // zw moves with the points, so the waves travel with the surface
-    float A=.5+2.3*B, A2=.25+1.6*uSpecS[5];
+    float A=.9+6.*B, A2=.4+3.4*uSpecS[5];
     float y=A*sin(x*.2+zw*.11)*cos(zw*.21-x*.07)+A*.55*sin(x*.42-zw*.33+1.7)+A2*sin(x*.85+zw*.7)*cos(zw*.5);
     return vec4(x,y-4.,z,smoothstep(0.,.14,v)*smoothstep(1.,.93,v)); }
   if(id<4.5){           // a sheet that comes down as a wall and runs out as a floor
     float v=fract(aG.y+T*.022), x=(aG.x-.5)*46., z=(v-.5)*64.-14.;
-    float y=11./(1.+exp(.5*(x+3.)))+.016*x*z+(.3+.8*B)*sin(z*.35+x*.2+T*.7)-3.;
+    float y=11./(1.+exp(.5*(x+3.)))+.016*x*z+(.5+2.6*B)*sin(z*.35+x*.2+T*.7)+(.2+1.3*uSpecS[5])*sin(z*.8-x*.5+T)-3.;
     return vec4(x,y+(aR.z-.5)*.5,z,smoothstep(0.,.1,v)*smoothstep(1.,.92,v)); }
   // a sphere with a crater punched into it, slowly turning
   float ph=aR.x*TAU+T*.08, ct=aR.y*2.-1., st=sqrt(1.-ct*ct); vec3 dir=vec3(st*cos(ph),ct,st*sin(ph));
   vec3 cr=normalize(vec3(cos(T*.08-.9)*.8,.35,sin(T*.08-.9)*.8)); float ang=acos(clamp(dot(dir,cr),-1.,1.));
-  float R=9.5*(1.-.3*exp(-ang*ang*7.)*(1.+.4*B)+.035*sin(ang*26.-T*2.)*exp(-ang*1.6));
+  float R=9.5*(1.-.3*exp(-ang*ang*7.)*(1.+.9*B)+(.03+.09*B)*sin(ang*26.-T*2.)*exp(-ang*1.6));
   return vec4(dir*R,1.); }
 void main(){ int bi=int(floor(aR.w*11.99)); float L=uSpec[bi], Ls=uSpecS[bi]; vB=aR.w; vL=L;
   float m=smoothstep(aR.z*.55,aR.z*.55+.45,uPMix); m=m*m*(3.-2.*m);   // each point leaves at its own moment and eases into its place in the next structure
@@ -1922,7 +1922,7 @@ void main(){ vec2 q=gl_PointCoord-.5; float d=length(q); if(d>.5) discard; float
   gl_FragColor=vec4(col*a*vH,1.); }`}));
   m.frustumCulled=false; m.renderOrder=1000; m.visible=false; scene.add(m); return m; })();
 // where the camera sits and looks for each structure (x,y,z then look-at x,y,z), relative to the cloud's centre
-const PART_CAM=[[0,0,11,0,0,-30],[-1,0,-2,7,-1,-20],[0,0,11,0,0,-30],[0,7,27,0,-5,-8],[9,3,20,-4,3,-14],[8,3,13,-4,1,0]];
+const PART_CAM=[[0,0,11,0,0,-30],[-1,0,-2,7,-1,-20],[0,0,11,0,0,-30],[0,11,29,0,-5,-8],[9,3,20,-4,3,-14],[8,3,13,-4,1,0]];
 const ILL_N=12; let illBeat=0, illV=.6, illCur=0;
 // Scenes 0 to 5 are drawn patterns, 6 to 11 are particle structures. Drawn patterns dissolve into each other; particle structures
 // morph point by point; going between the two kinds, one fades out as the other fades in.
@@ -2842,7 +2842,7 @@ function frame(ms){
   const wormOn=riding&&world==='worm'; worm.visible=wormOn;
   if(wormOn){ U.uWormZ.value+=dt*1.2*(1.1+(nitro?3.6:1.2)*sb+pulse*1.2); U.uAsp.value=camera.aspect; U.uPtr.value.lerp(ptrV.set(ptrX,ptrY*2-1),Math.min(1,dt*1.6)); }
   const illOn=riding&&world==='ill'; ill.visible=illOn; part.visible=illOn&&(illCur>=6||U.uPShow.value>.01);
-  if(illOn){ illV+=((RM?.25:(.32+(nitro?1.5:.75)*sI+.25*sb))-illV)*Math.min(1,dt*1.1); U.uIllT.value+=dt*illV; U.uIllMix.value=Math.min(1,U.uIllMix.value+dt/(RM?.05:1.4));
+  if(illOn){ illV+=((RM?.25:(.45+(nitro?2.2:1.25)*sI+.4*sb))-illV)*Math.min(1,dt*1.1); U.uIllT.value+=dt*illV; U.uIllMix.value=Math.min(1,U.uIllMix.value+dt/(RM?.05:1.4));
     { const sp=U.uSpec.value, ss=U.uSpecS.value, ke=Math.min(1,dt*1.6); for(let i=0;i<12;i++) ss[i]+=(sp[i]-ss[i])*ke; U.uBassS.value+=(sb-U.uBassS.value)*Math.min(1,dt*1.1); }   // eased copies of the spectrum: surfaces move toward the music's level instead of snapping to it
     U.uPMix.value=Math.min(1,U.uPMix.value+dt/(RM?.05:2.6)); U.uPShow.value+=((illCur>=6?1:0)-U.uPShow.value)*Math.min(1,dt*2.2); part.position.set(0,0,-along);
     U.uTunW.value+=dt*330; if(pulse>.8&&U.uTunW.value>160) U.uTunW.value=0; U.uAsp.value=camera.aspect; U.uPtr.value.lerp(ptrV.set(ptrX,ptrY*2-1),Math.min(1,dt*1.6)); }
