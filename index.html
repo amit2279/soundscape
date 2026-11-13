@@ -501,7 +501,7 @@ h1 .hollow{display:block;color:transparent;-webkit-text-stroke:2px var(--text)}
   </aside>
   <div class="snapview" id="snapview" hidden><div class="plate snapbox"><img id="snapimg" alt="Snapshot of the current scene"><p>Right-click the picture, or press and hold it, to save it.</p><button class="btn" id="snapClose">Close</button></div></div>
   <div class="flashfx" id="flashfx"></div>
-  <div class="hint plate" id="hint"><kbd>Space</kbd>pause<kbd>1</kbd><kbd>2</kbd><kbd>3</kbd>cameras<kbd>4</kbd>planet<kbd>&uarr; &darr; &larr; &rarr;</kbd>or<kbd>W A S D</kbd>drive anywhere<kbd>Q</kbd><kbd>E</kbd>height<kbd>Shift</kbd>boost<kbd>[</kbd><kbd>]</kbd>skip 5 s<kbd>T</kbd>next world<kbd>G</kbd>next illusion<kbd>N</kbd>nitro<kbd>K</kbd>kaleidoscope<kbd>C</kbd>controls<kbd>P</kbd>snapshot<kbd>H</kbd>hide tools<kbd>?</kbd>shortcuts</div>
+  <div class="hint plate" id="hint"><kbd>Space</kbd>pause<kbd>1</kbd><kbd>2</kbd><kbd>3</kbd>cameras<kbd>4</kbd>planet<kbd>&uarr; &darr; &larr; &rarr;</kbd>or<kbd>W A S D</kbd>drive anywhere<kbd>Q</kbd><kbd>E</kbd>height<kbd>Shift</kbd>boost<kbd>[</kbd><kbd>]</kbd>skip 5 s<kbd>Scroll</kbd>zoom<kbd>0</kbd>reset zoom<kbd>T</kbd>next world<kbd>G</kbd>next illusion<kbd>N</kbd>nitro<kbd>K</kbd>kaleidoscope<kbd>C</kbd>controls<kbd>P</kbd>snapshot<kbd>H</kbd>hide tools<kbd>?</kbd>shortcuts</div>
 
   <div class="keypad" id="keypad" role="group" aria-label="Driving keys">
     <div class="kcol"><button class="key wide" data-k="shift" aria-label="Boost">Shift</button><span>Boost</span></div>
@@ -2670,7 +2670,7 @@ window.addEventListener('keydown',e=>{
   if(autoShuf&&k.length===1&&'1234tnk'.includes(k)) stopShuffle();
   if(k===' '){ e.preventDefault(); if(app.dataset.state==='landing'){ if(buffer) startRide(); } else $('#play').click(); }
   else if(k==='1') setMode('cruise'); else if(k==='2') setMode('surf'); else if(k==='3') setMode('skyline'); else if(k==='4') togglePlanet();
-  else if(k==='h') app.classList.toggle('nohud'); else if(k==='n') setNitro(!nitro); else if(k==='?'||k==='/') $('#hint').classList.toggle('on'); else if(k==='k') setKal(!kaleido); else if(k==='c') togglePanel(); else if(k==='p') snapshot(); else if(k==='t') setWorld(WORLDS[(WORLDS.indexOf(world)+1)%WORLDS.length]); else if(k==='f') toggleFs(); else if(k==='g'&&world==='ill') illNext();
+  else if(k==='h') app.classList.toggle('nohud'); else if(k==='n') setNitro(!nitro); else if(k==='?'||k==='/') $('#hint').classList.toggle('on'); else if(k==='k') setKal(!kaleido); else if(k==='c') togglePanel(); else if(k==='p') snapshot(); else if(k==='t') setWorld(WORLDS[(WORLDS.indexOf(world)+1)%WORLDS.length]); else if(k==='f') toggleFs(); else if(k==='g'&&world==='ill') illNext(); else if(k==='0') zoomT=1;
   else if(k===']'&&started) seek(now()+5); else if(k==='['&&started) seek(now()-5);
   // Driving keys never touch the music. The first press in City or Terrain takes the camera off its rail and hands it to you.
   if(k.startsWith('arrow')) e.preventDefault();
@@ -2774,8 +2774,9 @@ canvas.addEventListener('pointermove',e=>{ if(!orbit.drag) return; orbit.az-=(e.
 canvas.addEventListener('pointermove',e=>{ if(!orbit.drag||world!=='loom'||mode!=='surf') return; lookYaw=clamp(lookYaw+(e.movementX||0)*.005,-2.9,2.9); lookPitch=clamp(lookPitch-(e.movementY||0)*.004,-1.3,1.3); });
 canvas.addEventListener('click',()=>{ if(world==='ill'&&started) illNext(); });
 const endDrag=()=>{ orbit.drag=false; }; canvas.addEventListener('pointerup',endDrag); canvas.addEventListener('pointercancel',endDrag);
-canvas.addEventListener('wheel',e=>{ if(mode!=='planet'&&!ORBW[world]) return; e.preventDefault(); orbit.dist=clamp(orbit.dist*Math.exp(e.deltaY*.0012),PR*2.2,PR*10); },{passive:false});
-function setWorld(w){ world=w; fr.on=false; app.dataset.world=w; document.querySelectorAll('#worldSeg button[data-world]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.world===w))); fly.x=clamp(fly.x,-20,20); fly.vx=0; }
+let zoomT=1, zoomK=1, fovBase=60;   // scroll zoom for the ride cameras: 1 is normal, above 1 zooms in, below 1 widens the view
+canvas.addEventListener('wheel',e=>{ if(mode!=='planet'&&!ORBW[world]){ if(started&&(world==='city'||world==='terrain'||world==='abyss'||world==='loom')){ e.preventDefault(); zoomT=clamp(zoomT*Math.exp(-e.deltaY*(e.ctrlKey?.012:.0016)),.55,5); } return; } e.preventDefault(); orbit.dist=clamp(orbit.dist*Math.exp(e.deltaY*.0012),PR*2.2,PR*10); },{passive:false});
+function setWorld(w){ world=w; fr.on=false; zoomT=1; app.dataset.world=w; document.querySelectorAll('#worldSeg button[data-world]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.world===w))); fly.x=clamp(fly.x,-20,20); fly.vx=0; }
 // Height a flyer must clear over the strip of blocks under x (0 over a street), looking a little ahead.
 function stripH(x,along){
   const ax=Math.abs(x); if(ax<AV/2-2 || !blockH) return 0;
@@ -2963,7 +2964,9 @@ function frame(ms){
   const shake=(CAM_PULSE&&riding&&mode!=='skyline'&&mode!=='planet'&&!RM&&!kaleido)?pulse*.32*sb:0;
   camera.position.set(off.x, off.y+shake, -base+off.z);
   lookAt.set(lk.x, lk.y, -base+lk.z); camera.up.copy(camUp); camera.lookAt(lookAt); camera.rotateZ(roll);
-  const fov=fovOver||((riding&&mode!=='skyline'&&mode!=='planet')?60+((RM||kaleido||!CAM_PULSE)?0:sb*7+sI*6+pulse*1.5+(mode==='cruise'?diveT*2.6:0)):52); if(Math.abs(camera.fov-fov)>.05){ camera.fov+=(fov-camera.fov)*Math.min(1,dt*6); camera.updateProjectionMatrix(); }
+  const fov=fovOver||((riding&&mode!=='skyline'&&mode!=='planet')?60+((RM||kaleido||!CAM_PULSE)?0:sb*7+sI*6+pulse*1.5+(mode==='cruise'?diveT*2.6:0)):52); { const zOn=riding&&mode!=='planet'&&(world==='city'||world==='terrain'||world==='abyss'||world==='loom'); zoomK+=((zOn?zoomT:1)-zoomK)*Math.min(1,dt*5);   // eased, like every camera move
+    fovBase+=(fov-fovBase)*Math.min(1,dt*6); const fz=2*Math.atan(Math.tan(fovBase*Math.PI/360)/zoomK)*180/Math.PI;
+    if(Math.abs(camera.fov-fz)>.01){ camera.fov=fz; camera.updateProjectionMatrix(); } }
   sky.position.copy(camera.position);
   if(aby){ const v=diverV.set(ptrX,ptrY*2-1,.5).unproject(camera).sub(camera.position).normalize();
     const ox=camera.position.x, oz=camera.position.z+along, dd=v.x*v.x+v.z*v.z;
