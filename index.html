@@ -440,7 +440,7 @@ h1 .hollow{display:block;color:transparent;-webkit-text-stroke:2px var(--text)}
         <button data-world="terrain" aria-pressed="false" title="A particle landscape that the music sculpts as it plays (T switches)">Terrain</button>
         <button data-world="abyss" aria-pressed="false" title="Under the sea: a fish school shaped by the music. Drag to look around (T switches)">Abyss</button>
         <button data-world="worm" aria-pressed="false" title="An endless tunnel of shifting patterns. Move the mouse to lean (T switches)">Wormhole</button>
-        <button data-world="tun" aria-pressed="false" title="A winding road tunnel made of dots, with six wall patterns that change as you drive. Click the picture or press G for the next pattern (T switches)">Tunnel</button>
+        <button data-world="tun" aria-pressed="false" title="A winding road tunnel made of dots, with five wall patterns that change as you drive. Click the picture or press G for the next pattern (T switches)">Tunnel</button>
         <button data-world="ill" aria-pressed="false" title="Black-and-white optical illusions that pour, spin and ripple with the music. It stays on one until you click the picture or press G (T switches)">Illusions</button>
         <button data-world="coast" aria-pressed="false" title="A roller coaster in the void, laid out from the song: lift hills on build-ups, real drops on the drops, loops and barrel rolls. Move the mouse to look around (T switches)">Coaster</button>
         <button data-world="loom" aria-pressed="false" title="Ribbons knotted through each other, one frequency band each. Drag to look around (T switches)">Loom</button>
@@ -2894,7 +2894,7 @@ function coastCam(){ const C=COAST; camera.position.copy(C.pos).addScaledVector(
 
 /* ================= frame loop ================= */
 let tunV=24, tunDv=0, tunDt=0, tunDir=1, tunBeat=0;
-function tunNext(){ U.uTunA.value=U.uTunB.value; U.uTunB.value=(U.uTunB.value+1)%6; U.uTunF.value=760; }   // the next wall pattern starts at the far end and comes toward you
+function tunNext(){ U.uTunA.value=U.uTunB.value; U.uTunB.value=(U.uTunB.value+1)%5;   /* style 5 (rings crossed with rays) is switched off; its code stays in wall() */ U.uTunF.value=760; }   // the next wall pattern starts at the far end and comes toward you
 const attract={a:0,y:110}; let skyY=380, nitro=false, flash=0, party=0, diveT=0, search=0;
 const camUp=new THREE.Vector3(0,1,0), lkF=new THREE.Vector3(), lkR=new THREE.Vector3(), lkU=new THREE.Vector3(); let fovOver=0, lookYaw=0, lookPitch=0, loomIn=false;
 const diverV=new THREE.Vector3(), diverT=new THREE.Vector3(), ptrV=new THREE.Vector2();
