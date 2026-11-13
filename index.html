@@ -442,6 +442,7 @@ h1 .hollow{display:block;color:transparent;-webkit-text-stroke:2px var(--text)}
         <button data-world="worm" aria-pressed="false" title="An endless tunnel of shifting patterns. Move the mouse to lean (T switches)">Wormhole</button>
         <button data-world="tun" aria-pressed="false" title="A winding road tunnel made of dots, with six wall patterns that change as you drive. Click the picture or press G for the next pattern (T switches)">Tunnel</button>
         <button data-world="ill" aria-pressed="false" title="Black-and-white optical illusions that pour, spin and ripple with the music. It stays on one until you click the picture or press G (T switches)">Illusions</button>
+        <button data-world="coast" aria-pressed="false" title="A roller coaster in the void, laid out from the song: lift hills on build-ups, real drops on the drops, loops and barrel rolls. Move the mouse to look around (T switches)">Coaster</button>
         <button data-world="loom" aria-pressed="false" title="Ribbons knotted through each other, one frequency band each. Drag to look around (T switches)">Loom</button>
         <button data-world="mandala" aria-pressed="false" title="A stepped well of decorated rings, different for every song. Drag to look around, Fly looks straight down (T switches)">Mandala</button>
       </div>
@@ -667,7 +668,7 @@ const U = {
   uGrowC:{value:new THREE.Vector3()}, uFogD:{value:1/2100}, uLen:{value:1}, uRows:{value:1},
   uSkyTop:{value:C('#000')}, uSkyMid:{value:C('#000')}, uHorizon:{value:C('#000')}, uFog:{value:C('#000')},
   uA:{value:C('#000')}, uB:{value:C('#000')}, uWarm:{value:C('#000')}, uCool:{value:C('#000')}, uFacade:{value:C('#000')},
-  uData:{value:null}, uBlocks:{value:null}, uPx:{value:1}, uSpec:{value:new Float32Array(12)}, uNitro:{value:1}, uFlash:{value:0}, uSearch:{value:0}, uNeon:{value:0}, uDay:{value:0}, uHeight:{value:null}, uTBase:{value:0}, uTStep:{value:3}, uPlanet:{value:0}, uPC:{value:0}, uAmp:{value:1}, uPSize:{value:1}, uAtmo:{value:1}, uShowP:{value:1}, uAbyss:{value:0}, uBall:{value:0}, uSwim:{value:0}, uVoid:{value:0}, uWormZ:{value:0}, uTunZ:{value:0}, uTunW:{value:999}, uTunD:{value:0}, uTunA:{value:0}, uTunB:{value:0}, uTunF:{value:-99}, uIllA:{value:0}, uIllB:{value:0}, uIllMix:{value:1}, uIllT:{value:0}, uIllFade:{value:1}, uPA:{value:0}, uPB:{value:0}, uPMix:{value:1}, uPShow:{value:0}, uSpecS:{value:new Float32Array(12)}, uBassS:{value:0}, uAsp:{value:1}, uPtr:{value:new THREE.Vector2()}, uDiver:{value:new THREE.Vector3(0,9999,0)}, uRay:{value:new THREE.Vector3(0,1,0)}, uCtr:{value:new THREE.Vector3()}, uSpecTex:{value:null},
+  uData:{value:null}, uBlocks:{value:null}, uPx:{value:1}, uSpec:{value:new Float32Array(12)}, uNitro:{value:1}, uFlash:{value:0}, uSearch:{value:0}, uNeon:{value:0}, uDay:{value:0}, uHeight:{value:null}, uTBase:{value:0}, uTStep:{value:3}, uPlanet:{value:0}, uPC:{value:0}, uAmp:{value:1}, uPSize:{value:1}, uAtmo:{value:1}, uShowP:{value:1}, uAbyss:{value:0}, uBall:{value:0}, uSwim:{value:0}, uVoid:{value:0}, uWormZ:{value:0}, uCNow:{value:0}, uTunZ:{value:0}, uTunW:{value:999}, uTunD:{value:0}, uTunA:{value:0}, uTunB:{value:0}, uTunF:{value:-99}, uIllA:{value:0}, uIllB:{value:0}, uIllMix:{value:1}, uIllT:{value:0}, uIllFade:{value:1}, uPA:{value:0}, uPB:{value:0}, uPMix:{value:1}, uPShow:{value:0}, uSpecS:{value:new Float32Array(12)}, uBassS:{value:0}, uAsp:{value:1}, uPtr:{value:new THREE.Vector2()}, uDiver:{value:new THREE.Vector3(0,9999,0)}, uRay:{value:new THREE.Vector3(0,1,0)}, uCtr:{value:new THREE.Vector3()}, uSpecTex:{value:null},
   uBPos:{value:Array.from({length:10},()=>new THREE.Vector3())}, uBT:{value:new Float32Array(10).fill(-99)}
 };
 const specData=new Uint8Array(48), specTex=new THREE.DataTexture(specData,12,1,THREE.RGBAFormat); specTex.magFilter=specTex.minFilter=THREE.LinearFilter; specTex.needsUpdate=true; U.uSpecTex.value=specTex;
@@ -2794,6 +2795,103 @@ async function loadFile(file){
   }
 }
 
+/* ================= Coaster: a roller coaster in the void =================
+   The whole ride is laid out from the song before it plays, one sample per 1/60 s, so where you are is always exactly where the music is.
+   Build-ups are lift hills, every drop in the song is a real drop, some are followed by a loop, hard accents are barrel rolls, and the
+   track wanders left and right with the energy. Speed has weight: it builds downhill and bleeds away uphill. Beats put gates of nested
+   outlines on the track, drops put a whole tunnel of them; shards and solids float in the space around. Look around with the mouse. */
+const COAST={A:null,grp:new THREE.Group(),N:0,px:null,py:null,pz:null,yaw:null,pit:null,rol:null,vel:null,pos:new THREE.Vector3(),d:new THREE.Vector3(),u:new THREE.Vector3(),r:new THREE.Vector3(),look:new THREE.Vector3(),ly:0,lp:0,on:false};
+COAST.grp.visible=false; scene.add(COAST.grp);
+const coastRailMat=new THREE.ShaderMaterial({uniforms:U,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide,
+  vertexShader:`attribute float aT; attribute float aK; varying float vT,vK; varying vec3 vW; void main(){ vT=aT; vK=aK; vec4 w=modelMatrix*vec4(position,1.); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }`,
+  fragmentShader:`precision highp float; uniform float uTime,uCNow,uPulse; uniform vec3 uCam,uA,uB,uBands; varying float vT,vK; varying vec3 vW;
+void main(){ float dist=length(vW-uCam), dt=vT-uCNow;
+  vec3 c=mix(vec3(1.),uB,.3+.3*step(1.5,vK));
+  float run=pow(.5+.5*sin(dt*7.-uTime*5.),10.)*(.3+1.6*uBands.x);                       // light running along the rails with the bass
+  float b=(.55+.5*uPulse+run)*(vK<1.5?1.25:.7)*exp(-dist*.0035)*(.35+.65*exp(-abs(dt)*.05));
+  gl_FragColor=vec4(c*b,1.); }`});
+const coastObjMat=new THREE.ShaderMaterial({uniforms:U,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide,extensions:{derivatives:true},
+  vertexShader:`attribute vec4 aI; uniform float uTime,uCNow,uPulse; uniform float uSpec[12]; varying vec3 vW; varying float vHue,vL,vNear,vM,vVis;
+mat3 rot(vec3 ax,float a){ float c=cos(a), s=sin(a), o=1.-c; return mat3(o*ax.x*ax.x+c,o*ax.x*ax.y+ax.z*s,o*ax.z*ax.x-ax.y*s, o*ax.x*ax.y-ax.z*s,o*ax.y*ax.y+c,o*ax.y*ax.z+ax.x*s, o*ax.z*ax.x+ax.y*s,o*ax.y*ax.z-ax.x*s,o*ax.z*ax.z+c); }
+void main(){ float T=aI.x, sd=aI.z, M=aI.w; int bi=int(floor(fract(sd*7.31)*11.99)); float L=uSpec[bi]; vL=L; vHue=aI.y; vM=M;
+  float dt=T-uCNow; vNear=exp(-dt*dt*3.); vVis=smoothstep(26.,18.,abs(dt));
+  vec3 p=position;
+  if(M<.5){ float a=uTime*(sd-.5)*1.4+L*.8; p.xy=mat2(cos(a),-sin(a),sin(a),cos(a))*p.xy; p*=1.+.12*L+.25*vNear; }        // gate: spins in its own plane, swells as you go through
+  else if(M<2.5){ vec3 ax=normalize(vec3(sd-.5,fract(sd*3.7)-.5,fract(sd*9.1)-.5)+.001); p=rot(ax,uTime*(.3+fract(sd*5.3))+sd*40.)*p*(1.+.35*L); }   // shards and solids tumble
+  vec4 w=modelMatrix*instanceMatrix*vec4(p,1.); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; if(vVis<.001) gl_Position=vec4(2.,2.,2.,1.); }`,
+  fragmentShader:`precision highp float; uniform float uTime,uPulse,uNeon; uniform vec3 uCam,uA,uB,uBands; varying vec3 vW; varying float vHue,vL,vNear,vM,vVis;
+${GLSL_COMMON}
+void main(){ float dist=length(vW-uCam); vec3 c=pal(vHue+uTime*.03);
+  float b;
+  if(vM<.5) b=.55+1.6*vL+2.2*vNear+.5*uPulse;                                             // gates flash as you pass
+  else if(vM<1.5) b=.28+1.5*vL*vL;                                                         // shards
+  else if(vM<2.5){ vec3 n=normalize(cross(dFdx(vW),dFdy(vW))); float f=abs(dot(n,normalize(uCam-vW))); b=(.1+.9*pow(1.-f,2.)+.35*f)*(.4+1.6*vL); c=mix(c,pal(vHue+.4+f*.5),.5); }   // solids: glowing edges, faceted
+  else { c=mix(vec3(1.,.2,.9),uA,.3); b=.3+.8*uPulse+2.*exp(-pow((vHue)*1.,2.)); }        // ties
+  gl_FragColor=vec4(c*b*exp(-dist*.0042)*vVis,1.); }`});
+const coastTieMat=new THREE.ShaderMaterial({uniforms:U,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,
+  vertexShader:`attribute float aT; uniform float uCNow; varying float vD; varying vec3 vW; void main(){ vD=aT-uCNow; vec4 w=modelMatrix*instanceMatrix*vec4(position,1.); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; if(abs(vD)>40.) gl_Position=vec4(2.,2.,2.,1.); }`,
+  fragmentShader:`precision highp float; uniform float uTime,uPulse; uniform vec3 uCam,uA,uBands; varying float vD; varying vec3 vW;
+void main(){ float dist=length(vW-uCam); vec3 c=mix(vec3(1.,.15,.95),uA,.25);
+  float chase=pow(.5+.5*sin(vD*9.-uTime*6.),6.)*(.4+1.4*uBands.y);                         // a chase of light down the ties with the mids
+  gl_FragColor=vec4(c*(.3+.6*uPulse+chase)*exp(-dist*.006),1.); }`});
+function coastFrame(tt,pos,d,u,r){ const C=COAST, f=clamp(tt*60,0,C.N-1.001), i=f|0, k=f-i, L=(a)=>a[i]+(a[i+1]-a[i])*k;
+  const ya=L(C.yaw), pi=L(C.pit), ro=L(C.rol), sy=Math.sin(ya), cy=Math.cos(ya), sp=Math.sin(pi), cp=Math.cos(pi);
+  pos.set(L(C.px),L(C.py),L(C.pz)); d.set(sy*cp,sp,-cy*cp); u.set(-sy*sp,cp,cy*sp); r.crossVectors(d,u);
+  const cr=Math.cos(ro), sr=Math.sin(ro), ux=u.x*cr+r.x*sr, uy=u.y*cr+r.y*sr, uz=u.z*cr+r.z*sr; r.set(r.x*cr-u.x*sr,r.y*cr-u.y*sr,r.z*cr-u.z*sr); u.set(ux,uy,uz); return L(C.vel); }
+function coastPlan(){
+  const C=COAST; C.A=A; while(C.grp.children.length){ const m=C.grp.children.pop(); m.geometry.dispose(); }
+  let sd=(A.F*2654435761)>>>0; const rnd=()=>((sd=(sd*1664525+1013904223)>>>0)/4294967296);
+  const nz=[]; for(let i=0;i<4096;i++) nz.push(rnd()); const noise=(x,o)=>{ const i=Math.floor(x), f=x-i, s=f*f*(3-2*f); return nz[(i+o)&4095]*(1-s)+nz[(i+1+o)&4095]*s; };
+  const dead=(v,a)=>Math.sign(v)*Math.max(0,Math.abs(v)-a)/(1-a), sst=(a,b,x)=>{ const t=clamp((x-a)/(b-a),0,1); return t*t*(3-2*t); };
+  const at=(arr,tt)=>arr[Math.min(arr.length-1,Math.max(0,Math.floor(tt*A.fps)))];
+  const N=C.N=Math.ceil(A.dur*60)+2, h=1/60; for(const k of ['px','py','pz','yaw','pit','rol','vel']) C[k]=new Float32Array(N);
+  const drops=A.drops.filter(td=>td>8&&td<A.dur-6), loops=drops.filter((_,i)=>i%2===0).map(td=>td+3.4);
+  const rolls=[]; { let last=-99; for(const b of A.beats){ if(b.s>.7&&at(A.inten,b.t)>.5&&b.t-last>9&&!drops.some(td=>b.t>td-7&&b.t<td+8)){ rolls.push(b.t); last=b.t; } } }
+  let x=0,y=0,z=0,yaw=0,yr=0,pb=0,v=40,es=.3,bank=0;
+  for(let i=0;i<N;i++){ const t=i*h; es+=(at(A.inten,t)-es)*h*1.2;
+    let pt=dead(noise(t*.11,0)*2-1,.25)*.55*(.5+es), vt=30+78*es, yt=dead(noise(t*.16,900)*2-1,.3)*1.25*(.35+es);
+    for(const td of drops){ if(t>td-6.5&&t<=td-.45){ pt=.62*sst(td-6.5,td-4.5,t); vt=20; yt*=.25; }            // lift hill: slow, steep, almost straight
+      else if(t>td-.45&&t<td+2.1){ pt=-1.22; vt=150; yt*=.3; } else if(t>=td+2.1&&t<td+3.3){ pt=.12; } }       // the drop, then the pull-out
+    let la=0, ra=0; for(const tl of loops){ if(t>tl-.2&&t<tl+3.6){ yt=0; vt=Math.max(vt,95); } la+=2*Math.PI*sst(tl,tl+3.4,t); }   // a vertical loop: pitch turns one full circle
+    for(const tr of rolls) ra+=2*Math.PI*sst(tr,tr+1.7,t)*(Math.floor(tr*7)%2?1:-1);                         // a barrel roll on a hard accent
+    pb+=(pt-pb)*h*(pt<-1?4.2:1.5); yr+=(yt-yr)*h*1.3; yaw+=yr*h;
+    v+=(-46*Math.sin(pb)+(vt-v)*.55)*h; v=clamp(v,13,185);
+    bank+=(clamp(yr*v*.014,-1.15,1.15)-bank)*h*2.5;
+    const pit=pb+la, cp=Math.cos(pit); x+=Math.sin(yaw)*cp*v*h; y+=Math.sin(pit)*v*h; z+=-Math.cos(yaw)*cp*v*h;
+    C.px[i]=x; C.py[i]=y; C.pz[i]=z; C.yaw[i]=yaw; C.pit[i]=pit; C.rol[i]=bank+ra; C.vel[i]=v; }
+  // rails: five ribbons
+  const P=new THREE.Vector3(), D=new THREE.Vector3(), Uu=new THREE.Vector3(), R=new THREE.Vector3();
+  { const RL=[[-1.5,0,.075,0],[1.5,0,.075,1],[-.75,-.28,.035,2],[0,-.34,.035,3],[.75,-.28,.035,4]], n=N-1, pos=new Float32Array(n*5*2*3), aT=new Float32Array(n*5*2), aK=new Float32Array(n*5*2), idx=new Uint32Array((n-1)*5*6); let ii=0;
+    for(let i=0;i<n;i++){ coastFrame(i*h,P,D,Uu,R); for(let k=0;k<5;k++){ const [ox,oy,hw,id]=RL[k], o=(k*n+i)*2;
+        for(let s=0;s<2;s++){ const w=ox+(s?hw:-hw); pos[(o+s)*3]=P.x+R.x*w+Uu.x*oy; pos[(o+s)*3+1]=P.y+R.y*w+Uu.y*oy; pos[(o+s)*3+2]=P.z+R.z*w+Uu.z*oy; aT[o+s]=i*h; aK[o+s]=id; }
+        if(i<n-1){ idx[ii++]=o; idx[ii++]=o+1; idx[ii++]=o+2; idx[ii++]=o+1; idx[ii++]=o+3; idx[ii++]=o+2; } } }
+    const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3)); g.setAttribute('aT',new THREE.BufferAttribute(aT,1)); g.setAttribute('aK',new THREE.BufferAttribute(aK,1)); g.setIndex(new THREE.BufferAttribute(idx,1));
+    const m=new THREE.Mesh(g,coastRailMat); m.frustumCulled=false; C.grp.add(m); }
+  const M4=new THREE.Matrix4(), S=new THREE.Vector3(), Q=new THREE.Vector3();
+  const inst=(geo,mat,list,attr)=>{ if(!list.length) return; const m=new THREE.InstancedMesh(geo,mat,list.length), a=new Float32Array(list.length*(attr==='aT'?1:4));
+    list.forEach((e,i)=>{ m.setMatrixAt(i,e.m); if(attr==='aT') a[i]=e.t; else a.set(e.a,i*4); }); geo.setAttribute(attr,new THREE.InstancedBufferAttribute(a,attr==='aT'?1:4)); m.frustumCulled=false; C.grp.add(m); };
+  const place=(tt,ox,oy,oz,sc)=>{ coastFrame(tt,P,D,Uu,R); Q.copy(P).addScaledVector(R,ox).addScaledVector(Uu,oy).addScaledVector(D,oz); return new THREE.Matrix4().makeBasis(R,Uu,D).scale(S.set(sc,sc,sc)).setPosition(Q); };
+  // ties, one every few metres
+  { const ties=[]; let acc=0; for(let i=1;i<N-1;i++){ acc+=C.vel[i]*h; if(acc>4.2){ acc=0; ties.push({m:place(i*h,0,-.42,0,1),t:i*h}); } } inst(new THREE.BoxGeometry(3.5,.1,.42),coastTieMat,ties,'aT'); }
+  // gates on the beats, tunnels of gates on the drops
+  const G=[[],[],[],[]], addGate=(tt,shape,hue,r0,nest)=>{ for(let k=0;k<nest;k++) G[shape].push({m:place(tt,0,1.2,0,r0*(1+k*.3)),a:[tt,hue+k*.03,rnd(),0]}); };
+  { let last=-9, n=0; for(const b of A.beats){ if(b.t<2||b.t>A.dur-1.5||b.t-last<.72||b.s<.3) continue; last=b.t; if(drops.some(td=>b.t>td-.3&&b.t<td+4.6)) continue; addGate(b.t,(n++*7+((b.t/11)|0))%4,rnd(),6.5+5*b.s,b.s>.7?5:3); }
+    for(const td of drops){ const sh=(rnd()*4)|0, h0=rnd(); for(let k=0;k<34;k++) addGate(td-.2+k*.13,(sh+((k/9)|0))%4,h0+k*.022,7+1.5*Math.sin(k*.7),1); } }
+  [3,4,6,56].forEach((seg,i)=>inst(new THREE.RingGeometry(.93,1,seg,1),coastObjMat,G[i],'aI'));
+  // shards drifting in the space around the track, and faceted solids near the accents
+  { const sh=[[],[]]; for(let i=0;i<1500;i++){ const tt=rnd()*A.dur, a=rnd()*6.283, rad=13+rnd()*rnd()*95; const m=place(tt,Math.cos(a)*rad,Math.sin(a)*rad,(rnd()-.5)*30,1.5+rnd()*rnd()*9); sh[i&1].push({m,a:[tt,rnd(),rnd(),1]}); }
+    inst(new THREE.CircleGeometry(1,3),coastObjMat,sh[0],'aI'); inst(new THREE.CircleGeometry(1,4),coastObjMat,sh[1],'aI');
+    const so=[[],[],[]]; let last=-9; for(const b of A.beats){ if(b.s<.5||b.t-last<1.4) continue; last=b.t; for(let k=0;k<2;k++){ const a=rnd()*6.283, rad=11+rnd()*26; so[(rnd()*3)|0].push({m:place(b.t+rnd()*.6,Math.cos(a)*rad,Math.sin(a)*rad,0,2.5+rnd()*5.5),a:[b.t,rnd(),rnd(),2]}); } }
+    inst(new THREE.IcosahedronGeometry(1,0),coastObjMat,so[0],'aI'); inst(new THREE.OctahedronGeometry(1,0),coastObjMat,so[1],'aI'); inst(new THREE.TorusKnotGeometry(.7,.22,48,5).toNonIndexed(),coastObjMat,so[2],'aI'); }
+}
+function coastStep(dt,t,on){ const C=COAST; C.on=on; C.grp.visible=on; if(!on) return; if(C.A!==A) coastPlan();
+  U.uCNow.value=t; const v=coastFrame(t,C.pos,C.d,C.u,C.r);
+  C.ly+=(ptrX*1.9-C.ly)*Math.min(1,dt*3.5); C.lp+=((ptrY-.42)*1.5-C.lp)*Math.min(1,dt*3.5);   // look around: eased, up to about 110 degrees each side
+  const cy=Math.cos(C.ly), sy=Math.sin(C.ly), cp=Math.cos(C.lp), sp=Math.sin(C.lp);
+  C.look.copy(C.d).multiplyScalar(cy*cp).addScaledVector(C.r,sy*cp).addScaledVector(C.u,sp);
+  fovOver=76+24*Math.min(1,v/170); }
+function coastCam(){ const C=COAST; camera.position.copy(C.pos).addScaledVector(C.u,1.55); camera.up.copy(C.u); lookAt.copy(camera.position).add(C.look); camera.lookAt(lookAt); U.uCam.value.copy(camera.position); }
+
 /* ================= frame loop ================= */
 let tunV=24, tunDv=0, tunDt=0, tunDir=1, tunBeat=0;
 function tunNext(){ U.uTunA.value=U.uTunB.value; U.uTunB.value=(U.uTunB.value+1)%6; U.uTunF.value=760; }   // the next wall pattern starts at the far end and comes toward you
@@ -2801,7 +2899,7 @@ const attract={a:0,y:110}; let skyY=380, nitro=false, flash=0, party=0, diveT=0,
 const camUp=new THREE.Vector3(0,1,0), lkF=new THREE.Vector3(), lkR=new THREE.Vector3(), lkU=new THREE.Vector3(); let fovOver=0, lookYaw=0, lookPitch=0, loomIn=false;
 const diverV=new THREE.Vector3(), diverT=new THREE.Vector3(), ptrV=new THREE.Vector2();
 const fly={x:0,y:30,vx:0}, TRAIL=400; let world='city';
-const ORBW={abyss:1,loom:1,temple:1,mandala:1}, WORLDS=['city','terrain','abyss','worm','tun','ill','loom'];   // 'temple' and 'mandala' are built but hidden; add them back here and remove the CSS rule to restore them
+const ORBW={abyss:1,loom:1,temple:1,mandala:1}, WORLDS=['city','terrain','abyss','worm','tun','ill','coast','loom'];   // 'temple' and 'mandala' are built but hidden; add them back here and remove the CSS rule to restore them
 const orbit={az:.6,el:.5,dist:PR*3.9,drag:false,lx:0,ly:0,idle:0};
 canvas.addEventListener('pointerdown',e=>{ if(mode!=='planet'&&!ORBW[world]) return; orbit.drag=true; orbit.lx=e.clientX; orbit.ly=e.clientY; try{canvas.setPointerCapture(e.pointerId)}catch(_){} });
 canvas.addEventListener('pointermove',e=>{ if(!orbit.drag) return; orbit.az-=(e.clientX-orbit.lx)*.006; orbit.el=clamp(orbit.el+(e.clientY-orbit.ly)*.005,-1.35,1.45); orbit.lx=e.clientX; orbit.ly=e.clientY; orbit.idle=0; });
@@ -2869,11 +2967,11 @@ function frame(ms){
   if(growT<1){ growT=Math.min(1,growT+Math.min(.25,Math.max(0,dtRaw))/3.2); U.uGrow.value=RM?1:growT; }
   // camera
   camUp.set(0,1,0); fovOver=0; loomIn=false;
-  const terr=riding&&world==='terrain', absOn=riding&&world==='abyss', loomOn=riding&&world==='loom', tempOn=riding&&world==='temple', mandOn=riding&&world==='mandala', aby=absOn||loomOn||tempOn||mandOn;
+  const terr=riding&&world==='terrain', absOn=riding&&world==='abyss', loomOn=riding&&world==='loom', tempOn=riding&&world==='temple', mandOn=riding&&world==='mandala', coastOn=riding&&world==='coast', aby=absOn||loomOn||tempOn||mandOn||coastOn;
   mandala.visible=mandOn;
-  for(const o of abyssObjs) o.visible=absOn; loom.visible=loomOn; if(loomOn&&!RM) loomStep(dt,sb);
+  for(const o of abyssObjs) o.visible=absOn; loom.visible=loomOn; if(loomOn&&!RM) loomStep(dt,sb); coastStep(dt,t,coastOn);
   for(const o of templeObjs){ o.visible=tempOn; if(tempOn){ o.position.set(0,170,-along); if(!RM) o.rotateOnAxis(o.userData.ax,dt*o.userData.dir*(.05+.5*U.uSpec.value[o.userData.band]*(nitro?1:.3))); } }
-  U.uVoid.value+=(((loomOn||tempOn||mandOn)?1:0)-U.uVoid.value)*Math.min(1,dt*6);
+  U.uVoid.value+=(((loomOn||tempOn||mandOn||coastOn)?1:0)-U.uVoid.value)*Math.min(1,dt*6);
   U.uCtr.value.set(0,0,-along); U.uSwim.value+=dt*.2;
   U.uBall.value+=((mode==='planet'?1:0)-U.uBall.value)*Math.min(1,dt*2.5); U.uAbyss.value+=((absOn?1:0)-U.uAbyss.value)*Math.min(1,dt*6);
   sparks.visible=!terr&&!aby;
@@ -2890,7 +2988,7 @@ function frame(ms){
     // Drift cycle: the dots sit still on the walls for a while, then slide slowly round them, ease to a stop, and next time go the other way.
     if(playing&&!RM){ tunDt+=dt; if(tunDt>40){ tunDt=0; tunDir=-tunDir; } } tunDv+=((tunDt>18&&tunDt<37?tunDir*(.2+.12*sI):0)-tunDv)*Math.min(1,dt*.45); U.uTunD.value+=dt*tunDv;   // speed eases toward the song's overall energy: no lurching on single beats U.uTunW.value+=dt*330; if(pulse>.8&&U.uTunW.value>120) U.uTunW.value=0;   // each strong beat sends a ring of light down the tube
     U.uAsp.value=camera.aspect; U.uPtr.value.lerp(ptrV.set(ptrX,ptrY*2-1),Math.min(1,dt*1.6)); }
-  const planetOn=riding&&mode==='planet'&&!aby&&world!=='worm'&&world!=='tun'&&world!=='ill';
+  const planetOn=riding&&mode==='planet'&&!aby&&world!=='worm'&&world!=='tun'&&world!=='ill'&&world!=='coast';
   U.uPlanet.value+=((planetOn?1:0)-U.uPlanet.value)*Math.min(1,Math.min(.25,Math.max(0,dtRaw))*(RM?30:5.5)); if(planetOn&&U.uPlanet.value>.998) U.uPlanet.value=1; if(!planetOn&&U.uPlanet.value<.002) U.uPlanet.value=0;
   const pl=U.uPlanet.value; U.uPC.value=along;
   terrain.visible=terr; if(city) for(const m of city.meshes) m.visible=!terr&&!aby;
@@ -2997,7 +3095,7 @@ function frame(ms){
   const vx=dt>0?(off.x-px)/dt:0; roll+=((fr.on&&mode==='surf'?-fr.st*.42*Math.min(1,Math.abs(fr.v)/140):riding&&!aby&&mode!=='skyline'&&mode!=='planet'?clamp(-vx*.014,-.4,.4):0)-roll)*Math.min(1,dt*4);
   const shake=(CAM_PULSE&&riding&&mode!=='skyline'&&mode!=='planet'&&!RM&&!kaleido)?pulse*.32*sb:0;
   camera.position.set(off.x, off.y+shake, -base+off.z);
-  lookAt.set(lk.x, lk.y, -base+lk.z); camera.up.copy(camUp); camera.lookAt(lookAt); camera.rotateZ(roll);
+  lookAt.set(lk.x, lk.y, -base+lk.z); camera.up.copy(camUp); camera.lookAt(lookAt); camera.rotateZ(roll); if(COAST.on) coastCam();
   const fov=fovOver||((riding&&mode!=='skyline'&&mode!=='planet')?60+((RM||kaleido||!CAM_PULSE)?0:sb*7+sI*6+pulse*1.5+(mode==='cruise'?diveT*2.6:0)):52); { const zOn=riding&&mode!=='planet'&&(world==='city'||world==='terrain'||world==='abyss'||world==='loom'); zoomK+=((zOn?zoomT:1)-zoomK)*Math.min(1,dt*5);   // eased, like every camera move
     fovBase+=(fov-fovBase)*Math.min(1,dt*6); const fz=2*Math.atan(Math.tan(fovBase*Math.PI/360)/zoomK)*180/Math.PI;
     if(Math.abs(camera.fov-fz)>.01){ camera.fov=fz; camera.updateProjectionMatrix(); } }
