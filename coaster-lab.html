@@ -142,7 +142,7 @@ void main(){ vec3 n=normalize(cross(dFdx(vW),dFdy(vW))), V=normalize(uCam-vW); f
   vec3 col=c*(.12+.5*dif)+mix(c,c2,.5)*pow(1.-f,2.)*1.3+c*(vM<.5?(.22+.8*vNear+1.5*uBeat+.5*uBass)*smoothstep(1.,7.,dist)*.8+.05:(.12+.9*uBass+.6*uBeat));   // a gate dims as it reaches your face, so it does not flood the picture  // lit faces, glowing edges; gates flare as you pass through
   gl_FragColor=vec4(col*exp(-dist*.005),1.); }`});
 const ADD={transparent:true,depthWrite:false,blending:THREE.AdditiveBlending};
-function tunMat(st){ return new THREE.ShaderMaterial({side:THREE.DoubleSide,uniforms:Object.assign({uSt:{value:st},uIn:{value:0}},U),   // opaque: the wall hides what is inside it and what is beyond it
+function tunMat(st){ return new THREE.ShaderMaterial({side:THREE.DoubleSide,transparent:true,depthWrite:false,uniforms:Object.assign({uSt:{value:st},uIn:{value:0}},U),   // smoked acrylic: 70% black, with the pattern projected on it
   vertexShader:`attribute vec2 aUV; attribute float aE; varying vec2 vUV; varying float vE; varying vec3 vW; void main(){ vUV=aUV; vE=aE; vW=position; gl_Position=projectionMatrix*viewMatrix*vec4(position,1.); }`,
   fragmentShader:`precision highp float; uniform float uSt,uIn,uTime,uBeat,uBass; uniform vec3 uCam; varying vec2 vUV; varying float vE; varying vec3 vW;
 ${PAL}
@@ -156,7 +156,8 @@ void main(){ float u=vUV.x, z=vUV.y, dist=length(vW-uCam); vec3 c;
     c=pal(h*5.+z*.004-uTime*.06)*step(.6,hash(id+9.))*(1.-smoothstep(r*.5,r,length(f)))*(.5+.5*sin(uTime*3.+h*60.)+1.5*uBeat*step(.5,h)); }
   vec3 lit=c*(.35+.9*uBeat+.45*uBass)*smoothstep(0.,.05,vE)*smoothstep(1.,.95,vE)*exp(-dist*.006);
   vec3 shell=vec3(.006,.005,.014)+pal(z*.01)*.022*step(.93,fract(z/5.));                                   // from outside: a dark tube with faint hoops, nothing given away
-  gl_FragColor=vec4(mix(shell,lit+vec3(.004,.003,.008),uIn),1.); }`}); }
+  vec3 col=mix(shell,lit+vec3(.004,.003,.008),uIn);
+  gl_FragColor=vec4(col,clamp(.7+max(col.r,max(col.g,col.b))*.9,.7,1.)); }`}); }   // dark wall lets 30% of what is behind it through; where the projection is bright the wall is solid colour
 const PT_FRAG=`precision highp float; varying vec3 vC; void main(){ float d=length(gl_PointCoord-.5); if(d>.5) discard; gl_FragColor=vec4(vC*(smoothstep(.5,.15,d)+.8*smoothstep(.2,0.,d)),1.); }`;
 const fieldMat=new THREE.ShaderMaterial(Object.assign({uniforms:U,
   vertexShader:`attribute float aS; uniform float uTime,uBeat,uBass,uPx; varying vec3 vC;
@@ -198,7 +199,7 @@ function buildWorld(R){ while(world.children.length){ const m=world.children.pop
   const series=(t0,n,gap,shape,hue,r0)=>{ const ph=rnd()*.98; for(let k=0;k<n;k++){ const tt=t0+k*gap; gates[shape].push({m:place(tt,0,.7,r0*(1+.035*k),4),a:[tt,hue+k*.045,k+ph,0]}); } };   // a run of gates, each one a beat behind the one before it
   for(const m of R.marks) series(m.td+.2,10,.26,((m.td*3)|0)%4,(m.td*.13)%1,3.3);                        // ten down each drop
   { const strong=A.beats.slice().sort((p,q)=>q.s-p.s).slice(0,Math.ceil(A.dur/7)).sort((p,q)=>p.t-q.t); let last=-9;
-    for(const b of strong){ if(b.t-last<4||b.t<3||R.marks.some(m=>b.t>m.td-10&&b.t<m.td+4)) continue; last=b.t; series(b.t,5,.11,(rnd()*4)|0,rnd(),3+.8*rnd()); } }
+    for(const b of strong){ if(b.t-last<4||b.t<3||R.marks.some(m=>b.t>m.td-10&&b.t<m.td+4)||stretches.some(ts=>b.t>ts-1.2&&b.t<ts+TUNLEN+1.2)) continue;   /* either a tunnel or shapes, never both */ last=b.t; series(b.t,5,.11,(rnd()*4)|0,rnd(),3+.8*rnd()); } }
   const clear=(m,need)=>{ const e=m.elements; for(let j=0;j<R.N;j+=8){ const dx=R.X[j]-e[12], dy=R.Y[j]-e[13], dz=R.Z[j]-e[14]; if(dx*dx+dy*dy+dz*dz<need*need) return false; } return true; };   // nothing may sit on or close to any part of the track
   for(let tt=4;tt<A.dur-2;tt+=4.5+rnd()*4){ if(stretches.some(ts=>tt>ts-1.5&&tt<ts+TUNLEN+1.5)) continue;   /* nothing floats where a tunnel is */ for(let tr=0;tr<6;tr++){ const a=rnd()*6.283, rad=8+rnd()*17, sc=2.2+rnd()*4.5, m=place(tt,Math.cos(a)*rad,Math.sin(a)*rad,sc); if(clear(m,sc+4.5)){ solids[(rnd()*4)|0].push({m,a:[tt,rnd(),rnd(),1]}); break; } } }
   const inst=(geo,list)=>{ if(!list.length) return; const m=add(new THREE.InstancedMesh(geo,objMat,list.length)), a=new Float32Array(list.length*4); list.forEach((e,i)=>{ m.setMatrixAt(i,e.m); a.set(e.a,i*4); }); geo.setAttribute('aI',new THREE.InstancedBufferAttribute(a,4)); };

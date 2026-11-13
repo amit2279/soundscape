@@ -169,6 +169,7 @@ All use `objMat` with per-instance `aI = (song time, hue, seed/phase, mode)`; in
 - Geometry: a tube of radius 6.5 m centred 0.6 m above the rails, one ring every 1.2 m, 28 segments. **The ring is built from the track frame with the roll removed**, so the wall does not bank with the train: when the train banks or corkscrews, the pattern turns round the rider. `aUV` = (angle 0..1, metres along), `aE` = 0..1 along the tunnel.
 - Material `tunMat(style)`: **opaque**, double-sided. Uniform `uIn` eases to 1 while song time is inside the tunnel (from 0.12 s before the mouth) and back to 0 after. Output is `mix(shell, pattern, uIn)`: from outside or before entry it is a near-black tube with faint hoops every 5 m; inside it shows the pattern. Because it is opaque it hides the stars, the far track and the gates beyond it.
 - Styles cycle 0 to 3: glowing motes, spiral bands, liquid contours, fine particle dust. All use whole-number repeats round the tube so there is no seam. Brightness follows beat and bass.
+- **Update:** the wall is now smoked acrylic, not opaque: `transparent`, `depthWrite:false`, alpha 0.7 where dark rising to 1 where the projected pattern is bright. And **no gates are placed inside a tunnel** (accent series skip tunnel stretches): the owner's rule is either a tunnel or shapes, never both.
 - The old open particle field (`fieldMat`) is no longer placed; its material is still defined.
 
 ### 9.7 Rider camera (in `frame`)
