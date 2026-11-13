@@ -177,7 +177,7 @@ All use `objMat` with per-instance `aI = (song time, hue, seed/phase, mode)`; in
 **Tunnel glow (owner's last tuning, he called the result perfect):** the music-driven part of the wall brightness was doubled: `lit = pattern·(0.35 + 1.8·uBeat + 0.9·uBass)`, mote halo `0.3 + 3.2·uBeat`, dust flash `3·uBeat`. `uBeat` is the strength of the latest beat times `exp(−7·age)`, so each flash starts decaying at once. He declined rebuilding the textures from particles.
 
 ### 9.6b Fireworks (re-enabled 2026-11-14, new rules)
-`FIREWORKS=true`. Chrysanthemum bursts beside the track, never on it: centre is 15 to 24 m to one side and 2 to 10 m up from where the train will be 1 s after the beat, exploding on the beat, so the rider passes it and leaves it behind while it decays (life 4.6 s). At least eight bars between events (beat period = median beat interval; gap = 32 beats). Sides alternate. Every third event is three bursts on three consecutive beats on alternating sides. None while in a tunnel. Demo: about five events in 95 s.
+`FIREWORKS=true`. Chrysanthemum bursts beside the track, never on it: centre is (after the owner asked for them closer) 4 to 9 m to one side and 7 to 11 m above where the train will be 1.3 s after the beat, exploding on the beat, so the rider passes it and leaves it behind while it decays (life 4.6 s). At least eight bars between events (beat period = median beat interval; gap = 32 beats). Sides alternate. Every third event is three bursts on three consecutive beats on alternating sides. None while in a tunnel. Demo: about five events in 95 s.
 
 **Connector colour:** connectors use `trackMat(..., hue=1)` and drift together slowly through the palette. In the main app, tie this to the theme colours (`uA`/`uB`) instead.
 

@@ -221,15 +221,15 @@ function buildWorld(R){ while(world.children.length){ const m=world.children.pop
   if(fieldS.length){ const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(Float32Array.from(fieldPos),3)); g.setAttribute('aS',new THREE.BufferAttribute(Float32Array.from(fieldS),1)); add(new THREE.Points(g,fieldMat)); }
   // ---- chrysanthemum fireworks: each bursts on a strong beat, a little way ahead on the track, so you fly through the open flower ----
   const bT=[], fc=[], fd=[], ft=[], fh=[];
-  const burst=(tb,scale,side)=>{ bT.push(tb); frameAt(R,idxAt(R,tb+1.),P,D,Uu,Rr); const lat=side*(15+rnd()*9), up=2+rnd()*8, cx=P.x+Rr.x*lat+Uu.x*up, cy=P.y+Rr.y*lat+Uu.y*up, cz=P.z+Rr.z*lat+Uu.z*up, hue=rnd();   // out to one side of where the train will be a second later
+  const burst=(tb,scale,side)=>{ bT.push(tb); frameAt(R,idxAt(R,tb+1.3),P,D,Uu,Rr); const lat=side*(4+rnd()*5), up=7+rnd()*4, cx=P.x+Rr.x*lat+Uu.x*up, cy=P.y+Rr.y*lat+Uu.y*up, cz=P.z+Rr.z*lat+Uu.z*up, hue=rnd();   // close: just above the track and a little to one side of where the train will be shortly, so you ride under the open flower
     for(let r=0;r<190;r++){ const c=rnd()*2-1, a=rnd()*6.283, sn=Math.sqrt(1-c*c), inner=r%4===0, sp=scale*(inner?.42:.85+.3*rnd());
       for(let l=0;l<4;l++){ fc.push(cx,cy,cz); fd.push(sn*Math.cos(a)*sp,c*sp,sn*Math.sin(a)*sp); ft.push(tb,l*.05); fh.push(inner?hue+.5:hue+(rnd()-.5)*.08); } } };   // every ray is four points, each a moment behind the last: a trail
   const FIREWORKS=true;
   if(FIREWORKS){ const dts=[]; for(let i=1;i<A.beats.length;i++){ const d=A.beats[i].t-A.beats[i-1].t; if(d>.28&&d<.8) dts.push(d); } dts.sort((a,b)=>a-b);
     const spb=dts.length?dts[dts.length>>1]:.5, gap=spb*32; let last=-gap*.6, n=0, sd2=1;                 // at least eight bars between events
-    for(const b of A.beats){ if(b.s<.45||b.t<4||b.t-last<gap||b.t>A.dur-5||stretches.some(ts=>b.t>ts-1.5&&b.t<ts+TUNLEN+.5)) continue; last=b.t; sd2=-sd2;
-      if(++n%3===0) for(let k=0;k<3;k++) burst(b.t+k*spb,12+3*k,k%2?-sd2:sd2);                             // now and then, three in a row on three beats, on alternate sides
-      else burst(b.t,13+5*b.s,sd2); } }
+    for(const b of A.beats){ if(b.s<.45||b.t<4||b.t-last<gap||b.t>A.dur-5||stretches.some(ts=>b.t+3.5>ts&&b.t<ts+TUNLEN+.5)) continue; last=b.t;   /* never fired where a tunnel would hide it: it waits for the next strong beat in the open */ sd2=-sd2;
+      if(++n%3===0) for(let k=0;k<3;k++) burst(b.t+k*spb,9+2*k,k%2?-sd2:sd2);                             // now and then, three in a row on three beats, on alternate sides
+      else burst(b.t,10+4*b.s,sd2); } }
   if(ft.length){ const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(Float32Array.from(fc),3)); g.setAttribute('aDir',new THREE.BufferAttribute(Float32Array.from(fd),3)); g.setAttribute('aT',new THREE.BufferAttribute(Float32Array.from(ft),2)); g.setAttribute('aH',new THREE.BufferAttribute(Float32Array.from(fh),1)); add(new THREE.Points(g,fireMat)); }
   R.fx={tunnels:tunT,bursts:bT.sort((a,b)=>a-b),fieldPoints:fieldS.length};
   R.objects={gates:gates.reduce((s,g)=>s+g.length,0),solids:solids.reduce((s,g)=>s+g.length,0)}; }
