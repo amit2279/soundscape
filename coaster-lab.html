@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Coaster lab</title>
+<style>
+html,body{margin:0;height:100%;background:#000;color:#e8ecf5;font:13px/1.4 ui-monospace,Menlo,Consolas,monospace;overflow:hidden}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+#bar{position:fixed;left:12px;right:12px;bottom:12px;display:flex;gap:10px;align-items:center;z-index:2;background:rgba(10,12,20,.6);border:1px solid rgba(255,255,255,.14);border-radius:14px;padding:8px 12px;backdrop-filter:blur(8px)}
+button,label.b{font:inherit;color:#fff;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:9px;padding:6px 12px;cursor:pointer;white-space:nowrap}
+button:hover,label.b:hover{background:rgba(255,255,255,.2)}
+#seek{flex:1;min-width:60px}
+#hud{position:fixed;left:14px;top:12px;z-index:2;text-shadow:0 1px 3px #000;white-space:pre;pointer-events:none}
+#msg{position:fixed;left:50%;top:45%;transform:translate(-50%,-50%);z-index:3;text-align:center;font-size:15px;max-width:80vw}
+#drop{position:fixed;right:16px;top:12px;z-index:2;font-size:22px;font-weight:700;color:#ff4fa3;opacity:0}
+</style></head><body>
+<div id="hud"></div><div id="drop">DROP</div>
+<div id="msg">Coaster lab<br><br><button id="demo">Ride the demo track</button> <label class="b">Upload a song<input id="file" type="file" accept="audio/*" hidden></label></div>
+<div id="bar"><button id="pp">Play</button><input id="seek" type="range" min="0" max="1" step="0.001" value="0"><span id="tm">0:00</span><label class="b">Song<input id="file2" type="file" accept="audio/*" hidden></label></div>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/shaders/CopyShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+<script>
+/* Coaster lab: a test bench for a roller coaster that is laid out from a song and ridden with real physics.
+   Rules it keeps:
+   - The track is built in space, metre by metre. Speed comes only from height (energy), minus rolling and air drag.
+   - Curves are sized by the g-force they would give at the speed the train has there, so nothing snaps.
+   - Only three things are powered, as on real rides: chain lifts, brakes before a lift, and the odd booster if the train is about to stall.
+   - Sync: the chain speed of each lift is solved so the train tips over the crest exactly on the song's drop. */
+const $=s=>document.querySelector(s), clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const G=9.81, DS=0.4;
+
+/* ---------------- audio: demo synth and a small analysis ---------------- */
+function synthDemo(){ const sr=22050, bpm=126, beat=60/bpm, bar=beat*4, dur=bar*50, n=Math.floor(sr*dur), d=new Float32Array(n); let sd=7; const rnd=()=>((sd=(sd*1664525+1013904223)>>>0)/4294967296)*2-1;
+  const sect=t=>{ const b=t/bar; return b<4?0:b<8?1:b<24?2:b<28?0:b<32?1:b<48?2:0; };   // 0 quiet, 1 build, 2 full
+  for(let i=0;i<n;i++){ const t=i/sr, s=sect(t), bt=t%beat, b8=t%(beat/2), bb=(t/bar)%4; let v=0;
+    v+=.10*Math.sin(6.283*110*t)*(.6+.4*Math.sin(t*.7))+.07*Math.sin(6.283*164.8*t);                         // pad
+    if(s===2){ v+=.95*Math.sin(6.283*(45*bt+ (75/28)*(1-Math.exp(-bt*28))))*Math.exp(-bt*7);                  // kick
+      const ob=(t+beat/2)%beat; v+=.33*(2*((55*t)%1)-1)*Math.exp(-ob*5)*(ob<beat*.45?1:0); }                 // off-beat bass
+    if(s>=1){ const hb=(t+beat/4)%(beat/2); v+=.16*rnd()*Math.exp(-hb*60); }                                  // hats
+    if(s===1){ const p=(t/bar)%4/4; const rb=t%(beat/(p>.5?4:2)); v+=(.1+.35*p)*rnd()*Math.exp(-rb*30)+.12*p*p*rnd(); }   // snare roll and riser
+    d[i]=v*.7; }
+  return {data:d,sr,dur}; }
+function analyse(data,sr){ const fps=60, hop=sr/fps, F=Math.floor(data.length/hop), E=new Float32Array(F), B=new Float32Array(F); let lp=0; const a=1-Math.exp(-6.283*140/sr);
+  for(let f=0;f<F;f++){ let e=0,b=0; const i0=Math.floor(f*hop), i1=Math.floor((f+1)*hop); for(let i=i0;i<i1;i++){ const x=data[i]; lp+=(x-lp)*a; e+=x*x; b+=lp*lp; } E[f]=Math.sqrt(e/(i1-i0)); B[f]=Math.sqrt(b/(i1-i0)); }
+  const norm=A=>{ const s=Array.from(A).sort((x,y)=>x-y), p=s[Math.floor(s.length*.97)]||1; for(let i=0;i<A.length;i++) A[i]=Math.min(1.2,A[i]/p); }; norm(E); norm(B);
+  const inten=new Float32Array(F); { let s=0; for(let f=0;f<F;f++){ s+=(E[f]-s)*.03; inten[f]=s; } let s2=0; for(let f=F-1;f>=0;f--){ s2+=(inten[f]-s2)*.25; inten[f]=s2; } }
+  const beats=[]; { let last=-9, avg=0; for(let f=3;f<F;f++){ const o=Math.max(0,B[f]-B[f-3]); avg+=(o-avg)*.01; if(o>avg*2.2+.06&&f/fps-last>.24&&o>=Math.max(0,B[f+1]-B[f-2])){ beats.push({t:f/fps,s:Math.min(1,o)}); last=f/fps; } } }
+  const mean=(t0,t1)=>{ let s=0,c=0; for(let f=Math.max(0,Math.floor(t0*fps));f<Math.min(F,Math.floor(t1*fps));f++){ s+=E[f]; c++; } return c?s/c:0; };
+  const cand=[]; for(let t=6;t<F/fps-6;t+=.1){ const af=mean(t,t+4), bf=mean(t-4,t); cand.push({t,sc:af-bf,af}); }
+  cand.sort((x,y)=>y.sc-x.sc); const drops=[]; for(const c of cand){ if(c.sc<.16||c.af<.4) break; if(drops.every(d=>Math.abs(d-c.t)>20)) drops.push(c.t); } if(!drops.length&&cand.length) drops.push(cand[0].t);
+  drops.sort((x,y)=>x-y); for(let i=0;i<drops.length;i++){ let best=null; for(const b of beats) if(Math.abs(b.t-drops[i])<.5&&(!best||b.s>best.s)) best=b; if(best) drops[i]=best.t; }
+  return {fps,F,dur:data.length/sr,E,B,inten,beats,drops}; }
+
+/* ---------------- the ride ---------------- */
+let RIDE=null;
+function buildRide(A){
+  let sd=1234567; const rnd=()=>((sd=(sd*1664525+1013904223)>>>0)/4294967296);
+  const T={X:[],Y:[],Z:[],YAW:[],PIT:[],ROL:[],V:[],T:[],GN:[]}, marks=[];
+  let x=0,y=0,z=0,yaw=0,pit=0,rolB=0,rolX=0,v=3,t=0,kpS=0,kyS=0, vc=8;
+  const at=(arr,tt)=>arr[clamp(Math.floor(tt*A.fps),0,A.F-1)];
+  function step(kp,ky,mode){ kpS+=(kp-kpS)*Math.min(1,DS/4.5); kyS+=(ky-kyS)*Math.min(1,DS/7);            // curvature changes over a few metres: no jerk
+    const gl=v*v*kyS/G; rolB+=(Math.atan(gl)*.95-rolB)*Math.min(1,DS/8);                                 // bank so the push goes down through the seat
+    pit+=kpS*DS; yaw+=kyS*DS; const cp=Math.cos(pit); x+=Math.sin(yaw)*cp*DS; y+=Math.sin(pit)*DS; z-=Math.cos(yaw)*cp*DS;
+    if(mode==='chain') v+=(vc-v)*Math.min(1,DS/3);
+    else if(mode==='brake') v=Math.sqrt(Math.max(vc*vc,v*v-2*7*DS));
+    else if(mode==='boost') v=Math.sqrt(v*v+2*9*DS);
+    else v=Math.sqrt(Math.max(6.25,v*v+2*(-G*Math.sin(pit)-(.012*G+.00016*v*v))*DS));                    // energy: height becomes speed, drag takes a little
+    t+=DS/v; const gn=(Math.cos(pit)+v*v*kpS/G)*Math.cos(rolB)+gl*Math.sin(rolB);
+    T.X.push(x);T.Y.push(y);T.Z.push(z);T.YAW.push(yaw);T.PIT.push(pit);T.ROL.push(rolB+rolX);T.V.push(v);T.T.push(t);T.GN.push(gn); }
+  const kFor=(Gt,dir,kmax)=>{ let k=(Gt-Math.cos(pit))*G/(v*v); k=dir>0?Math.max(k,1/70):Math.min(k,-1/70); return clamp(k,-kmax,kmax); };
+  function toPitch(target,Gt,mode,fixedK){ const dir=Math.sign(target-pit); let n=0; while((target-pit)*dir>0&&n++<6000) step(fixedK?dir*fixedK:kFor(Gt,dir,1/9),0,mode); }
+  function hold(p,len,mode,ky){ for(let s=0;s<len;s+=DS) step((p-pit)*.07,ky||0,mode); }
+  function hill(th){ toPitch(th,3.5); toPitch(-th,.02); toPitch(0,3.6); hold(0,4); }                      // pull up, float over the top, pull out
+  function turn(ang,gl,sg,p){ const y0=yaw; let n=0; while(Math.abs(yaw-y0)<ang&&n++<6000) step(((p||0)-pit)*.07,sg*Math.min(gl*G/(v*v),1/13)); hold(0,10); }
+  function loop(){ const p0=pit; let n=0; while(pit<p0+6.283-.04&&n++<6000){ const Gt=2.9+1.8*Math.cos(pit); step(clamp(Math.max((Gt-Math.cos(pit))*G/(v*v),1/45),0,1/7),.005); } pit-=6.283; kyS=0; hold(0,8); }   // tighter at the top, where it is slow: a teardrop
+  function corkscrew(){ const L=clamp(v*2.3,38,85), dir=rnd()<.5?1:-1; for(let s=0;s<L;s+=DS){ const u=s/L; rolX=dir*6.283*u*u*(3-2*u); step((0-pit)*.07,0); } rolX=0; hold(0,6); }
+  function boost(vt){ let n=0; while(v<vt&&n++<3000) step((0-pit)*.07,0,'boost'); }
+  function liftAndDrop(td){ const avail=td-t, H=clamp((avail-4)*5.2,22,72), steep=1.28+.15*rnd(), yBase=y-rnd()*10;
+    const save=()=>({x,y,z,yaw,pit,rolB,rolX,v,t,kpS,kyS,n:T.X.length}), load=s=>{ ({x,y,z,yaw,pit,rolB,rolX,v,t,kpS,kyS}=s); for(const k in T) T[k].length=s.n; };
+    const s0=save(); vc=clamp(H/.574/Math.max(4,avail-3),3,16); let i0=0,i1=0;
+    for(let it=0;it<5;it++){ load(s0); toPitch(0,2.5); const tb0=t; let n=0; while(v>vc+.4&&n++<3000) step((0-pit)*.07,0,'brake'); if(v<vc-.5) boost(vc);
+      const tA=t; i0=T.X.length; const yTop=y+H; toPitch(.61,0,'chain',1/20); n=0; while(y<yTop-3&&n++<6000) step((.61-pit)*.07,0,'chain'); i1=T.X.length;
+      toPitch(-.52,.12); const err=t-td, Tc=t-tA; if(Math.abs(err)<.03) break; vc=clamp(vc*Tc/Math.max(1,Tc-err),2.5,17); }   // solve the chain speed so the crest falls on the drop
+    marks.push({lift:[i0,i1],td,at:t});
+    toPitch(-steep,.1); let n=0; while(n++<4000){ const vb=Math.sqrt(v*v+2*G*Math.max(0,y-yBase)), R=vb*vb/(3.5*G); if(y-yBase<=R*(1-Math.cos(steep))) break; step((-steep-pit)*.07,0); }
+    toPitch(0,4); hold(0,5); }
+  let sg=1, lastLoop=-99, lastHill=false;
+  function pick(){ const e=at(A.inten,t), r=rnd(); if(v<11) boost(21);
+    if(v>27&&e>.5&&t-lastLoop>14&&r<.4){ lastLoop=t; loop(); }
+    else if(e>.55&&v>19&&r<.55) corkscrew();
+    else if(!lastHill&&r<.8){ hill(Math.min(.82,.22+v/62)); lastHill=true; return; }
+    else { sg=-sg; rnd()<.25&&v>20?turn(6.283*1.25,2.6+1.2*e,sg,-.1):turn(1.3+2.2*rnd(),2+1.7*e,sg); }
+    lastHill=false; }
+  hold(0,8); const drops=A.drops.filter(d=>d>7);
+  for(const td of drops){ let n=0; while(td-t>15&&n++<200) pick(); liftAndDrop(td); }
+  { let n=0; while(t<A.dur-2&&n++<400) pick(); }
+  const N=T.X.length, R={N,marks,A}; for(const k in T) R[k]=Float32Array.from(T[k]);
+  R.report={metres:Math.round(N*DS),vmax:Math.max(...T.V)*3.6|0,gmax:+Math.max(...T.GN).toFixed(2),gmin:+Math.min(...T.GN).toFixed(2),drops:marks.map(m=>({song:+m.td.toFixed(2),ride:+m.at.toFixed(2)}))};
+  return R; }
+function idxAt(R,tt){ let lo=0, hi=R.N-1; while(lo<hi){ const m=(lo+hi)>>1; if(R.T[m]<tt) lo=m+1; else hi=m; } const i=Math.max(1,lo), k=clamp((tt-R.T[i-1])/Math.max(1e-6,R.T[i]-R.T[i-1]),0,1); return i-1+k; }
+function frameAt(R,f,pos,d,u,r){ f=clamp(f,0,R.N-1.001); const i=f|0, k=f-i, L=a=>a[i]+(a[i+1]-a[i])*k, ya=L(R.YAW), pi=L(R.PIT), ro=L(R.ROL), sy=Math.sin(ya), cy=Math.cos(ya), sp=Math.sin(pi), cp=Math.cos(pi);
+  pos.set(L(R.X),L(R.Y),L(R.Z)); d.set(sy*cp,sp,-cy*cp); u.set(-sy*sp,cp,cy*sp); r.crossVectors(d,u);
+  const cr=Math.cos(ro), sr=Math.sin(ro), ux=u.x*cr+r.x*sr, uy=u.y*cr+r.y*sr, uz=u.z*cr+r.z*sr; r.set(r.x*cr-u.x*sr,r.y*cr-u.y*sr,r.z*cr-u.z*sr); u.set(ux,uy,uz); }
+
+/* ---------------- rendering ---------------- */
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true}); document.body.prepend(renderer.domElement);
+const scene=new THREE.Scene(), camera=new THREE.PerspectiveCamera(72,1,.08,2600), world=new THREE.Group(); scene.add(world);
+const U={uTime:{value:0},uCam:{value:new THREE.Vector3()},uBass:{value:0},uBeat:{value:0},uInt:{value:0},uNow:{value:0}};
+const PAL='vec3 pal(float t){ return .5+.5*cos(6.28318*(t+vec3(0.,.33,.67))); }';
+function trackMat(col,em,run){ return new THREE.ShaderMaterial({uniforms:Object.assign({uCol:{value:new THREE.Color(col)},uEm:{value:em},uRun:{value:run||0}},U),
+  vertexShader:`varying vec3 vW,vN; void main(){ vec4 w=vec4(position,1.); vec3 n=normal;
+#ifdef USE_INSTANCING
+  w=instanceMatrix*w; n=mat3(instanceMatrix)*n;
+#endif
+  w=modelMatrix*w; vW=w.xyz; vN=n; gl_Position=projectionMatrix*viewMatrix*w; }`,
+  fragmentShader:`precision highp float; uniform vec3 uCol,uCam; uniform float uEm,uRun,uTime,uBass,uBeat; varying vec3 vW,vN;
+void main(){ vec3 n=normalize(vN), V=normalize(uCam-vW); float dist=length(uCam-vW), dif=max(dot(n,normalize(vec3(.3,.85,.4))),0.), rim=pow(1.-abs(dot(n,V)),2.5);
+  float run=uRun*pow(.5+.5*sin(dist*.22-uTime*7.),8.)*(.4+1.6*uBass);                                      // light running away along the rails with the bass
+  vec3 c=uCol*(.1+.5*dif+.7*rim)+uCol*uEm*(1.+.5*uBeat+run);
+  gl_FragColor=vec4(c*exp(-dist*.0055),1.); }`}); }
+const objMat=new THREE.ShaderMaterial({uniforms:U,extensions:{derivatives:true},
+  vertexShader:`attribute vec4 aI; uniform float uTime,uNow,uBeat,uBass; varying vec3 vW; varying float vHue,vNear,vM;
+mat3 rot(vec3 a,float g){ float c=cos(g), s=sin(g), o=1.-c; return mat3(o*a.x*a.x+c,o*a.x*a.y+a.z*s,o*a.z*a.x-a.y*s, o*a.x*a.y-a.z*s,o*a.y*a.y+c,o*a.y*a.z+a.x*s, o*a.z*a.x+a.y*s,o*a.y*a.z-a.x*s,o*a.z*a.z+c); }
+void main(){ float dt=aI.x-uNow, sd=aI.z; vHue=aI.y; vM=aI.w; vNear=exp(-dt*dt*4.); vec3 p=position;
+  if(vM<.5){ float a=uTime*(sd-.5)*.9; p.xy=mat2(cos(a),-sin(a),sin(a),cos(a))*p.xy; p*=1.+.18*vNear; }      // a gate turns slowly in its own plane
+  else p=rot(normalize(vec3(sd-.5,fract(sd*3.7)-.5,fract(sd*9.1)-.5)+.001),uTime*(.2+.5*fract(sd*5.3))+sd*40.)*p*(1.+.22*uBass);   // a solid tumbles and breathes with the bass
+  vec4 w=modelMatrix*instanceMatrix*vec4(p,1.); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; if(abs(dt)>30.) gl_Position=vec4(2.,2.,2.,1.); }`,
+  fragmentShader:`precision highp float; uniform vec3 uCam; uniform float uTime,uBeat,uBass; varying vec3 vW; varying float vHue,vNear,vM;
+${PAL}
+void main(){ vec3 n=normalize(cross(dFdx(vW),dFdy(vW))), V=normalize(uCam-vW); float dist=length(uCam-vW), f=abs(dot(n,V)), dif=max(dot(n,normalize(vec3(.3,.85,.4))),0.);
+  vec3 c=pal(vHue+uTime*.02), c2=pal(vHue+.35);
+  vec3 col=c*(.12+.5*dif)+mix(c,c2,.5)*pow(1.-f,2.)*1.3+c*(vM<.5?(.5+2.5*vNear+.5*uBeat):(.15+.9*uBass));  // lit faces, glowing edges; gates flare as you pass through
+  gl_FragColor=vec4(col*exp(-dist*.005),1.); }`});
+function sweep(R,offs,every,radial){ const rings=Math.floor((R.N-1)/every), nv=rings*radial*offs.length, pos=new Float32Array(nv*3), nor=new Float32Array(nv*3), idx=new Uint32Array((rings-1)*radial*6*offs.length);
+  const P=new THREE.Vector3(), D=new THREE.Vector3(), Uu=new THREE.Vector3(), Rr=new THREE.Vector3(); let ii=0;
+  offs.forEach(([ox,oy,rad],k)=>{ const base=k*rings*radial; for(let j=0;j<rings;j++){ frameAt(R,j*every,P,D,Uu,Rr); for(let a=0;a<radial;a++){ const an=a/radial*6.283, cx=Math.cos(an), sy=Math.sin(an), o=(base+j*radial+a)*3;
+        const nx=Rr.x*cx+Uu.x*sy, ny=Rr.y*cx+Uu.y*sy, nz=Rr.z*cx+Uu.z*sy; nor[o]=nx; nor[o+1]=ny; nor[o+2]=nz;
+        pos[o]=P.x+Rr.x*ox+Uu.x*oy+nx*rad; pos[o+1]=P.y+Rr.y*ox+Uu.y*oy+ny*rad; pos[o+2]=P.z+Rr.z*ox+Uu.z*oy+nz*rad;
+        if(j<rings-1){ const p0=base+j*radial+a, p1=base+j*radial+(a+1)%radial, q0=p0+radial, q1=p1+radial; idx[ii++]=p0; idx[ii++]=q0; idx[ii++]=p1; idx[ii++]=p1; idx[ii++]=q0; idx[ii++]=q1; } } } });
+  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3)); g.setAttribute('normal',new THREE.BufferAttribute(nor,3)); g.setIndex(new THREE.BufferAttribute(idx,1)); return g; }
+function buildWorld(R){ while(world.children.length){ const m=world.children.pop(); m.geometry.dispose(); }
+  const add=m=>{ m.frustumCulled=false; world.add(m); return m; };
+  add(new THREE.Mesh(sweep(R,[[-.62,0,.075],[.62,0,.075]],2,7),trackMat(0xcfeeff,.42,1)));               // two running rails
+  add(new THREE.Mesh(sweep(R,[[0,-.62,.23]],3,8),trackMat(0x7a2cff,.16,0)));                             // the spine underneath
+  const P=new THREE.Vector3(), D=new THREE.Vector3(), Uu=new THREE.Vector3(), Rr=new THREE.Vector3(), B=new THREE.Matrix4(), M=new THREE.Matrix4(), S=new THREE.Vector3(), Q=new THREE.Quaternion(), E=new THREE.Euler();
+  const local=[new THREE.Matrix4().compose(new THREE.Vector3(0,-.03,0),Q.identity().clone(),S.set(1.24,.05,.09).clone()),
+    new THREE.Matrix4().compose(new THREE.Vector3(-.31,-.31,0),new THREE.Quaternion().setFromEuler(E.set(0,0,-.785)),new THREE.Vector3(.86,.05,.07)),
+    new THREE.Matrix4().compose(new THREE.Vector3(.31,-.31,0),new THREE.Quaternion().setFromEuler(E.set(0,0,.785)),new THREE.Vector3(.86,.05,.07))];
+  const nt=Math.floor((R.N-1)/3), ties=add(new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),trackMat(0xff35c8,.26,0),nt*3));   // every 1.2 m: a crossbar and two struts down to the spine
+  for(let j=0;j<nt;j++){ frameAt(R,j*3,P,D,Uu,Rr); B.makeBasis(Rr,Uu,D).setPosition(P); for(let k=0;k<3;k++) ties.setMatrixAt(j*3+k,M.multiplyMatrices(B,local[k])); }
+  const sup=[]; for(let j=0;j<R.N-1;j+=40){ frameAt(R,j,P,D,Uu,Rr); if(Uu.y>.55) sup.push(new THREE.Matrix4().makeTranslation(P.x-Uu.x*.62,P.y-Uu.y*.62-45,P.z-Uu.z*.62)); }   // a column every 16 m, dropping away into the dark
+  const sm=add(new THREE.InstancedMesh(new THREE.CylinderGeometry(.2,.26,90,7),trackMat(0x3a2a88,.07,0),sup.length)); sup.forEach((m,i)=>sm.setMatrixAt(i,m));
+  // what you ride through and past: only on the big moments, and all of it solid
+  let sd=99; const rnd=()=>((sd=(sd*1664525+1013904223)>>>0)/4294967296), A=R.A;
+  const place=(tt,ox,oy,sc)=>{ frameAt(R,idxAt(R,tt),P,D,Uu,Rr); return new THREE.Matrix4().makeBasis(Rr,Uu,D).scale(S.set(sc,sc,sc)).setPosition(P.clone().addScaledVector(Rr,ox).addScaledVector(Uu,oy)); };
+  const gates=[[],[],[],[]], solids=[[],[],[],[]];
+  for(const m of R.marks) for(let k=0;k<6;k++) gates[(k+((m.td*3)|0))%4].push({m:place(m.td+.25+k*.42,0,1.1,4.6+.5*k),a:[m.td+.25+k*.42,(m.td*.13)%1+k*.05,rnd(),0]});   // six gates down each drop
+  { const strong=A.beats.slice().sort((p,q)=>q.s-p.s).slice(0,Math.ceil(A.dur/7)).sort((p,q)=>p.t-q.t); let last=-9;
+    for(const b of strong){ if(b.t-last<4||b.t<3||R.marks.some(m=>b.t>m.td-10&&b.t<m.td+4)) continue; last=b.t; gates[(rnd()*4)|0].push({m:place(b.t,0,1.1,4.4+1.8*rnd()),a:[b.t,rnd(),rnd(),0]}); } }
+  const clear=(m,need)=>{ const e=m.elements; for(let j=0;j<R.N;j+=8){ const dx=R.X[j]-e[12], dy=R.Y[j]-e[13], dz=R.Z[j]-e[14]; if(dx*dx+dy*dy+dz*dz<need*need) return false; } return true; };   // nothing may sit on or close to any part of the track
+  for(let tt=4;tt<A.dur-2;tt+=4.5+rnd()*4){ for(let tr=0;tr<6;tr++){ const a=rnd()*6.283, rad=13+rnd()*30, sc=3+rnd()*6, m=place(tt,Math.cos(a)*rad,Math.sin(a)*rad,sc); if(clear(m,sc+7)){ solids[(rnd()*4)|0].push({m,a:[tt,rnd(),rnd(),1]}); break; } } }
+  const inst=(geo,list)=>{ if(!list.length) return; const m=add(new THREE.InstancedMesh(geo,objMat,list.length)), a=new Float32Array(list.length*4); list.forEach((e,i)=>{ m.setMatrixAt(i,e.m); a.set(e.a,i*4); }); geo.setAttribute('aI',new THREE.InstancedBufferAttribute(a,4)); };
+  [3,4,6,40].forEach((seg,i)=>inst(new THREE.TorusGeometry(1,.045,7,seg),gates[i]));                     // gates are tubes bent into a triangle, square, hexagon or ring
+  [new THREE.IcosahedronGeometry(1,0),new THREE.OctahedronGeometry(1,0),new THREE.DodecahedronGeometry(1,0),new THREE.TorusKnotGeometry(.7,.24,60,6)].forEach((g,i)=>inst(g,solids[i]));
+  R.objects={gates:gates.reduce((s,g)=>s+g.length,0),solids:solids.reduce((s,g)=>s+g.length,0),supports:sup.length}; }
+const stars=(()=>{ const n=2600, p=new Float32Array(n*3); let sd=5; const rnd=()=>((sd=(sd*1664525+1013904223)>>>0)/4294967296); for(let i=0;i<n;i++){ const a=rnd()*6.283, c=rnd()*2-1, s=Math.sqrt(1-c*c); p[i*3]=1500*s*Math.cos(a); p[i*3+1]=1500*c; p[i*3+2]=1500*s*Math.sin(a); }
+  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(p,3)); const m=new THREE.Points(g,new THREE.PointsMaterial({color:0x8899cc,size:1.6,sizeAttenuation:false})); m.frustumCulled=false; scene.add(m); return m; })();
+const composer=new THREE.EffectComposer(renderer); composer.addPass(new THREE.RenderPass(scene,camera)); const bloom=new THREE.UnrealBloomPass(new THREE.Vector2(1,1),.62,.5,.3); composer.addPass(bloom);
+function resize(){ const w=innerWidth,h=innerHeight, pr=Math.min(1.5,devicePixelRatio||1); renderer.setPixelRatio(pr); renderer.setSize(w,h,false); composer.setSize(w*pr,h*pr); camera.aspect=w/h; camera.updateProjectionMatrix(); } addEventListener('resize',resize); resize();
+
+/* ---------------- transport ---------------- */
+let actx=null, buf=null, src=null, t0=0, off=0, playing=false, A=null;
+const now=()=>playing?clamp(actx.currentTime-t0,0,A.dur):off;
+function play(){ if(!buf||playing) return; src=actx.createBufferSource(); src.buffer=buf; src.connect(actx.destination); src.start(0,off); t0=actx.currentTime-off; playing=true; $('#pp').textContent='Pause'; src.onended=()=>{ if(playing&&now()>=A.dur-.05){ playing=false; off=0; $('#pp').textContent='Play'; } }; }
+function pause(){ if(!playing) return; off=now(); playing=false; src.onended=null; try{ src.stop(); }catch(e){} $('#pp').textContent='Play'; }
+function seek(t){ const was=playing; pause(); off=clamp(t,0,A.dur-.05); camQ=null; if(was) play(); }
+function start(data,sr){ $('#msg').textContent='Laying out the ride…'; setTimeout(()=>{ A=analyse(data,sr); RIDE=buildRide(A); buildWorld(RIDE); actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+  buf=actx.createBuffer(1,data.length,sr); buf.copyToChannel(data,0); off=0; camQ=null; $('#msg').style.display='none'; window.__lab={report:RIDE.report,objects:RIDE.objects,seek,play,pause,ride:RIDE}; console.warn('RIDE '+JSON.stringify(RIDE.report)+' '+JSON.stringify(RIDE.objects)); actx.resume(); play(); },30); }
+$('#demo').onclick=()=>{ const d=synthDemo(); start(d.data,d.sr); };
+const onFile=async e=>{ const f=e.target.files[0]; if(!f) return; pause(); $('#msg').style.display=''; $('#msg').textContent='Reading the song…'; actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+  try{ const b=await actx.decodeAudioData(await f.arrayBuffer()), n=b.length, d=new Float32Array(n); for(let c=0;c<b.numberOfChannels;c++){ const ch=b.getChannelData(c); for(let i=0;i<n;i++) d[i]+=ch[i]/b.numberOfChannels; } start(d,b.sampleRate); }catch(err){ $('#msg').textContent='That file could not be read as audio.'; } };
+$('#file').onchange=onFile; $('#file2').onchange=onFile;
+$('#pp').onclick=()=>{ if(!A) return; actx.resume(); playing?pause():play(); };
+$('#seek').oninput=e=>{ if(A) seek(e.target.value*A.dur); };
+addEventListener('keydown',e=>{ if(e.code==='Space'&&A){ e.preventDefault(); playing?pause():play(); } });
+
+/* ---------------- the rider ---------------- */
+const P=new THREE.Vector3(), D=new THREE.Vector3(), Uu=new THREE.Vector3(), Rr=new THREE.Vector3(), P2=new THREE.Vector3(), D2=new THREE.Vector3(), U2=new THREE.Vector3(), R2=new THREE.Vector3(), mB=new THREE.Matrix4(), qT=new THREE.Quaternion(), zA=new THREE.Vector3();
+let camQ=null, gS=1, beatI=0, last=performance.now(), shk=0;
+function frame(ms){ requestAnimationFrame(frame); const dt=Math.min(.05,(ms-last)/1000); last=ms; U.uTime.value+=dt;
+  if(RIDE){ const R=RIDE, t=now(), f=idxAt(R,t), i=clamp(f|0,0,R.N-1), v=R.V[i], gn=R.GN[i];
+    frameAt(R,f,P,D,Uu,Rr); frameAt(R,f+clamp(v*.35,3,14)/DS,P2,D2,U2,R2);                                // where the track is a moment ahead: the rider looks into the curve
+    zA.copy(D).multiplyScalar(-.62).addScaledVector(D2,-.38).normalize(); R2.crossVectors(Uu,zA).normalize(); U2.crossVectors(zA,R2);
+    qT.setFromRotationMatrix(mB.makeBasis(R2,U2,zA)); if(!camQ) camQ=qT.clone(); else camQ.slerp(qT,1-Math.exp(-dt*9));   // the head follows the car a beat late
+    gS+=(gn-gS)*Math.min(1,dt*5); shk+=dt*(18+v);
+    const k=(v/40)*(v/40)*.022, sx=Math.sin(shk*1.7)*k, sy=Math.sin(shk*2.3+1)*k;
+    camera.position.copy(P).addScaledVector(Uu,1.12-clamp(gS-1,-1.2,3.2)*.05+sy).addScaledVector(Rr,sx);   // pressed into the seat in the pull-outs, lifted over the crests, a rattle that grows with speed
+    camera.quaternion.copy(camQ); const fov=66+26*Math.min(1,v/42); if(Math.abs(camera.fov-fov)>.05){ camera.fov+=(fov-camera.fov)*Math.min(1,dt*4); camera.updateProjectionMatrix(); }
+    U.uCam.value.copy(camera.position); U.uNow.value=t; stars.position.copy(camera.position);
+    const A_=R.A, fr=clamp(Math.floor(t*A_.fps),0,A_.F-1); U.uBass.value+=(A_.B[fr]-U.uBass.value)*Math.min(1,dt*10); U.uInt.value=A_.inten[fr];
+    while(beatI<A_.beats.length&&A_.beats[beatI].t<t-1) beatI++; if(beatI>0&&A_.beats[beatI-1].t>t) beatI=0; let bp=0; for(let b=beatI;b<A_.beats.length&&A_.beats[b].t<=t;b++) bp=Math.max(bp,A_.beats[b].s*Math.exp(-(t-A_.beats[b].t)*7)); U.uBeat.value=playing?bp:0;
+    let nd=1e9, hit=0; for(const m of R.marks){ if(m.td>t) nd=Math.min(nd,m.td-t); hit=Math.max(hit,Math.exp(-Math.pow((t-m.td)*2.2,2))); } $('#drop').style.opacity=hit;
+    const onLift=R.marks.some(m=>i>=m.lift[0]&&i<m.lift[1]);
+    $('#hud').textContent=`speed  ${(v*3.6).toFixed(0).padStart(3)} km/h\nforce  ${gn.toFixed(1).padStart(4)} g\nheight ${P.y.toFixed(0).padStart(4)} m\n${onLift?'chain lift':''}${nd<1e8?`\ndrop in ${nd.toFixed(1)} s`:''}`;
+    if(document.activeElement!==$('#seek')) $('#seek').value=t/A_.dur; $('#tm').textContent=`${(t/60)|0}:${String((t%60)|0).padStart(2,'0')}`; }
+  composer.render(); }
+requestAnimationFrame(frame);
+</script></body></html>
