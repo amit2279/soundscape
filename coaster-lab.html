@@ -30,7 +30,7 @@ button:hover,label.b:hover{background:rgba(255,255,255,.2)}
    - Only three things are powered, as on real rides: chain lifts, brakes before a lift, and the odd booster if the train is about to stall.
    - Sync: the chain speed of each lift is solved so the train tips over the crest exactly on the song's drop. */
 const $=s=>document.querySelector(s), clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-const G=9.81, DS=0.4;
+const G=14, DS=0.4;   // gravity is turned up from 9.81 so the drops bite; every curve is still sized from this same value, so the forces stay honest
 
 /* ---------------- audio: demo synth and a small analysis ---------------- */
 function synthDemo(){ const sr=22050, bpm=126, beat=60/bpm, bar=beat*4, dur=bar*50, n=Math.floor(sr*dur), d=new Float32Array(n); let sd=7; const rnd=()=>((sd=(sd*1664525+1013904223)>>>0)/4294967296)*2-1;
@@ -78,7 +78,7 @@ function buildRide(A){
   function loop(){ const p0=pit; let n=0; while(pit<p0+6.283-.04&&n++<6000){ const Gt=2.9+1.8*Math.cos(pit); step(clamp(Math.max((Gt-Math.cos(pit))*G/(v*v),1/45),0,1/7),.005); } pit-=6.283; kyS=0; hold(0,8); }   // tighter at the top, where it is slow: a teardrop
   function corkscrew(){ const L=clamp(v*2.3,38,85), dir=rnd()<.5?1:-1; for(let s=0;s<L;s+=DS){ const u=s/L; rolX=dir*6.283*u*u*(3-2*u); step((0-pit)*.07,0); } rolX=0; hold(0,6); }
   function boost(vt){ let n=0; while(v<vt&&n++<3000) step((0-pit)*.07,0,'boost'); }
-  function liftAndDrop(td){ const avail=td-t, H=clamp((avail-4)*5.2,22,72), steep=1.28+.15*rnd(), yBase=y-rnd()*10;
+  function liftAndDrop(td){ const avail=td-t, H=clamp((avail-4)*6.5,26,92), steep=1.28+.15*rnd(), yBase=y-rnd()*10;
     const save=()=>({x,y,z,yaw,pit,rolB,rolX,v,t,kpS,kyS,n:T.X.length}), load=s=>{ ({x,y,z,yaw,pit,rolB,rolX,v,t,kpS,kyS}=s); for(const k in T) T[k].length=s.n; };
     const s0=save(); vc=clamp(H/.574/Math.max(4,avail-3),3,16); let i0=0,i1=0;
     for(let it=0;it<5;it++){ load(s0); toPitch(0,2.5); const tb0=t; let n=0; while(v>vc+.4&&n++<3000) step((0-pit)*.07,0,'brake'); if(v<vc-.5) boost(vc);
@@ -110,22 +110,24 @@ const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:tru
 const scene=new THREE.Scene(), camera=new THREE.PerspectiveCamera(72,1,.08,2600), world=new THREE.Group(); scene.add(world);
 const U={uTime:{value:0},uCam:{value:new THREE.Vector3()},uBass:{value:0},uBeat:{value:0},uInt:{value:0},uNow:{value:0}};
 const PAL='vec3 pal(float t){ return .5+.5*cos(6.28318*(t+vec3(0.,.33,.67))); }';
-function trackMat(col,em,run){ return new THREE.ShaderMaterial({uniforms:Object.assign({uCol:{value:new THREE.Color(col)},uEm:{value:em},uRun:{value:run||0}},U),
+function trackMat(col,em,run,neon){ return new THREE.ShaderMaterial({uniforms:Object.assign({uCol:{value:new THREE.Color(col)},uEm:{value:em},uRun:{value:run||0},uNe:{value:neon||0}},U),
   vertexShader:`varying vec3 vW,vN; void main(){ vec4 w=vec4(position,1.); vec3 n=normal;
 #ifdef USE_INSTANCING
   w=instanceMatrix*w; n=mat3(instanceMatrix)*n;
 #endif
   w=modelMatrix*w; vW=w.xyz; vN=n; gl_Position=projectionMatrix*viewMatrix*w; }`,
-  fragmentShader:`precision highp float; uniform vec3 uCol,uCam; uniform float uEm,uRun,uTime,uBass,uBeat; varying vec3 vW,vN;
+  fragmentShader:`precision highp float; uniform vec3 uCol,uCam; uniform float uEm,uRun,uNe,uTime,uBass,uBeat; varying vec3 vW,vN;
+${PAL}
 void main(){ vec3 n=normalize(vN), V=normalize(uCam-vW); float dist=length(uCam-vW), dif=max(dot(n,normalize(vec3(.3,.85,.4))),0.), rim=pow(1.-abs(dot(n,V)),2.5);
   float run=uRun*pow(.5+.5*sin(dist*.22-uTime*7.),8.)*(.4+1.6*uBass);                                      // light running away along the rails with the bass
-  vec3 c=uCol*(.1+.5*dif+.7*rim)+uCol*uEm*(1.+.5*uBeat+run);
+  vec3 base=mix(uCol,mix(pal(dist*.011-uTime*.12),vec3(1.),.35),uNe);                                      // neon lines: colour flows along the track
+  vec3 c=base*(.1+.5*dif+.7*rim)*(1.-uNe)+base*uEm*(1.+.5*uBeat+run);
   gl_FragColor=vec4(c*exp(-dist*.0055),1.); }`}); }
 const objMat=new THREE.ShaderMaterial({uniforms:U,extensions:{derivatives:true},
   vertexShader:`attribute vec4 aI; uniform float uTime,uNow,uBeat,uBass; varying vec3 vW; varying float vHue,vNear,vM;
 mat3 rot(vec3 a,float g){ float c=cos(g), s=sin(g), o=1.-c; return mat3(o*a.x*a.x+c,o*a.x*a.y+a.z*s,o*a.z*a.x-a.y*s, o*a.x*a.y-a.z*s,o*a.y*a.y+c,o*a.y*a.z+a.x*s, o*a.z*a.x+a.y*s,o*a.y*a.z-a.x*s,o*a.z*a.z+c); }
 void main(){ float dt=aI.x-uNow, sd=aI.z; vHue=aI.y; vM=aI.w; vNear=exp(-dt*dt*4.); vec3 p=position;
-  if(vM<.5){ float a=uTime*(sd-.5)*.9; p.xy=mat2(cos(a),-sin(a),sin(a),cos(a))*p.xy; p*=1.+.18*vNear; }      // a gate turns slowly in its own plane
+  if(vM<.5){ float a=1.15*sin(uTime*1.25-sd)+.5*uBeat; p.xy=mat2(cos(a),-sin(a),sin(a),cos(a))*p.xy; p.xy*=1.+.1*sin(uTime*2.5-sd)+.16*vNear; }      // a gate turns slowly in its own plane
   else p=rot(normalize(vec3(sd-.5,fract(sd*3.7)-.5,fract(sd*9.1)-.5)+.001),uTime*(.2+.5*fract(sd*5.3))+sd*40.)*p*(1.+.22*uBass);   // a solid tumbles and breathes with the bass
   vec4 w=modelMatrix*instanceMatrix*vec4(p,1.); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; if(abs(dt)>30.) gl_Position=vec4(2.,2.,2.,1.); }`,
   fragmentShader:`precision highp float; uniform vec3 uCam; uniform float uTime,uBeat,uBass; varying vec3 vW; varying float vHue,vNear,vM;
@@ -143,29 +145,29 @@ function sweep(R,offs,every,radial){ const rings=Math.floor((R.N-1)/every), nv=r
   const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3)); g.setAttribute('normal',new THREE.BufferAttribute(nor,3)); g.setIndex(new THREE.BufferAttribute(idx,1)); return g; }
 function buildWorld(R){ while(world.children.length){ const m=world.children.pop(); m.geometry.dispose(); }
   const add=m=>{ m.frustumCulled=false; world.add(m); return m; };
-  add(new THREE.Mesh(sweep(R,[[-.62,0,.075],[.62,0,.075]],2,7),trackMat(0xcfeeff,.42,1)));               // two running rails
-  add(new THREE.Mesh(sweep(R,[[0,-.62,.23]],3,8),trackMat(0x7a2cff,.16,0)));                             // the spine underneath
+  add(new THREE.Mesh(sweep(R,[[-.62,0,.085],[.62,0,.085]],2,6),trackMat(0x12262e,.05,0)));               // two running rails: dark bodies
+  add(new THREE.Mesh(sweep(R,[[0,-.5,.2]],3,8),trackMat(0x1c1038,.06,0)));                               // the spine underneath
+  add(new THREE.Mesh(sweep(R,[[-.69,.062,.019],[-.55,.062,.019],[.55,.062,.019],[.69,.062,.019],[-.13,-.33,.017],[0,-.3,.017],[.13,-.33,.017]],2,5),trackMat(0xd8f6ff,1.15,1,.55)));   // neon lines running along both rails and the spine
   const P=new THREE.Vector3(), D=new THREE.Vector3(), Uu=new THREE.Vector3(), Rr=new THREE.Vector3(), B=new THREE.Matrix4(), M=new THREE.Matrix4(), S=new THREE.Vector3(), Q=new THREE.Quaternion(), E=new THREE.Euler();
-  const local=[new THREE.Matrix4().compose(new THREE.Vector3(0,-.03,0),Q.identity().clone(),S.set(1.24,.05,.09).clone()),
-    new THREE.Matrix4().compose(new THREE.Vector3(-.31,-.31,0),new THREE.Quaternion().setFromEuler(E.set(0,0,-.785)),new THREE.Vector3(.86,.05,.07)),
-    new THREE.Matrix4().compose(new THREE.Vector3(.31,-.31,0),new THREE.Quaternion().setFromEuler(E.set(0,0,.785)),new THREE.Vector3(.86,.05,.07))];
-  const nt=Math.floor((R.N-1)/3), ties=add(new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),trackMat(0xff35c8,.26,0),nt*3));   // every 1.2 m: a crossbar and two struts down to the spine
-  for(let j=0;j<nt;j++){ frameAt(R,j*3,P,D,Uu,Rr); B.makeBasis(Rr,Uu,D).setPosition(P); for(let k=0;k<3;k++) ties.setMatrixAt(j*3+k,M.multiplyMatrices(B,local[k])); }
-  const sup=[]; for(let j=0;j<R.N-1;j+=40){ frameAt(R,j,P,D,Uu,Rr); if(Uu.y>.55) sup.push(new THREE.Matrix4().makeTranslation(P.x-Uu.x*.62,P.y-Uu.y*.62-45,P.z-Uu.z*.62)); }   // a column every 16 m, dropping away into the dark
-  const sm=add(new THREE.InstancedMesh(new THREE.CylinderGeometry(.2,.26,90,7),trackMat(0x3a2a88,.07,0),sup.length)); sup.forEach((m,i)=>sm.setMatrixAt(i,m));
+  // the connector: a yoke that hangs from one rail, wraps under the spine and comes up to the other rail, drawn as an open frame
+  const YK=[[-.62,-.08],[-.82,-.44],[-.36,-.9],[.36,-.9],[.82,-.44],[.62,-.08]], local=[];
+  for(let k=0;k<YK.length;k++){ const a=YK[k], b=YK[(k+1)%YK.length], dx=b[0]-a[0], dy=b[1]-a[1]; local.push(new THREE.Matrix4().compose(new THREE.Vector3((a[0]+b[0])/2,(a[1]+b[1])/2,0),new THREE.Quaternion().setFromEuler(E.set(0,0,Math.atan2(dy,dx))),new THREE.Vector3(Math.hypot(dx,dy)+.05,.055,.13))); }
+  const nt=Math.floor((R.N-1)/6), ties=add(new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),trackMat(0xff2fd0,.75,0),nt*local.length));   // one every 2.4 m
+  for(let j=0;j<nt;j++){ frameAt(R,j*6,P,D,Uu,Rr); B.makeBasis(Rr,Uu,D).setPosition(P); for(let k=0;k<local.length;k++) ties.setMatrixAt(j*local.length+k,M.multiplyMatrices(B,local[k])); }
   // what you ride through and past: only on the big moments, and all of it solid
   let sd=99; const rnd=()=>((sd=(sd*1664525+1013904223)>>>0)/4294967296), A=R.A;
-  const place=(tt,ox,oy,sc)=>{ frameAt(R,idxAt(R,tt),P,D,Uu,Rr); return new THREE.Matrix4().makeBasis(Rr,Uu,D).scale(S.set(sc,sc,sc)).setPosition(P.clone().addScaledVector(Rr,ox).addScaledVector(Uu,oy)); };
+  const place=(tt,ox,oy,sc,dz)=>{ frameAt(R,idxAt(R,tt),P,D,Uu,Rr); return new THREE.Matrix4().makeBasis(Rr,Uu,D).scale(S.set(sc,sc,sc*(dz||1))).setPosition(P.clone().addScaledVector(Rr,ox).addScaledVector(Uu,oy)); };
   const gates=[[],[],[],[]], solids=[[],[],[],[]];
-  for(const m of R.marks) for(let k=0;k<6;k++) gates[(k+((m.td*3)|0))%4].push({m:place(m.td+.25+k*.42,0,1.1,4.6+.5*k),a:[m.td+.25+k*.42,(m.td*.13)%1+k*.05,rnd(),0]});   // six gates down each drop
+  const series=(t0,n,gap,shape,hue,r0)=>{ const ph=rnd()*6; for(let k=0;k<n;k++){ const tt=t0+k*gap; gates[shape].push({m:place(tt,0,.7,r0*(1+.035*k),4),a:[tt,hue+k*.045,ph+k*.55,0]}); } };   // a run of gates, each one a beat behind the one before it
+  for(const m of R.marks) series(m.td+.2,10,.26,((m.td*3)|0)%4,(m.td*.13)%1,3.3);                        // ten down each drop
   { const strong=A.beats.slice().sort((p,q)=>q.s-p.s).slice(0,Math.ceil(A.dur/7)).sort((p,q)=>p.t-q.t); let last=-9;
-    for(const b of strong){ if(b.t-last<4||b.t<3||R.marks.some(m=>b.t>m.td-10&&b.t<m.td+4)) continue; last=b.t; gates[(rnd()*4)|0].push({m:place(b.t,0,1.1,4.4+1.8*rnd()),a:[b.t,rnd(),rnd(),0]}); } }
+    for(const b of strong){ if(b.t-last<4||b.t<3||R.marks.some(m=>b.t>m.td-10&&b.t<m.td+4)) continue; last=b.t; series(b.t,5,.11,(rnd()*4)|0,rnd(),3+.8*rnd()); } }
   const clear=(m,need)=>{ const e=m.elements; for(let j=0;j<R.N;j+=8){ const dx=R.X[j]-e[12], dy=R.Y[j]-e[13], dz=R.Z[j]-e[14]; if(dx*dx+dy*dy+dz*dz<need*need) return false; } return true; };   // nothing may sit on or close to any part of the track
-  for(let tt=4;tt<A.dur-2;tt+=4.5+rnd()*4){ for(let tr=0;tr<6;tr++){ const a=rnd()*6.283, rad=13+rnd()*30, sc=3+rnd()*6, m=place(tt,Math.cos(a)*rad,Math.sin(a)*rad,sc); if(clear(m,sc+7)){ solids[(rnd()*4)|0].push({m,a:[tt,rnd(),rnd(),1]}); break; } } }
+  for(let tt=4;tt<A.dur-2;tt+=4.5+rnd()*4){ for(let tr=0;tr<6;tr++){ const a=rnd()*6.283, rad=8+rnd()*17, sc=2.2+rnd()*4.5, m=place(tt,Math.cos(a)*rad,Math.sin(a)*rad,sc); if(clear(m,sc+4.5)){ solids[(rnd()*4)|0].push({m,a:[tt,rnd(),rnd(),1]}); break; } } }
   const inst=(geo,list)=>{ if(!list.length) return; const m=add(new THREE.InstancedMesh(geo,objMat,list.length)), a=new Float32Array(list.length*4); list.forEach((e,i)=>{ m.setMatrixAt(i,e.m); a.set(e.a,i*4); }); geo.setAttribute('aI',new THREE.InstancedBufferAttribute(a,4)); };
-  [3,4,6,40].forEach((seg,i)=>inst(new THREE.TorusGeometry(1,.045,7,seg),gates[i]));                     // gates are tubes bent into a triangle, square, hexagon or ring
+  [3,4,6,40].forEach((seg,i)=>inst(new THREE.TorusGeometry(1,.055,6,seg),gates[i]));                     // each is stretched along the track, so it reads as a deep frame, not a hoop                     // gates are tubes bent into a triangle, square, hexagon or ring
   [new THREE.IcosahedronGeometry(1,0),new THREE.OctahedronGeometry(1,0),new THREE.DodecahedronGeometry(1,0),new THREE.TorusKnotGeometry(.7,.24,60,6)].forEach((g,i)=>inst(g,solids[i]));
-  R.objects={gates:gates.reduce((s,g)=>s+g.length,0),solids:solids.reduce((s,g)=>s+g.length,0),supports:sup.length}; }
+  R.objects={gates:gates.reduce((s,g)=>s+g.length,0),solids:solids.reduce((s,g)=>s+g.length,0)}; }
 const stars=(()=>{ const n=2600, p=new Float32Array(n*3); let sd=5; const rnd=()=>((sd=(sd*1664525+1013904223)>>>0)/4294967296); for(let i=0;i<n;i++){ const a=rnd()*6.283, c=rnd()*2-1, s=Math.sqrt(1-c*c); p[i*3]=1500*s*Math.cos(a); p[i*3+1]=1500*c; p[i*3+2]=1500*s*Math.sin(a); }
   const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(p,3)); const m=new THREE.Points(g,new THREE.PointsMaterial({color:0x8899cc,size:1.6,sizeAttenuation:false})); m.frustumCulled=false; scene.add(m); return m; })();
 const composer=new THREE.EffectComposer(renderer); composer.addPass(new THREE.RenderPass(scene,camera)); const bloom=new THREE.UnrealBloomPass(new THREE.Vector2(1,1),.62,.5,.3); composer.addPass(bloom);
@@ -193,12 +195,12 @@ let camQ=null, gS=1, beatI=0, last=performance.now(), shk=0;
 function frame(ms){ requestAnimationFrame(frame); const dt=Math.min(.05,(ms-last)/1000); last=ms; U.uTime.value+=dt;
   if(RIDE){ const R=RIDE, t=now(), f=idxAt(R,t), i=clamp(f|0,0,R.N-1), v=R.V[i], gn=R.GN[i];
     frameAt(R,f,P,D,Uu,Rr); frameAt(R,f+clamp(v*.35,3,14)/DS,P2,D2,U2,R2);                                // where the track is a moment ahead: the rider looks into the curve
-    zA.copy(D).multiplyScalar(-.62).addScaledVector(D2,-.38).normalize(); R2.crossVectors(Uu,zA).normalize(); U2.crossVectors(zA,R2);
+    zA.copy(D).multiplyScalar(-.62).addScaledVector(D2,-.38).addScaledVector(Uu,.13).normalize(); R2.crossVectors(Uu,zA).normalize(); U2.crossVectors(zA,R2);
     qT.setFromRotationMatrix(mB.makeBasis(R2,U2,zA)); if(!camQ) camQ=qT.clone(); else camQ.slerp(qT,1-Math.exp(-dt*9));   // the head follows the car a beat late
     gS+=(gn-gS)*Math.min(1,dt*5); shk+=dt*(18+v);
     const k=(v/40)*(v/40)*.022, sx=Math.sin(shk*1.7)*k, sy=Math.sin(shk*2.3+1)*k;
-    camera.position.copy(P).addScaledVector(Uu,1.12-clamp(gS-1,-1.2,3.2)*.05+sy).addScaledVector(Rr,sx);   // pressed into the seat in the pull-outs, lifted over the crests, a rattle that grows with speed
-    camera.quaternion.copy(camQ); const fov=66+26*Math.min(1,v/42); if(Math.abs(camera.fov-fov)>.05){ camera.fov+=(fov-camera.fov)*Math.min(1,dt*4); camera.updateProjectionMatrix(); }
+    camera.position.copy(P).addScaledVector(Uu,.6-clamp(gS-1,-1.2,3.2)*.04+sy).addScaledVector(Rr,sx);   // pressed into the seat in the pull-outs, lifted over the crests, a rattle that grows with speed
+    camera.quaternion.copy(camQ); const fov=84+20*Math.min(1,v/50); if(Math.abs(camera.fov-fov)>.05){ camera.fov+=(fov-camera.fov)*Math.min(1,dt*4); camera.updateProjectionMatrix(); }
     U.uCam.value.copy(camera.position); U.uNow.value=t; stars.position.copy(camera.position);
     const A_=R.A, fr=clamp(Math.floor(t*A_.fps),0,A_.F-1); U.uBass.value+=(A_.B[fr]-U.uBass.value)*Math.min(1,dt*10); U.uInt.value=A_.inten[fr];
     while(beatI<A_.beats.length&&A_.beats[beatI].t<t-1) beatI++; if(beatI>0&&A_.beats[beatI-1].t>t) beatI=0; let bp=0; for(let b=beatI;b<A_.beats.length&&A_.beats[b].t<=t;b++) bp=Math.max(bp,A_.beats[b].s*Math.exp(-(t-A_.beats[b].t)*7)); U.uBeat.value=playing?bp:0;
