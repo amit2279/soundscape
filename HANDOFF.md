@@ -174,6 +174,11 @@ All use `objMat` with per-instance `aI = (song time, hue, seed/phase, mode)`; in
 - **Update 2:** the pattern now runs all the time on the inner face of the wall (inner face = `dot(aN, uCam − position) < 0`, with `aN` the outward ring normal), at 60% brightness, easing to 100% via `uIn` as the rider enters. The outer face stays the dark shell. So you see the tunnel already animated through its mouth, and faintly through the acrylic, instead of it switching on.
 - The old open particle field (`fieldMat`) is no longer placed; its material is still defined.
 
+### 9.6b Fireworks (re-enabled 2026-11-14, new rules)
+`FIREWORKS=true`. Chrysanthemum bursts beside the track, never on it: centre is 15 to 24 m to one side and 2 to 10 m up from where the train will be 1 s after the beat, exploding on the beat, so the rider passes it and leaves it behind while it decays (life 4.6 s). At least eight bars between events (beat period = median beat interval; gap = 32 beats). Sides alternate. Every third event is three bursts on three consecutive beats on alternating sides. None while in a tunnel. Demo: about five events in 95 s.
+
+**Connector colour:** connectors use `trackMat(..., hue=1)` and drift together slowly through the palette. In the main app, tie this to the theme colours (`uA`/`uB`) instead.
+
 ### 9.7 Rider camera (in `frame`)
 - Position: 0.6 m above the track centre, moved down by `0.04·(g − 1)` (clamped), plus a rattle of amplitude `0.022·(v/40)²`.
 - Direction: 62% the current track direction, 38% the direction `clamp(0.35·v, 3, 14)` m ahead, tilted slightly down; up vector is the track's up. The quaternion is slerped toward this at rate 9, which is the head lag.

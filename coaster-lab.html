@@ -113,17 +113,17 @@ const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:tru
 const scene=new THREE.Scene(), camera=new THREE.PerspectiveCamera(72,1,.08,2600), world=new THREE.Group(); scene.add(world);
 const U={uPx:{value:600},uSpA:{value:0},uSpB:{value:0},uSpC:{value:0},uTime:{value:0},uCam:{value:new THREE.Vector3()},uBass:{value:0},uBeat:{value:0},uInt:{value:0},uNow:{value:0}};
 const PAL='vec3 pal(float t){ return .5+.5*cos(6.28318*(t+vec3(0.,.33,.67))); }';
-function trackMat(col,em,run,neon){ return new THREE.ShaderMaterial({uniforms:Object.assign({uCol:{value:new THREE.Color(col)},uEm:{value:em},uRun:{value:run||0},uNe:{value:neon||0}},U),
+function trackMat(col,em,run,neon,hue){ return new THREE.ShaderMaterial({uniforms:Object.assign({uCol:{value:new THREE.Color(col)},uEm:{value:em},uRun:{value:run||0},uNe:{value:neon||0},uHue:{value:hue||0}},U),
   vertexShader:`varying vec3 vW,vN; void main(){ vec4 w=vec4(position,1.); vec3 n=normal;
 #ifdef USE_INSTANCING
   w=instanceMatrix*w; n=mat3(instanceMatrix)*n;
 #endif
   w=modelMatrix*w; vW=w.xyz; vN=n; gl_Position=projectionMatrix*viewMatrix*w; }`,
-  fragmentShader:`precision highp float; uniform vec3 uCol,uCam; uniform float uEm,uRun,uNe,uTime,uBass,uBeat; varying vec3 vW,vN;
+  fragmentShader:`precision highp float; uniform vec3 uCol,uCam; uniform float uEm,uRun,uNe,uHue,uTime,uBass,uBeat; varying vec3 vW,vN;
 ${PAL}
 void main(){ vec3 n=normalize(vN), V=normalize(uCam-vW); float dist=length(uCam-vW), dif=max(dot(n,normalize(vec3(.3,.85,.4))),0.), rim=pow(1.-abs(dot(n,V)),2.5);
   float run=uRun*pow(.5+.5*sin(dist*.22-uTime*7.),8.)*(.4+1.6*uBass);                                      // light running away along the rails with the bass
-  vec3 base=mix(uCol,mix(pal(dist*.011-uTime*.12),vec3(1.),.35),uNe);                                      // neon lines: colour flows along the track
+  vec3 base=mix(uCol,mix(pal(dist*.011-uTime*.12),vec3(1.),.35),uNe); base=mix(base,pal(uTime*.035+.83),uHue);   // the connectors drift slowly through the colours, all together                                      // neon lines: colour flows along the track
   vec3 c=base*(.1+.5*dif+.7*rim)*(1.-uNe)+base*uEm*mix(1.+.5*uBeat+run,.5+1.5*uBeat+.6*uBass+run,step(.01,uNe));   // the neon lines breathe with the beat
   gl_FragColor=vec4(c*exp(-dist*.0055),1.); }`}); }
 const objMat=new THREE.ShaderMaterial({uniforms:U,extensions:{derivatives:true},
@@ -168,7 +168,7 @@ void main(){ vec4 mv=modelViewMatrix*vec4(position,1.); gl_Position=projectionMa
 const fireMat=new THREE.ShaderMaterial(Object.assign({uniforms:U,
   vertexShader:`attribute vec3 aDir; attribute vec2 aT; attribute float aH; uniform float uNow,uPx; varying vec3 vC;
 ${PAL}
-void main(){ float age=uNow-aT.x-aT.y, L=2.9; vec3 p=position+aDir*(1.-exp(-age*2.6))-vec3(0.,1.,0.)*age*age*1.1;            // fast out, slowing, then drooping
+void main(){ float age=uNow-aT.x-aT.y, L=4.6; vec3 p=position+aDir*(1.-exp(-age*2.1))-vec3(0.,1.,0.)*age*age*.55;            // fast out, slowing, then drooping
   vec4 mv=modelViewMatrix*vec4(p,1.); gl_Position=projectionMatrix*mv; float d=-mv.z, k=clamp(1.-age/L,0.,1.), head=1.-aT.y*12.;
   gl_PointSize=clamp(uPx*(.07+.16*head)*k/max(d,.3),1.,60.);
   vC=mix(pal(aH),vec3(1.,.95,.8),exp(-age*5.))*(.4+1.6*head)*k*(.7+.3*sin(age*40.+aH*50.))*exp(-d*.006)*smoothstep(.3,1.5,d);
@@ -189,7 +189,7 @@ function buildWorld(R){ while(world.children.length){ const m=world.children.pop
   // the connector: a yoke that hangs from one rail, wraps under the spine and comes up to the other rail, drawn as an open frame
   const YK=[], local=[]; for(let q=0;q<=14;q++){ const a=q/14*Math.PI; YK.push([-.62*Math.cos(a),-.1-.74*Math.pow(Math.sin(a),.8)]); }   // one smooth curve from under one rail, round beneath both spines, up to the other rail
   for(let k=0;k<YK.length-1;k++){ const a=YK[k], b=YK[k+1], dx=b[0]-a[0], dy=b[1]-a[1]; local.push(new THREE.Matrix4().compose(new THREE.Vector3((a[0]+b[0])/2,(a[1]+b[1])/2,0),new THREE.Quaternion().setFromEuler(E.set(0,0,Math.atan2(dy,dx))),new THREE.Vector3(Math.hypot(dx,dy)+.012,.045,.1))); }
-  const nt=Math.floor((R.N-1)/6), ties=add(new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),trackMat(0xff2fd0,.75,0),nt*local.length));   // one every 2.4 m
+  const nt=Math.floor((R.N-1)/6), ties=add(new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),trackMat(0xff2fd0,.75,0,0,1),nt*local.length));   // one every 2.4 m
   for(let j=0;j<nt;j++){ frameAt(R,j*6,P,D,Uu,Rr); B.makeBasis(Rr,Uu,D).setPosition(P); for(let k=0;k<local.length;k++) ties.setMatrixAt(j*local.length+k,M.multiplyMatrices(B,local[k])); }
   // what you ride through and past: only on the big moments, and all of it solid
   let sd=99; const rnd=()=>((sd=(sd*1664525+1013904223)>>>0)/4294967296), A=R.A;
@@ -221,11 +221,15 @@ function buildWorld(R){ while(world.children.length){ const m=world.children.pop
   if(fieldS.length){ const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(Float32Array.from(fieldPos),3)); g.setAttribute('aS',new THREE.BufferAttribute(Float32Array.from(fieldS),1)); add(new THREE.Points(g,fieldMat)); }
   // ---- chrysanthemum fireworks: each bursts on a strong beat, a little way ahead on the track, so you fly through the open flower ----
   const bT=[], fc=[], fd=[], ft=[], fh=[];
-  const burst=(tb,scale)=>{ bT.push(tb); frameAt(R,idxAt(R,tb+.85),P,D,Uu,Rr); const cx=P.x+Rr.x*(rnd()-.5)*5+Uu.x*2, cy=P.y+Rr.y*(rnd()-.5)*5+Uu.y*2, cz=P.z+Rr.z*(rnd()-.5)*5+Uu.z*2, hue=rnd();
+  const burst=(tb,scale,side)=>{ bT.push(tb); frameAt(R,idxAt(R,tb+1.),P,D,Uu,Rr); const lat=side*(15+rnd()*9), up=2+rnd()*8, cx=P.x+Rr.x*lat+Uu.x*up, cy=P.y+Rr.y*lat+Uu.y*up, cz=P.z+Rr.z*lat+Uu.z*up, hue=rnd();   // out to one side of where the train will be a second later
     for(let r=0;r<190;r++){ const c=rnd()*2-1, a=rnd()*6.283, sn=Math.sqrt(1-c*c), inner=r%4===0, sp=scale*(inner?.42:.85+.3*rnd());
-      for(let l=0;l<4;l++){ fc.push(cx,cy,cz); fd.push(sn*Math.cos(a)*sp,c*sp,sn*Math.sin(a)*sp); ft.push(tb,l*.05); fh.push(inner?hue+.5:hue); } } };   // every ray is four points, each a moment behind the last: a trail
-  const FIREWORKS=false;   /* switched off for now: they were in the rider's face. When they come back: place them well to the side of the track and fire far fewer. */
-  if(FIREWORKS) { let last=-9; for(const b of A.beats){ if(b.s<.5||b.t<3||b.t-last<1.9||b.t>A.dur-3) continue; last=b.t; burst(b.t,11+6*b.s); } for(const m of R.marks) for(let k=0;k<3;k++) burst(m.td+.35+k*.5,17); }
+      for(let l=0;l<4;l++){ fc.push(cx,cy,cz); fd.push(sn*Math.cos(a)*sp,c*sp,sn*Math.sin(a)*sp); ft.push(tb,l*.05); fh.push(inner?hue+.5:hue+(rnd()-.5)*.08); } } };   // every ray is four points, each a moment behind the last: a trail
+  const FIREWORKS=true;
+  if(FIREWORKS){ const dts=[]; for(let i=1;i<A.beats.length;i++){ const d=A.beats[i].t-A.beats[i-1].t; if(d>.28&&d<.8) dts.push(d); } dts.sort((a,b)=>a-b);
+    const spb=dts.length?dts[dts.length>>1]:.5, gap=spb*32; let last=-gap*.6, n=0, sd2=1;                 // at least eight bars between events
+    for(const b of A.beats){ if(b.s<.45||b.t<4||b.t-last<gap||b.t>A.dur-5||stretches.some(ts=>b.t>ts-1.5&&b.t<ts+TUNLEN+.5)) continue; last=b.t; sd2=-sd2;
+      if(++n%3===0) for(let k=0;k<3;k++) burst(b.t+k*spb,12+3*k,k%2?-sd2:sd2);                             // now and then, three in a row on three beats, on alternate sides
+      else burst(b.t,13+5*b.s,sd2); } }
   if(ft.length){ const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(Float32Array.from(fc),3)); g.setAttribute('aDir',new THREE.BufferAttribute(Float32Array.from(fd),3)); g.setAttribute('aT',new THREE.BufferAttribute(Float32Array.from(ft),2)); g.setAttribute('aH',new THREE.BufferAttribute(Float32Array.from(fh),1)); add(new THREE.Points(g,fireMat)); }
   R.fx={tunnels:tunT,bursts:bT.sort((a,b)=>a-b),fieldPoints:fieldS.length};
   R.objects={gates:gates.reduce((s,g)=>s+g.length,0),solids:solids.reduce((s,g)=>s+g.length,0)}; }
