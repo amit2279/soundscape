@@ -1716,7 +1716,7 @@ void main(){
   for(int i=0;i<3;i++){ q=p-c-tn*(1.-exp(-z*.2)); r=max(length(q),1e-3); z=.9/r; }
   float a=atan(q.y,q.x)/6.2832+.5+uTime*.012+sin(uTime*.17)*.06+z*.018*sin(uTime*.11);
   float v=z+uWormZ;
-  float sec=floor(v/7.); float ty=floor(hash(vec2(sec,3.))*8.99); float fs=fract(v/7.); float pm=step(5.,ty)*step(ty,6.5)*smoothstep(0.,.1,fs)*smoothstep(1.,.9,fs);
+  float sec=floor(v/7.); float ty=floor(hash(vec2(sec,3.))*8.99); if(ty>.5&&ty<1.5) ty=4.;   /* type 1 (rings inside tiles) is switched off; its code stays below */ float fs=fract(v/7.); float pm=step(5.,ty)*step(ty,6.5)*smoothstep(0.,.1,fs)*smoothstep(1.,.9,fs);
   vec2 g=vec2(fract(a)*12.,v*1.5); vec2 id=floor(g); vec2 f=fract(g);
   vec2 cid=floor(g/2.);
   if(hash(cid+sec)>.62){ id=cid+100.; f=fract(g/2.); }
@@ -1784,16 +1784,18 @@ vec3 wall(float st,float th,float z,float aa,float t){
     vec2 id2; float h2; vec2 g2=vec2((th+.7+uTunD*1.7)/6.28318*22.,z/8.1+.5); float d2=dots(g2,aa*.14,.5,id2,h2);
     vec3 c2=mix(vec3(1.),pal(h2+z*.002-uTime*.05),.25+.65*max(uNeon,uNitro));
     return c1*d1+c2*d2*1.15; }
-  if(st<1.5){           // particles: a fine dust of points, twinkling
-    vec3 c=vec3(0.); for(int k=0;k<3;k++){ float fk=float(k), N=150.+fk*70.; vec2 g=vec2((u+fk*.31+uTunD*.1*(fk+1.))*N,z*N/180.+fk*7.), id=floor(g), f=fract(g)-.5;
-      float h=hash(id+fk*17.), L=lvl(floor(h*11.99)), r=(.07+.2*hash(id+5.))*(.7+.9*L);
-      vec2 off=(vec2(hash(id+3.1),hash(id+7.7))-.5)*.5;
-      c+=step(.74,h)*(1.-smoothstep(r,r+.06+aa*N*.02,length(f-off)))*(.5+1.6*L+.5*sin(uTime*3.+h*40.))*mix(mix(uA,uB,h),pal(h+z*.003-uTime*.06),.5+.4*max(uNeon,uNitro)); }
-    return c*1.3*(1.-far); }
+  if(st<1.5){           // particles: a few glowing motes of very different sizes, scattered with no rows or columns, each lit by its own band
+    vec3 c=vec3(0.); for(int k=0;k<3;k++){ float fk=float(k), N=14.+fk*13.; vec2 g=vec2((u+fk*.31+uTunD*.08*(fk+1.))*N,z*N/150.+fk*7.);
+      g.y+=hash(vec2(floor(g.x),fk))*9.; vec2 id=floor(g), f=fract(g)-.5;                                   // every column slides by a random amount, so nothing lines up
+      float h=hash(id+fk*17.), L=lvl(floor(h*11.99)), r=(.04+.3*pow(hash(id+5.),3.))*(.8+.5*L);
+      vec2 off=(vec2(hash(id+3.1),hash(id+7.7))-.5)*(.9-2.*r); float d=length(f-off);
+      vec3 pc=pal(h*3.+z*.002-uTime*.08);
+      c+=step(.42,h)*pc*((1.-smoothstep(r*.55,r,d))*(.35+2.4*L*L)+exp(-d*d/(r*r*2.2))*(.12+1.5*L)*smoothstep(.5,.28,max(abs(f.x),abs(f.y)))); }      // a solid core plus a halo that swells with the music
+    return c*(1.-far); }
   vec3 pa=pal(z*.0042+u*1.-uTime*.09), pb=pal(z*.0042+u*1.-uTime*.09+.45), o;
   if(st<2.5){           // a spiral of stripes that breathes
     float w=.5+.22*sin(z*.05+uTime*.7)*(.4+uBands.x), k=fract(u*7.+z*.045+.35*sin(z*.03-uTime*.5)-uTime*.12);
-    o=mix(vec3(0.),mix(pa,vec3(1.),.25*lvl(floor(u*12.))),step(k,w)); o=mix(o,pb*.9,step(.92,fract(k*3.)));
+    o=mix(vec3(0.),mix(pa,vec3(1.),.25*lvl(floor(u*12.))),step(k,w));
   } else if(st<3.5){    // warped checker with nested diamonds
     float uu=u*18.+sin(z*.11+uTime*.6)*(.5+.9*uBands.x), vv=z/4.5; vec2 f=fract(vec2(uu,vv))-.5; float chk=mod(floor(uu)+floor(vv),2.);
     float d=abs(f.x)+abs(f.y), rg=step(.5,fract(d*3.2-uTime*.7+lvl(floor(hash(floor(vec2(uu,vv)))*12.))));
@@ -1805,6 +1807,7 @@ vec3 wall(float st,float th,float z,float aa,float t){
     float a=step(.5,fract(z/6.+.12*sin(th*8.+uTime)*(.4+uBands.y))), b=step(.5,fract(u*26.+.25*sin(z*.05))); float x=abs(a-b);
     o=mix(pa*.1,mix(pa,pb,a),x)*(.8+.6*lvl(floor(u*12.)));
   }
+  o*=.5+.5*uPulse+1.1*lvl(floor(fract(z*.008-uTime*.12)*12.))+.5*exp(-pow(fract(z*.004-uTime*.3)-.5,2.)*60.)*uBands.x;   // light travels along the tube: each stretch glows with one band of the spectrum, and a bright front rides the bass
   return mix(o,(pa+pb)*.22,far); }   // far away the pattern is finer than a pixel: settle to its average colour
 void main(){
   vec2 p=(vUv-.5)*2.; p.x*=uAsp;
