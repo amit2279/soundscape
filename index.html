@@ -440,7 +440,7 @@ h1 .hollow{display:block;color:transparent;-webkit-text-stroke:2px var(--text)}
         <button data-world="terrain" aria-pressed="false" title="A particle landscape that the music sculpts as it plays (T switches)">Terrain</button>
         <button data-world="abyss" aria-pressed="false" title="Under the sea: a fish school shaped by the music. Drag to look around (T switches)">Abyss</button>
         <button data-world="worm" aria-pressed="false" title="An endless tunnel of shifting patterns. Move the mouse to lean (T switches)">Wormhole</button>
-        <button data-world="tun" aria-pressed="false" title="A winding road tunnel made of dots, every dot dancing to its own frequency. Move the mouse to lean (T switches)">Tunnel</button>
+        <button data-world="tun" aria-pressed="false" title="A winding road tunnel made of dots, with six wall patterns that change as you drive. Click the picture or press G for the next pattern (T switches)">Tunnel</button>
         <button data-world="ill" aria-pressed="false" title="Black-and-white optical illusions that pour, spin and ripple with the music. It stays on one until you click the picture or press G (T switches)">Illusions</button>
         <button data-world="loom" aria-pressed="false" title="Ribbons knotted through each other, one frequency band each. Drag to look around (T switches)">Loom</button>
         <button data-world="mandala" aria-pressed="false" title="A stepped well of decorated rings, different for every song. Drag to look around, Fly looks straight down (T switches)">Mandala</button>
@@ -667,7 +667,7 @@ const U = {
   uGrowC:{value:new THREE.Vector3()}, uFogD:{value:1/2100}, uLen:{value:1}, uRows:{value:1},
   uSkyTop:{value:C('#000')}, uSkyMid:{value:C('#000')}, uHorizon:{value:C('#000')}, uFog:{value:C('#000')},
   uA:{value:C('#000')}, uB:{value:C('#000')}, uWarm:{value:C('#000')}, uCool:{value:C('#000')}, uFacade:{value:C('#000')},
-  uData:{value:null}, uBlocks:{value:null}, uPx:{value:1}, uSpec:{value:new Float32Array(12)}, uNitro:{value:1}, uFlash:{value:0}, uSearch:{value:0}, uNeon:{value:0}, uDay:{value:0}, uHeight:{value:null}, uTBase:{value:0}, uTStep:{value:3}, uPlanet:{value:0}, uPC:{value:0}, uAmp:{value:1}, uPSize:{value:1}, uAtmo:{value:1}, uShowP:{value:1}, uAbyss:{value:0}, uBall:{value:0}, uSwim:{value:0}, uVoid:{value:0}, uWormZ:{value:0}, uTunZ:{value:0}, uTunW:{value:999}, uTunD:{value:0}, uIllA:{value:0}, uIllB:{value:0}, uIllMix:{value:1}, uIllT:{value:0}, uIllFade:{value:1}, uPA:{value:0}, uPB:{value:0}, uPMix:{value:1}, uPShow:{value:0}, uSpecS:{value:new Float32Array(12)}, uBassS:{value:0}, uAsp:{value:1}, uPtr:{value:new THREE.Vector2()}, uDiver:{value:new THREE.Vector3(0,9999,0)}, uRay:{value:new THREE.Vector3(0,1,0)}, uCtr:{value:new THREE.Vector3()}, uSpecTex:{value:null},
+  uData:{value:null}, uBlocks:{value:null}, uPx:{value:1}, uSpec:{value:new Float32Array(12)}, uNitro:{value:1}, uFlash:{value:0}, uSearch:{value:0}, uNeon:{value:0}, uDay:{value:0}, uHeight:{value:null}, uTBase:{value:0}, uTStep:{value:3}, uPlanet:{value:0}, uPC:{value:0}, uAmp:{value:1}, uPSize:{value:1}, uAtmo:{value:1}, uShowP:{value:1}, uAbyss:{value:0}, uBall:{value:0}, uSwim:{value:0}, uVoid:{value:0}, uWormZ:{value:0}, uTunZ:{value:0}, uTunW:{value:999}, uTunD:{value:0}, uTunA:{value:0}, uTunB:{value:0}, uTunF:{value:-99}, uIllA:{value:0}, uIllB:{value:0}, uIllMix:{value:1}, uIllT:{value:0}, uIllFade:{value:1}, uPA:{value:0}, uPB:{value:0}, uPMix:{value:1}, uPShow:{value:0}, uSpecS:{value:new Float32Array(12)}, uBassS:{value:0}, uAsp:{value:1}, uPtr:{value:new THREE.Vector2()}, uDiver:{value:new THREE.Vector3(0,9999,0)}, uRay:{value:new THREE.Vector3(0,1,0)}, uCtr:{value:new THREE.Vector3()}, uSpecTex:{value:null},
   uBPos:{value:Array.from({length:10},()=>new THREE.Vector3())}, uBT:{value:new Float32Array(10).fill(-99)}
 };
 const specData=new Uint8Array(48), specTex=new THREE.DataTexture(specData,12,1,THREE.RGBAFormat); specTex.magFilter=specTex.minFilter=THREE.LinearFilter; specTex.needsUpdate=true; U.uSpecTex.value=specTex;
@@ -1710,7 +1710,10 @@ float lvl(float b){ return texture2D(uSpecTex,vec2((mod(b,12.)+.5)/12.,.5)).r; }
 void main(){
   vec2 p=(vUv-.5)*2.; p.x*=uAsp; ${CAM_PULSE?'p*=1.-.05*uPulse;':''}
   vec2 c=uPtr*.3+vec2(sin(uTime*.31),cos(uTime*.26))*.1;
-  vec2 q=p-c; float r=max(length(q),1e-3); float z=.9/r;
+  // The hole bends: the far end of the tube swings off to one side, holds, comes back to straight, then goes another way.
+  vec2 tn=vec2(vnoise(vec2(uWormZ*.021,3.7)),vnoise(vec2(uWormZ*.017+40.,9.1)))*2.-1.; tn=sign(tn)*smoothstep(.12,.62,abs(tn))*.8;
+  vec2 q=p-c; float r=max(length(q),1e-3), z=.9/r;
+  for(int i=0;i<3;i++){ q=p-c-tn*(1.-exp(-z*.2)); r=max(length(q),1e-3); z=.9/r; }
   float a=atan(q.y,q.x)/6.2832+.5+uTime*.012+sin(uTime*.17)*.06+z*.018*sin(uTime*.11);
   float v=z+uWormZ;
   float sec=floor(v/7.); float ty=floor(hash(vec2(sec,3.))*8.99); float fs=fract(v/7.); float pm=step(5.,ty)*step(ty,6.5)*smoothstep(0.,.1,fs)*smoothstep(1.,.9,fs);
@@ -1763,7 +1766,7 @@ worm.frustumCulled=false; worm.renderOrder=999; worm.visible=false; scene.add(wo
    Every dot belongs to one frequency band and swells with it; colour drifts down the tube; beats send a bright ring away from you. */
 const tun=new THREE.Mesh(new THREE.PlaneGeometry(2,2),new THREE.ShaderMaterial({uniforms:U,depthTest:false,depthWrite:false,
   vertexShader:`varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.,1.); }`,
-  fragmentShader:`precision highp float; uniform float uTime,uTunZ,uAsp,uPulse,uNeon,uNitro,uTunW,uTunD; uniform vec2 uPtr; uniform vec3 uA,uB,uWarm,uBands; uniform sampler2D uSpecTex; varying vec2 vUv;
+  fragmentShader:`precision highp float; uniform float uTime,uTunZ,uAsp,uPulse,uNeon,uNitro,uTunW,uTunD,uTunA,uTunB,uTunF; uniform vec2 uPtr; uniform vec3 uA,uB,uWarm,uBands; uniform sampler2D uSpecTex; varying vec2 vUv;
 ${GLSL_COMMON}
 float lvl(float b){ return texture2D(uSpecTex,vec2((mod(b,12.)+.5)/12.,.5)).r; }
 vec2 path(float z){ return vec2(sin(z*.0105)*64.+sin(z*.026+1.3)*20.,sin(z*.0083+2.)*12.+sin(z*.019)*5.); }
@@ -1773,6 +1776,36 @@ float dots(vec2 g,float aa,float keep,out vec2 id,out float hh){ id=floor(g); ve
   vec2 off=(vec2(hash(id+3.1),hash(id+7.7))-.5)*.46; float L=lvl(floor(hash(id+5.3)*11.99));
   float r=(.10+.3*pow(hash(id+11.9),1.8))*(.8+.7*L+.25*uPulse);
   return step(keep,hh)*(1.-smoothstep(r-aa,r+aa,length(f-off)))*(.8+1.3*L); }
+vec3 wall(float st,float th,float z,float aa,float t){
+  float u=th/6.28318, far=smoothstep(260.,700.,t);
+  if(st<.5){            // scattered dots, each on its own band
+    vec2 id; float hh; vec2 g1=vec2((th+uTunD)/6.28318*60.,z/3.); float d1=dots(g1,aa*.36,.24,id,hh);
+    vec3 c1=mix(vec3(1.),mix(mix(uA,uB,hh),pal(hh*.35+z*.0035-uTime*.07+th*.08),.6),.3+.6*max(uNeon,uNitro));
+    vec2 id2; float h2; vec2 g2=vec2((th+.7+uTunD*1.7)/6.28318*22.,z/8.1+.5); float d2=dots(g2,aa*.14,.5,id2,h2);
+    vec3 c2=mix(vec3(1.),pal(h2+z*.002-uTime*.05),.25+.65*max(uNeon,uNitro));
+    return c1*d1+c2*d2*1.15; }
+  if(st<1.5){           // particles: a fine dust of points, twinkling
+    vec3 c=vec3(0.); for(int k=0;k<3;k++){ float fk=float(k), N=150.+fk*70.; vec2 g=vec2((u+fk*.31+uTunD*.1*(fk+1.))*N,z*N/180.+fk*7.), id=floor(g), f=fract(g)-.5;
+      float h=hash(id+fk*17.), L=lvl(floor(h*11.99)), r=(.07+.2*hash(id+5.))*(.7+.9*L);
+      vec2 off=(vec2(hash(id+3.1),hash(id+7.7))-.5)*.5;
+      c+=step(.74,h)*(1.-smoothstep(r,r+.06+aa*N*.02,length(f-off)))*(.5+1.6*L+.5*sin(uTime*3.+h*40.))*mix(mix(uA,uB,h),pal(h+z*.003-uTime*.06),.5+.4*max(uNeon,uNitro)); }
+    return c*1.3*(1.-far); }
+  vec3 pa=pal(z*.0042+u*1.-uTime*.09), pb=pal(z*.0042+u*1.-uTime*.09+.45), o;
+  if(st<2.5){           // a spiral of stripes that breathes
+    float w=.5+.22*sin(z*.05+uTime*.7)*(.4+uBands.x), k=fract(u*7.+z*.045+.35*sin(z*.03-uTime*.5)-uTime*.12);
+    o=mix(vec3(0.),mix(pa,vec3(1.),.25*lvl(floor(u*12.))),step(k,w)); o=mix(o,pb*.9,step(.92,fract(k*3.)));
+  } else if(st<3.5){    // warped checker with nested diamonds
+    float uu=u*18.+sin(z*.11+uTime*.6)*(.5+.9*uBands.x), vv=z/4.5; vec2 f=fract(vec2(uu,vv))-.5; float chk=mod(floor(uu)+floor(vv),2.);
+    float d=abs(f.x)+abs(f.y), rg=step(.5,fract(d*3.2-uTime*.7+lvl(floor(hash(floor(vec2(uu,vv)))*12.))));
+    o=mix(pa,pb,chk)*mix(.12,1.,rg);
+  } else if(st<4.5){    // liquid contours
+    float uu=u*14., vv=z/7.; float n=sin(uu*1.3+sin(vv*.9+uTime*.4)*2.2)+sin(vv*1.1+sin(uu*.7-uTime*.3)*2.2)+.6*uBands.x*sin(uu*3.+vv*2.);
+    float k=fract(n*1.6+uTime*.25); o=pal(n*.22+z*.003-uTime*.05)*smoothstep(.0,.08,k)*smoothstep(.62,.5,k)*1.2;
+  } else {              // rings crossed with rays: the pattern flips wherever they overlap
+    float a=step(.5,fract(z/6.+.12*sin(th*8.+uTime)*(.4+uBands.y))), b=step(.5,fract(u*26.+.25*sin(z*.05))); float x=abs(a-b);
+    o=mix(pa*.1,mix(pa,pb,a),x)*(.8+.6*lvl(floor(u*12.)));
+  }
+  return mix(o,(pa+pb)*.22,far); }   // far away the pattern is finer than a pixel: settle to its average colour
 void main(){
   vec2 p=(vUv-.5)*2.; p.x*=uAsp;
   float z0=uTunZ; vec3 ro=vec3(path(z0)+vec2(uPtr.x*5.,FL+3.4+uPtr.y*1.5),z0);
@@ -1791,13 +1824,9 @@ void main(){
       float c=1.-smoothstep(.5,.5+aa*4.,length(vec2(x/.9,(fract(pos.z/5.)-.5)*5./1.5)));
       vec3 lc=mix(vec3(1.),pal(pos.z*.003-uTime*.06),.35+.5*max(uNeon,uNitro));
       col=lc*(e*(1.1+1.1*lvl(1.))+c*(1.2+1.4*uBands.x))+lc*ring*(e+c)*1.2;
-    } else {     // the tube: two layers of dots, a fine one and a scattering of big ones, slowly corkscrewing
-      float th=atan(q.x,q.y)+pos.z*.0021; vec2 id; float hh;   // the dots hold their places on the wall; uTunD is the slow sideways drift that comes and goes
-      vec2 g1=vec2((th+uTunD)/6.28318*60.,pos.z/3.); float d1=dots(g1,aa*.36,.24,id,hh);
-      vec3 c1=mix(vec3(1.),mix(mix(uA,uB,hh),pal(hh*.35+pos.z*.0035-uTime*.07+th*.08),.6),.3+.6*max(uNeon,uNitro));
-      vec2 id2; float h2; vec2 g2=vec2((th+.7+uTunD*1.7)/6.28318*22.,pos.z/8.1+.5); float d2=dots(g2,aa*.14,.5,id2,h2);
-      vec3 c2=mix(vec3(1.),pal(h2+pos.z*.002-uTime*.05),.25+.65*max(uNeon,uNitro));
-      col=c1*d1+c2*d2*1.15+(c1*d1+c2*d2)*ring*1.6;
+    } else {     // the tube wall: which pattern depends on the stretch of tunnel; a new pattern arrives from the far end and you drive into it
+      float th=atan(q.x,q.y)+pos.z*.0021;
+      col=wall(pos.z-z0>uTunF?uTunB:uTunA,th,pos.z,aa,t); col+=col*ring*1.5;
     }
   }
   col*=fog; col+=mix(uA,uB,.5+.5*sin(uTime*.2))*.035*uBands.x*exp(-abs(p.y)*1.5);   // a breath of colour in the dark
@@ -2670,7 +2699,7 @@ window.addEventListener('keydown',e=>{
   if(autoShuf&&k.length===1&&'1234tnk'.includes(k)) stopShuffle();
   if(k===' '){ e.preventDefault(); if(app.dataset.state==='landing'){ if(buffer) startRide(); } else $('#play').click(); }
   else if(k==='1') setMode('cruise'); else if(k==='2') setMode('surf'); else if(k==='3') setMode('skyline'); else if(k==='4') togglePlanet();
-  else if(k==='h') app.classList.toggle('nohud'); else if(k==='n') setNitro(!nitro); else if(k==='?'||k==='/') $('#hint').classList.toggle('on'); else if(k==='k') setKal(!kaleido); else if(k==='c') togglePanel(); else if(k==='p') snapshot(); else if(k==='t') setWorld(WORLDS[(WORLDS.indexOf(world)+1)%WORLDS.length]); else if(k==='f') toggleFs(); else if(k==='g'&&world==='ill') illNext(); else if(k==='0') zoomT=1;
+  else if(k==='h') app.classList.toggle('nohud'); else if(k==='n') setNitro(!nitro); else if(k==='?'||k==='/') $('#hint').classList.toggle('on'); else if(k==='k') setKal(!kaleido); else if(k==='c') togglePanel(); else if(k==='p') snapshot(); else if(k==='t') setWorld(WORLDS[(WORLDS.indexOf(world)+1)%WORLDS.length]); else if(k==='f') toggleFs(); else if(k==='g'&&world==='ill') illNext(); else if(k==='g'&&world==='tun') tunNext(); else if(k==='0') zoomT=1;
   else if(k===']'&&started) seek(now()+5); else if(k==='['&&started) seek(now()-5);
   // Driving keys never touch the music. The first press in City or Terrain takes the camera off its rail and hands it to you.
   if(k.startsWith('arrow')) e.preventDefault();
@@ -2763,7 +2792,9 @@ async function loadFile(file){
 }
 
 /* ================= frame loop ================= */
-let tunV=24, tunDv=0, tunDt=0, tunDir=1; const attract={a:0,y:110}; let skyY=380, nitro=false, flash=0, party=0, diveT=0, search=0;
+let tunV=24, tunDv=0, tunDt=0, tunDir=1, tunBeat=0;
+function tunNext(){ U.uTunA.value=U.uTunB.value; U.uTunB.value=(U.uTunB.value+1)%6; U.uTunF.value=760; }   // the next wall pattern starts at the far end and comes toward you
+const attract={a:0,y:110}; let skyY=380, nitro=false, flash=0, party=0, diveT=0, search=0;
 const camUp=new THREE.Vector3(0,1,0), lkF=new THREE.Vector3(), lkR=new THREE.Vector3(), lkU=new THREE.Vector3(); let fovOver=0, lookYaw=0, lookPitch=0, loomIn=false;
 const diverV=new THREE.Vector3(), diverT=new THREE.Vector3(), ptrV=new THREE.Vector2();
 const fly={x:0,y:30,vx:0}, TRAIL=400; let world='city';
@@ -2772,7 +2803,7 @@ const orbit={az:.6,el:.5,dist:PR*3.9,drag:false,lx:0,ly:0,idle:0};
 canvas.addEventListener('pointerdown',e=>{ if(mode!=='planet'&&!ORBW[world]) return; orbit.drag=true; orbit.lx=e.clientX; orbit.ly=e.clientY; try{canvas.setPointerCapture(e.pointerId)}catch(_){} });
 canvas.addEventListener('pointermove',e=>{ if(!orbit.drag) return; orbit.az-=(e.clientX-orbit.lx)*.006; orbit.el=clamp(orbit.el+(e.clientY-orbit.ly)*.005,-1.35,1.45); orbit.lx=e.clientX; orbit.ly=e.clientY; orbit.idle=0; });
 canvas.addEventListener('pointermove',e=>{ if(!orbit.drag||world!=='loom'||mode!=='surf') return; lookYaw=clamp(lookYaw+(e.movementX||0)*.005,-2.9,2.9); lookPitch=clamp(lookPitch-(e.movementY||0)*.004,-1.3,1.3); });
-canvas.addEventListener('click',()=>{ if(world==='ill'&&started) illNext(); });
+canvas.addEventListener('click',()=>{ if(world==='ill'&&started) illNext(); else if(world==='tun'&&started) tunNext(); });
 const endDrag=()=>{ orbit.drag=false; }; canvas.addEventListener('pointerup',endDrag); canvas.addEventListener('pointercancel',endDrag);
 let zoomT=1, zoomK=1, fovBase=60;   // scroll zoom for the ride cameras: 1 is normal, above 1 zooms in, below 1 widens the view
 canvas.addEventListener('wheel',e=>{ if(mode!=='planet'&&!ORBW[world]){ if(started&&(world==='city'||world==='terrain'||world==='abyss'||world==='loom')){ e.preventDefault(); zoomT=clamp(zoomT*Math.exp(-e.deltaY*(e.ctrlKey?.012:.0016)),.55,5); } return; } e.preventDefault(); orbit.dist=clamp(orbit.dist*Math.exp(e.deltaY*.0012),PR*2.2,PR*10); },{passive:false});
@@ -2823,7 +2854,7 @@ function frame(ms){
   { const kt=RM?1:Math.min(1,dt*2.6); for(const k in TT) U[k].value.lerp(TT[k],kt); U.uNeon.value+=(neonT-U.uNeon.value)*kt; U.uDay.value+=(dayT-U.uDay.value)*kt; }
   { const sp=U.uSpec.value; for(let b=0;b<12;b++){ specData[b*4]=clamp(sp[b],0,1)*255; specData[b*4+3]=255; } specTex.needsUpdate=true; }
   sI+=(samp(A.inten,f)-sI)*Math.min(1,dt*1.5);
-  if(playing){ while(beatIdx<A.beats.length && A.beats[beatIdx].t<=t){ const s=A.beats[beatIdx].s; if(t-A.beats[beatIdx].t<.2){ pulse=Math.max(pulse,.45+.55*s); if(autoShuf&&(++shufBeat%32)===0) fadeRoll(); if(kPass&&kaleido&&(++kBeat%8)===0&&kPass.uniforms.uMix.value>=1){ const ku=kPass.uniforms;
+  if(playing){ while(beatIdx<A.beats.length && A.beats[beatIdx].t<=t){ const s=A.beats[beatIdx].s; if(t-A.beats[beatIdx].t<.2){ pulse=Math.max(pulse,.45+.55*s); if(world==='tun'&&(++tunBeat%48)===0) tunNext(); if(autoShuf&&(++shufBeat%32)===0) fadeRoll(); if(kPass&&kaleido&&(++kBeat%8)===0&&kPass.uniforms.uMix.value>=1){ const ku=kPass.uniforms;
       const ci=Math.max(0,KSEG.indexOf(ku.uSegB.value)); let ni=ci; while(ni===ci) ni=clamp(ci+((Math.random()*5)|0)-2,0,KSEG.length-1);
       ku.uSeg.value=ku.uSegB.value; ku.uSegB.value=KSEG[ni]; ku.uMix.value=0; kPolyA.value=kPolyB.value; kPolyB.value=kPolyB.value===5?(Math.random()<.5?3:4):(kPolyB.value===4?(Math.random()<.5?5:3):(Math.random()<.5?5:4)); } if(s>.45){ waveR=0; waveAmp=Math.max(waveAmp,.35+.65*s); if(party>0||sI>.74) burst(along); if(nitro&&world==='city') emitSparks(along,s*(party>0?1.5:1)); } } beatIdx++; }
     while(dropIdx<A.drops.length && A.drops[dropIdx]<=t){ if(t-A.drops[dropIdx]<.3){ flash=1; party=7; diveT=3.6; waveR=0; waveAmp=1.5; pulse=1; for(let i=0;i<4;i++) burst(along); } dropIdx++; }
@@ -2852,7 +2883,7 @@ function frame(ms){
     U.uPMix.value=Math.min(1,U.uPMix.value+dt/(RM?.05:2.6)); U.uPShow.value=illCur>=6?U.uIllFade.value:0; part.position.set(0,0,-along);
     U.uTunW.value+=dt*330; if(pulse>.8&&U.uTunW.value>160) U.uTunW.value=0; U.uAsp.value=camera.aspect; U.uPtr.value.lerp(ptrV.set(ptrX,ptrY*2-1),Math.min(1,dt*1.6)); }
   const tunOn=riding&&world==='tun'; tun.visible=tunOn;
-  if(tunOn){ tunV+=((RM?16:(20+(nitro?58:26)*sI+(nitro?14:7)*sb))-tunV)*Math.min(1,dt*.9); U.uTunZ.value+=dt*tunV;
+  if(tunOn){ tunV+=((RM?16:(20+(nitro?58:26)*sI+(nitro?14:7)*sb))-tunV)*Math.min(1,dt*.9); U.uTunZ.value+=dt*tunV; U.uTunF.value=Math.max(-99,U.uTunF.value-dt*(tunV*3+70));
     // Drift cycle: the dots sit still on the walls for a while, then slide slowly round them, ease to a stop, and next time go the other way.
     if(playing&&!RM){ tunDt+=dt; if(tunDt>40){ tunDt=0; tunDir=-tunDir; } } tunDv+=((tunDt>18&&tunDt<37?tunDir*(.2+.12*sI):0)-tunDv)*Math.min(1,dt*.45); U.uTunD.value+=dt*tunDv;   // speed eases toward the song's overall energy: no lurching on single beats U.uTunW.value+=dt*330; if(pulse>.8&&U.uTunW.value>120) U.uTunW.value=0;   // each strong beat sends a ring of light down the tube
     U.uAsp.value=camera.aspect; U.uPtr.value.lerp(ptrV.set(ptrX,ptrY*2-1),Math.min(1,dt*1.6)); }
