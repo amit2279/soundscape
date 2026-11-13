@@ -143,8 +143,8 @@ void main(){ vec3 n=normalize(cross(dFdx(vW),dFdy(vW))), V=normalize(uCam-vW); f
   gl_FragColor=vec4(col*exp(-dist*.005),1.); }`});
 const ADD={transparent:true,depthWrite:false,blending:THREE.AdditiveBlending};
 function tunMat(st){ return new THREE.ShaderMaterial({side:THREE.DoubleSide,transparent:true,depthWrite:false,uniforms:Object.assign({uSt:{value:st},uIn:{value:0}},U),   // smoked acrylic: 70% black, with the pattern projected on it
-  vertexShader:`attribute vec2 aUV; attribute float aE; varying vec2 vUV; varying float vE; varying vec3 vW; void main(){ vUV=aUV; vE=aE; vW=position; gl_Position=projectionMatrix*viewMatrix*vec4(position,1.); }`,
-  fragmentShader:`precision highp float; uniform float uSt,uIn,uTime,uBeat,uBass; uniform vec3 uCam; varying vec2 vUV; varying float vE; varying vec3 vW;
+  vertexShader:`attribute vec2 aUV; attribute float aE; attribute vec3 aN; varying vec2 vUV; varying float vE; varying vec3 vW,vN; void main(){ vUV=aUV; vE=aE; vN=aN; vW=position; gl_Position=projectionMatrix*viewMatrix*vec4(position,1.); }`,
+  fragmentShader:`precision highp float; uniform float uSt,uIn,uTime,uBeat,uBass; uniform vec3 uCam; varying vec2 vUV; varying float vE; varying vec3 vW,vN;
 ${PAL}
 float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
 void main(){ float u=vUV.x, z=vUV.y, dist=length(vW-uCam); vec3 c;
@@ -156,7 +156,8 @@ void main(){ float u=vUV.x, z=vUV.y, dist=length(vW-uCam); vec3 c;
     c=pal(h*5.+z*.004-uTime*.06)*step(.6,hash(id+9.))*(1.-smoothstep(r*.5,r,length(f)))*(.5+.5*sin(uTime*3.+h*60.)+1.5*uBeat*step(.5,h)); }
   vec3 lit=c*(.35+.9*uBeat+.45*uBass)*smoothstep(0.,.05,vE)*smoothstep(1.,.95,vE)*exp(-dist*.006);
   vec3 shell=vec3(.006,.005,.014)+pal(z*.01)*.022*step(.93,fract(z/5.));                                   // from outside: a dark tube with faint hoops, nothing given away
-  vec3 col=mix(shell,lit+vec3(.004,.003,.008),uIn);
+  float inner=step(dot(vN,uCam-vW),0.);                                                                    // are we looking at the inside of the wall?
+  vec3 col=mix(shell,(lit+vec3(.004,.003,.008))*(.6+.4*uIn),inner);                                        // the projection always runs on the inside; it comes up to full strength as you ride in
   gl_FragColor=vec4(col,clamp(.7+max(col.r,max(col.g,col.b))*.9,.7,1.)); }`}); }   // dark wall lets 30% of what is behind it through; where the projection is bright the wall is solid colour
 const PT_FRAG=`precision highp float; varying vec3 vC; void main(){ float d=length(gl_PointCoord-.5); if(d>.5) discard; gl_FragColor=vec4(vC*(smoothstep(.5,.15,d)+.8*smoothstep(.2,0.,d)),1.); }`;
 const fieldMat=new THREE.ShaderMaterial(Object.assign({uniforms:U,
@@ -208,13 +209,13 @@ function buildWorld(R){ while(world.children.length){ const m=world.children.pop
   // ---- long tunnels and particle fields: stretches of track between the drops, alternating ----
   const tunT=[], fieldPos=[], fieldS=[]; R.tun=[];
   stretches.forEach((ts,k)=>{ const i0=Math.floor(idxAt(R,ts)), i1=Math.floor(idxAt(R,ts+TUNLEN));
-    { tunT.push(ts); const every=3, rings=Math.floor((i1-i0)/every), radial=28, nv=rings*(radial+1), pos=new Float32Array(nv*3), uv=new Float32Array(nv*2), ee=new Float32Array(nv), idx=new Uint32Array((rings-1)*radial*6); let ii=0;
+    { tunT.push(ts); const every=3, rings=Math.floor((i1-i0)/every), radial=28, nv=rings*(radial+1), pos=new Float32Array(nv*3), nrm=new Float32Array(nv*3), uv=new Float32Array(nv*2), ee=new Float32Array(nv), idx=new Uint32Array((rings-1)*radial*6); let ii=0;
       for(let j=0;j<rings;j++){ frameAt(R,i0+j*every,P,D,Uu,Rr); P.addScaledVector(Uu,.6);
         { const ro=R.ROL[i0+j*every], c=Math.cos(ro), sn=Math.sin(ro), ux=Uu.x*c-Rr.x*sn, uy=Uu.y*c-Rr.y*sn, uz=Uu.z*c-Rr.z*sn; Rr.set(Rr.x*c+Uu.x*sn,Rr.y*c+Uu.y*sn,Rr.z*c+Uu.z*sn); Uu.set(ux,uy,uz); }   // take the track's bank and roll out of the wall: when the train banks or corkscrews, the pattern turns round you
         for(let a=0;a<=radial;a++){ const an=a/radial*6.283, cx=Math.cos(an)*6.5, sy=Math.sin(an)*6.5, o=j*(radial+1)+a;
-          pos[o*3]=P.x+Rr.x*cx+Uu.x*sy; pos[o*3+1]=P.y+Rr.y*cx+Uu.y*sy; pos[o*3+2]=P.z+Rr.z*cx+Uu.z*sy; uv[o*2]=a/radial; uv[o*2+1]=j*every*DS; ee[o]=j/(rings-1);
+          pos[o*3]=P.x+Rr.x*cx+Uu.x*sy; pos[o*3+1]=P.y+Rr.y*cx+Uu.y*sy; pos[o*3+2]=P.z+Rr.z*cx+Uu.z*sy; nrm[o*3]=(Rr.x*cx+Uu.x*sy)/6.5; nrm[o*3+1]=(Rr.y*cx+Uu.y*sy)/6.5; nrm[o*3+2]=(Rr.z*cx+Uu.z*sy)/6.5; uv[o*2]=a/radial; uv[o*2+1]=j*every*DS; ee[o]=j/(rings-1);
           if(j<rings-1&&a<radial){ const q=o+radial+1; idx[ii++]=o; idx[ii++]=q; idx[ii++]=o+1; idx[ii++]=o+1; idx[ii++]=q; idx[ii++]=q+1; } } }
-      const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3)); g.setAttribute('aUV',new THREE.BufferAttribute(uv,2)); g.setAttribute('aE',new THREE.BufferAttribute(ee,1)); g.setIndex(new THREE.BufferAttribute(idx,1));
+      const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3)); g.setAttribute('aUV',new THREE.BufferAttribute(uv,2)); g.setAttribute('aN',new THREE.BufferAttribute(nrm,3)); g.setAttribute('aE',new THREE.BufferAttribute(ee,1)); g.setIndex(new THREE.BufferAttribute(idx,1));
       const mat=tunMat(k%4); add(new THREE.Mesh(g,mat)); R.tun.push({t0:ts,t1:ts+TUNLEN,mat}); }
   });
   if(fieldS.length){ const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(Float32Array.from(fieldPos),3)); g.setAttribute('aS',new THREE.BufferAttribute(Float32Array.from(fieldS),1)); add(new THREE.Points(g,fieldMat)); }
@@ -266,7 +267,7 @@ function frame(ms){ requestAnimationFrame(frame); const dt=Math.min(.05,(ms-last
     while(beatI<A_.beats.length&&A_.beats[beatI].t<t-1) beatI++; if(beatI>0&&A_.beats[beatI-1].t>t) beatI=0; let bp=0; for(let b=beatI;b<A_.beats.length&&A_.beats[b].t<=t;b++) bp=Math.max(bp,A_.beats[b].s*Math.exp(-(t-A_.beats[b].t)*7)); U.uBeat.value=playing?bp:0;
     if(playing&&t>prevT&&t-prevT<.5) for(const b of A_.beats){ if(b.t>t) break; if(b.t>prevT) spinV+=2.6*b.s; } prevT=t;   // each beat is a push on the wheels
     spinV+=(.4-spinV)*Math.min(1,dt*.8); spinV=Math.min(spinV,7); U.uSpA.value+=spinV*dt; U.uSpB.value+=(U.uSpA.value-U.uSpB.value)*Math.min(1,dt*3.5); U.uSpC.value+=(U.uSpB.value-U.uSpC.value)*Math.min(1,dt*3.5);   // friction brings them back to a slow turn; B and C trail A, which is the delay down a series
-    for(const tn of R.tun){ const k=t>tn.t0-.12&&t<tn.t1+.05?1:0; tn.mat.uniforms.uIn.value+=(k-tn.mat.uniforms.uIn.value)*Math.min(1,dt*(k?6:9)); }   // a tunnel's walls light up as you enter and go dark behind you
+    for(const tn of R.tun){ const k=t>tn.t0-.12&&t<tn.t1+.05?1:0; tn.mat.uniforms.uIn.value+=(k-tn.mat.uniforms.uIn.value)*Math.min(1,dt*(k?2.2:3)); }   // a tunnel's walls light up as you enter and go dark behind you
     let nd=1e9, hit=0; for(const m of R.marks){ if(m.td>t) nd=Math.min(nd,m.td-t); hit=Math.max(hit,Math.exp(-Math.pow((t-m.td)*2.2,2))); } $('#drop').style.opacity=hit;
     const onLift=R.marks.some(m=>i>=m.lift[0]&&i<m.lift[1]);
     $('#hud').textContent=`speed  ${(v*3.6).toFixed(0).padStart(3)} km/h\nforce  ${gn.toFixed(1).padStart(4)} g\nheight ${P.y.toFixed(0).padStart(4)} m\n${onLift?'chain lift':''}${nd<1e8?`\ndrop in ${nd.toFixed(1)} s`:''}`;
