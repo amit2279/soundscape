@@ -108,7 +108,7 @@ function frameAt(R,f,pos,d,u,r){ f=clamp(f,0,R.N-1.001); const i=f|0, k=f-i, L=a
 /* ---------------- rendering ---------------- */
 const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true}); document.body.prepend(renderer.domElement);
 const scene=new THREE.Scene(), camera=new THREE.PerspectiveCamera(72,1,.08,2600), world=new THREE.Group(); scene.add(world);
-const U={uSpA:{value:0},uSpB:{value:0},uSpC:{value:0},uTime:{value:0},uCam:{value:new THREE.Vector3()},uBass:{value:0},uBeat:{value:0},uInt:{value:0},uNow:{value:0}};
+const U={uPx:{value:600},uSpA:{value:0},uSpB:{value:0},uSpC:{value:0},uTime:{value:0},uCam:{value:new THREE.Vector3()},uBass:{value:0},uBeat:{value:0},uInt:{value:0},uNow:{value:0}};
 const PAL='vec3 pal(float t){ return .5+.5*cos(6.28318*(t+vec3(0.,.33,.67))); }';
 function trackMat(col,em,run,neon){ return new THREE.ShaderMaterial({uniforms:Object.assign({uCol:{value:new THREE.Color(col)},uEm:{value:em},uRun:{value:run||0},uNe:{value:neon||0}},U),
   vertexShader:`varying vec3 vW,vN; void main(){ vec4 w=vec4(position,1.); vec3 n=normal;
@@ -138,6 +138,32 @@ void main(){ vec3 n=normalize(cross(dFdx(vW),dFdy(vW))), V=normalize(uCam-vW); f
   vec3 c=pal(vHue+uTime*.02), c2=pal(vHue+.35);
   vec3 col=c*(.12+.5*dif)+mix(c,c2,.5)*pow(1.-f,2.)*1.3+c*(vM<.5?(.22+.8*vNear+1.5*uBeat+.5*uBass)*smoothstep(1.,7.,dist)*.8+.05:(.12+.9*uBass+.6*uBeat));   // a gate dims as it reaches your face, so it does not flood the picture  // lit faces, glowing edges; gates flare as you pass through
   gl_FragColor=vec4(col*exp(-dist*.005),1.); }`});
+const ADD={transparent:true,depthWrite:false,blending:THREE.AdditiveBlending};
+function tunMat(st){ return new THREE.ShaderMaterial(Object.assign({side:THREE.DoubleSide,uniforms:Object.assign({uSt:{value:st}},U),
+  vertexShader:`attribute vec2 aUV; attribute float aE; varying vec2 vUV; varying float vE; varying vec3 vW; void main(){ vUV=aUV; vE=aE; vW=position; gl_Position=projectionMatrix*viewMatrix*vec4(position,1.); }`,
+  fragmentShader:`precision highp float; uniform float uSt,uTime,uBeat,uBass; uniform vec3 uCam; varying vec2 vUV; varying float vE; varying vec3 vW;
+${PAL}
+float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+void main(){ float u=vUV.x, z=vUV.y, dist=length(vW-uCam); vec3 c;
+  if(uSt<.5){ vec2 g=vec2(u*26.,z/1.5); g.y+=hash(vec2(floor(g.x),1.))*7.; vec2 id=floor(g), f=fract(g)-.5; float h=hash(id), r=.08+.3*h*h, d=length(f);      // glowing motes, scattered
+    c=pal(h*3.+uTime*.05)*step(.45,hash(id+3.))*((1.-smoothstep(r*.6,r,d))+exp(-d*d/(r*r*2.))*(.3+1.6*uBeat)); }
+  else if(uSt<1.5){ float k=fract(u*5.+z*.06-uTime*.15), w=.42+.2*uBass; c=pal(z*.012+u-uTime*.1)*step(k,w); }                                              // spiral bands
+  else { float a=u*6.28318, n=sin(a*3.+sin(z*.25+uTime*.5)*2.)+sin(z*.3+sin(a*2.-uTime*.4)*2.), k=fract(n*1.5+uTime*.3); c=pal(n*.2+z*.006-uTime*.05)*smoothstep(0.,.08,k)*smoothstep(.6,.5,k); }   // liquid contours
+  gl_FragColor=vec4(c*(.3+.9*uBeat+.45*uBass)*smoothstep(0.,.07,vE)*smoothstep(1.,.93,vE)*exp(-dist*.006),1.); }`},ADD)); }
+const PT_FRAG=`precision highp float; varying vec3 vC; void main(){ float d=length(gl_PointCoord-.5); if(d>.5) discard; gl_FragColor=vec4(vC*(smoothstep(.5,.15,d)+.8*smoothstep(.2,0.,d)),1.); }`;
+const fieldMat=new THREE.ShaderMaterial(Object.assign({uniforms:U,
+  vertexShader:`attribute float aS; uniform float uTime,uBeat,uBass,uPx; varying vec3 vC;
+${PAL}
+void main(){ vec4 mv=modelViewMatrix*vec4(position,1.); gl_Position=projectionMatrix*mv; float d=-mv.z, tw=.5+.5*sin(uTime*3.+aS*90.);
+  gl_PointSize=clamp(uPx*(.05+.3*aS*aS*aS)*(1.+.6*uBeat)/max(d,.3),1.,70.); vC=pal(aS*4.+uTime*.06)*(.25+.5*tw+1.4*uBeat*step(.5,fract(aS*7.))+.5*uBass)*exp(-d*.012)*smoothstep(.3,2.,d); }`,fragmentShader:PT_FRAG},ADD));
+const fireMat=new THREE.ShaderMaterial(Object.assign({uniforms:U,
+  vertexShader:`attribute vec3 aDir; attribute vec2 aT; attribute float aH; uniform float uNow,uPx; varying vec3 vC;
+${PAL}
+void main(){ float age=uNow-aT.x-aT.y, L=2.9; vec3 p=position+aDir*(1.-exp(-age*2.6))-vec3(0.,1.,0.)*age*age*1.1;            // fast out, slowing, then drooping
+  vec4 mv=modelViewMatrix*vec4(p,1.); gl_Position=projectionMatrix*mv; float d=-mv.z, k=clamp(1.-age/L,0.,1.), head=1.-aT.y*12.;
+  gl_PointSize=clamp(uPx*(.07+.16*head)*k/max(d,.3),1.,60.);
+  vC=mix(pal(aH),vec3(1.,.95,.8),exp(-age*5.))*(.4+1.6*head)*k*(.7+.3*sin(age*40.+aH*50.))*exp(-d*.006)*smoothstep(.3,1.5,d);
+  if(age<0.||age>L) gl_Position=vec4(2.,2.,2.,1.); }`,fragmentShader:PT_FRAG},ADD));
 function sweep(R,offs,every,radial){ const rings=Math.floor((R.N-1)/every), nv=rings*radial*offs.length, pos=new Float32Array(nv*3), nor=new Float32Array(nv*3), idx=new Uint32Array((rings-1)*radial*6*offs.length);
   const P=new THREE.Vector3(), D=new THREE.Vector3(), Uu=new THREE.Vector3(), Rr=new THREE.Vector3(); let ii=0;
   offs.forEach(([ox,oy,rad],k)=>{ const base=k*rings*radial; for(let j=0;j<rings;j++){ frameAt(R,j*every,P,D,Uu,Rr); for(let a=0;a<radial;a++){ const an=a/radial*6.283, cx=Math.cos(an), sy=Math.sin(an), o=(base+j*radial+a)*3;
@@ -169,11 +195,31 @@ function buildWorld(R){ while(world.children.length){ const m=world.children.pop
   const inst=(geo,list)=>{ if(!list.length) return; const m=add(new THREE.InstancedMesh(geo,objMat,list.length)), a=new Float32Array(list.length*4); list.forEach((e,i)=>{ m.setMatrixAt(i,e.m); a.set(e.a,i*4); }); geo.setAttribute('aI',new THREE.InstancedBufferAttribute(a,4)); };
   [3,4,6,40].forEach((seg,i)=>inst(new THREE.TorusGeometry(1,.055,6,seg),gates[i]));                     // each is stretched along the track, so it reads as a deep frame, not a hoop                     // gates are tubes bent into a triangle, square, hexagon or ring
   [new THREE.IcosahedronGeometry(1,0),new THREE.OctahedronGeometry(1,0),new THREE.DodecahedronGeometry(1,0),new THREE.TorusKnotGeometry(.7,.24,60,6)].forEach((g,i)=>inst(g,solids[i]));
+  // ---- long tunnels and particle fields: stretches of track between the drops, alternating ----
+  const stretches=[]; { let last=-99; for(let tt=6;tt<A.dur-9;tt+=1){ if(tt-last<11||R.marks.some(m=>tt>m.td-13&&tt<m.td+5)) continue; stretches.push(tt); last=tt; } }
+  const tunT=[], fieldPos=[], fieldS=[];
+  stretches.forEach((ts,k)=>{ const i0=Math.floor(idxAt(R,ts)), i1=Math.floor(idxAt(R,ts+(k%2?6:7)));
+    if(k%2===0){ tunT.push(ts); const every=3, rings=Math.floor((i1-i0)/every), radial=28, nv=rings*(radial+1), pos=new Float32Array(nv*3), uv=new Float32Array(nv*2), ee=new Float32Array(nv), idx=new Uint32Array((rings-1)*radial*6); let ii=0;
+      for(let j=0;j<rings;j++){ frameAt(R,i0+j*every,P,D,Uu,Rr); for(let a=0;a<=radial;a++){ const an=a/radial*6.283, cx=Math.cos(an)*6.5, sy=Math.sin(an)*6.5+.6, o=j*(radial+1)+a;
+          pos[o*3]=P.x+Rr.x*cx+Uu.x*sy; pos[o*3+1]=P.y+Rr.y*cx+Uu.y*sy; pos[o*3+2]=P.z+Rr.z*cx+Uu.z*sy; uv[o*2]=a/radial; uv[o*2+1]=j*every*DS; ee[o]=j/(rings-1);
+          if(j<rings-1&&a<radial){ const q=o+radial+1; idx[ii++]=o; idx[ii++]=q; idx[ii++]=o+1; idx[ii++]=o+1; idx[ii++]=q; idx[ii++]=q+1; } } }
+      const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3)); g.setAttribute('aUV',new THREE.BufferAttribute(uv,2)); g.setAttribute('aE',new THREE.BufferAttribute(ee,1)); g.setIndex(new THREE.BufferAttribute(idx,1));
+      add(new THREE.Mesh(g,tunMat((k/2)%3)));
+    } else for(let n=0;n<2600;n++){ frameAt(R,i0+rnd()*(i1-i0),P,D,Uu,Rr); const an=rnd()*6.283, rad=2.2+rnd()*rnd()*15; fieldPos.push(P.x+(Rr.x*Math.cos(an)+Uu.x*Math.sin(an))*rad,P.y+(Rr.y*Math.cos(an)+Uu.y*Math.sin(an))*rad,P.z+(Rr.z*Math.cos(an)+Uu.z*Math.sin(an))*rad); fieldS.push(rnd()); } });
+  if(fieldS.length){ const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(Float32Array.from(fieldPos),3)); g.setAttribute('aS',new THREE.BufferAttribute(Float32Array.from(fieldS),1)); add(new THREE.Points(g,fieldMat)); }
+  // ---- chrysanthemum fireworks: each bursts on a strong beat, a little way ahead on the track, so you fly through the open flower ----
+  const bT=[], fc=[], fd=[], ft=[], fh=[];
+  const burst=(tb,scale)=>{ bT.push(tb); frameAt(R,idxAt(R,tb+.85),P,D,Uu,Rr); const cx=P.x+Rr.x*(rnd()-.5)*5+Uu.x*2, cy=P.y+Rr.y*(rnd()-.5)*5+Uu.y*2, cz=P.z+Rr.z*(rnd()-.5)*5+Uu.z*2, hue=rnd();
+    for(let r=0;r<190;r++){ const c=rnd()*2-1, a=rnd()*6.283, sn=Math.sqrt(1-c*c), inner=r%4===0, sp=scale*(inner?.42:.85+.3*rnd());
+      for(let l=0;l<4;l++){ fc.push(cx,cy,cz); fd.push(sn*Math.cos(a)*sp,c*sp,sn*Math.sin(a)*sp); ft.push(tb,l*.05); fh.push(inner?hue+.5:hue); } } };   // every ray is four points, each a moment behind the last: a trail
+  { let last=-9; for(const b of A.beats){ if(b.s<.5||b.t<3||b.t-last<1.9||b.t>A.dur-3) continue; last=b.t; burst(b.t,11+6*b.s); } for(const m of R.marks) for(let k=0;k<3;k++) burst(m.td+.35+k*.5,17); }
+  if(ft.length){ const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(Float32Array.from(fc),3)); g.setAttribute('aDir',new THREE.BufferAttribute(Float32Array.from(fd),3)); g.setAttribute('aT',new THREE.BufferAttribute(Float32Array.from(ft),2)); g.setAttribute('aH',new THREE.BufferAttribute(Float32Array.from(fh),1)); add(new THREE.Points(g,fireMat)); }
+  R.fx={tunnels:tunT,bursts:bT.sort((a,b)=>a-b),fieldPoints:fieldS.length};
   R.objects={gates:gates.reduce((s,g)=>s+g.length,0),solids:solids.reduce((s,g)=>s+g.length,0)}; }
 const stars=(()=>{ const n=2600, p=new Float32Array(n*3); let sd=5; const rnd=()=>((sd=(sd*1664525+1013904223)>>>0)/4294967296); for(let i=0;i<n;i++){ const a=rnd()*6.283, c=rnd()*2-1, s=Math.sqrt(1-c*c); p[i*3]=1500*s*Math.cos(a); p[i*3+1]=1500*c; p[i*3+2]=1500*s*Math.sin(a); }
   const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(p,3)); const m=new THREE.Points(g,new THREE.PointsMaterial({color:0x8899cc,size:1.6,sizeAttenuation:false})); m.frustumCulled=false; scene.add(m); return m; })();
 const composer=new THREE.EffectComposer(renderer); composer.addPass(new THREE.RenderPass(scene,camera)); const bloom=new THREE.UnrealBloomPass(new THREE.Vector2(1,1),.62,.5,.3); composer.addPass(bloom);
-function resize(){ const w=innerWidth,h=innerHeight, pr=Math.min(1.5,devicePixelRatio||1); renderer.setPixelRatio(pr); renderer.setSize(w,h,false); composer.setSize(w*pr,h*pr); camera.aspect=w/h; camera.updateProjectionMatrix(); } addEventListener('resize',resize); resize();
+function resize(){ const w=innerWidth,h=innerHeight, pr=Math.min(1.5,devicePixelRatio||1); renderer.setPixelRatio(pr); renderer.setSize(w,h,false); composer.setSize(w*pr,h*pr); camera.aspect=w/h; camera.updateProjectionMatrix(); U.uPx.value=h*pr; } addEventListener('resize',resize); resize();
 
 /* ---------------- transport ---------------- */
 let actx=null, buf=null, src=null, t0=0, off=0, playing=false, A=null;
