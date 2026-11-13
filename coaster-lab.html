@@ -148,7 +148,7 @@ function tunMat(st){ return new THREE.ShaderMaterial({side:THREE.DoubleSide,unif
 ${PAL}
 float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
 void main(){ float u=vUV.x, z=vUV.y, dist=length(vW-uCam); vec3 c;
-  if(uSt<.5){ vec2 g=vec2(u*26.,z/1.5); g.y+=hash(vec2(floor(g.x),1.))*7.; vec2 id=floor(g), f=fract(g)-.5; float h=hash(id), r=.08+.3*h*h, d=length(f);      // glowing motes, scattered
+  if(uSt<.5){ vec2 g=vec2((u+uTime*.012)*26.,z/1.5); g.y+=hash(vec2(mod(floor(g.x),26.),1.))*7.; vec2 id=floor(g), f=fract(g)-.5; id.x=mod(id.x,26.);   // the whole field of motes turns slowly round the tube float h=hash(id), r=.08+.3*h*h, d=length(f);      // glowing motes, scattered
     c=pal(h*3.+uTime*.05)*step(.45,hash(id+3.))*((1.-smoothstep(r*.6,r,d))+exp(-d*d/(r*r*2.))*(.3+3.2*uBeat)*smoothstep(.5,.24,d)); }   // the glow dies away in a circle well inside its cell, so no square edge can show
   else if(uSt<1.5){ float k=fract(u*5.+z*.06-uTime*.15), w=.42+.2*uBass; c=pal(z*.012+u-uTime*.1)*step(k,w); }                                              // spiral bands
   else if(uSt<2.5){ float a=u*6.28318, n=sin(a*3.+sin(z*.25+uTime*.5)*2.)+sin(z*.3+sin(a*2.-uTime*.4)*2.), k=fract(n*1.5+uTime*.3); c=pal(n*.2+z*.006-uTime*.05)*smoothstep(0.,.08,k)*smoothstep(.6,.5,k); }   // liquid contours
@@ -195,7 +195,10 @@ function buildWorld(R){ while(world.children.length){ const m=world.children.pop
   let sd=99; const rnd=()=>((sd=(sd*1664525+1013904223)>>>0)/4294967296), A=R.A;
   const place=(tt,ox,oy,sc,dz)=>{ frameAt(R,idxAt(R,tt),P,D,Uu,Rr); return new THREE.Matrix4().makeBasis(Rr,Uu,D).scale(S.set(sc,sc,sc*(dz||1))).setPosition(P.clone().addScaledVector(Rr,ox).addScaledVector(Uu,oy)); };
   const gates=[[],[],[],[]], solids=[[],[],[],[]], TUNLEN=8;
-  const stretches=[]; { let last=-99; for(let tt=6;tt<A.dur-10;tt+=1){ if(tt-last<12||R.marks.some(m=>tt>m.td-13&&tt<m.td+5)) continue; stretches.push(tt); last=tt; } }
+  // A tunnel is only built where its tube stays well clear of every other part of the track (14 m: its own 6.5 m, another tunnel's 6.5 m, and a margin).
+  // Otherwise a dark wall would cut across the rails somewhere else on the ride, or two tunnels would run into each other.
+  const tubeClear=ts=>{ const i0=Math.floor(idxAt(R,ts)), i1=Math.floor(idxAt(R,ts+TUNLEN)); for(let j=i0;j<=i1;j+=6){ const x=R.X[j], y=R.Y[j], z=R.Z[j]; for(let k=0;k<R.N;k+=8){ if(k>i0-90&&k<i1+90) continue; const dx=R.X[k]-x, dy=R.Y[k]-y, dz=R.Z[k]-z; if(dx*dx+dy*dy+dz*dz<196) return false; } } return true; };
+  const stretches=[]; { let last=-99; for(let tt=6;tt<A.dur-10;tt+=1){ if(tt-last<12||R.marks.some(m=>tt>m.td-13&&tt<m.td+5)||!tubeClear(tt)) continue; stretches.push(tt); last=tt; } }
 
   const series=(t0,n,gap,shape,hue,r0)=>{ const ph=rnd()*.98; for(let k=0;k<n;k++){ const tt=t0+k*gap; gates[shape].push({m:place(tt,0,.7,r0*(1+.035*k),4),a:[tt,hue+k*.045,k+ph,0]}); } };   // a run of gates, each one a beat behind the one before it
   for(const m of R.marks) series(m.td+.2,10,.26,((m.td*3)|0)%4,(m.td*.13)%1,3.3);                        // ten down each drop

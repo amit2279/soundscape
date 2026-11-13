@@ -166,6 +166,7 @@ All use `objMat` with per-instance `aI = (song time, hue, seed/phase, mode)`; in
 
 ### 9.6 Closed tunnels
 - Stretches: every 12 s or more of song, 8 s long (`TUNLEN`), never from 13 s before a drop to 5 s after it. Demo: five.
+- **Clearance rule (fix for black patches the owner saw):** a stretch is used only if every point of it is at least 14 m from all non-adjacent track (`tubeClear`). Without this an opaque tunnel wall cut across the rails elsewhere on the ride, or two tunnels intersected. The motes style also turns slowly round the tube (`u + 0.012·time`, cell ids wrapped mod 26 to keep the seam invisible).
 - Geometry: a tube of radius 6.5 m centred 0.6 m above the rails, one ring every 1.2 m, 28 segments. **The ring is built from the track frame with the roll removed**, so the wall does not bank with the train: when the train banks or corkscrews, the pattern turns round the rider. `aUV` = (angle 0..1, metres along), `aE` = 0..1 along the tunnel.
 - Material `tunMat(style)`: **opaque**, double-sided. Uniform `uIn` eases to 1 while song time is inside the tunnel (from 0.12 s before the mouth) and back to 0 after. Output is `mix(shell, pattern, uIn)`: from outside or before entry it is a near-black tube with faint hoops every 5 m; inside it shows the pattern. Because it is opaque it hides the stars, the far track and the gates beyond it.
 - Styles cycle 0 to 3: glowing motes, spiral bands, liquid contours, fine particle dust. All use whole-number repeats round the tube so there is no seam. Brightness follows beat and bass.
