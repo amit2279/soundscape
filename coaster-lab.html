@@ -142,7 +142,7 @@ void main(){ vec3 n=normalize(cross(dFdx(vW),dFdy(vW))), V=normalize(uCam-vW); f
   vec3 col=c*(.12+.5*dif)+mix(c,c2,.5)*pow(1.-f,2.)*1.3+c*(vM<.5?(.22+.8*vNear+1.5*uBeat+.5*uBass)*smoothstep(1.,7.,dist)*.8+.05:(.12+.9*uBass+.6*uBeat));   // a gate dims as it reaches your face, so it does not flood the picture  // lit faces, glowing edges; gates flare as you pass through
   gl_FragColor=vec4(col*exp(-dist*.005),1.); }`});
 const ADD={transparent:true,depthWrite:false,blending:THREE.AdditiveBlending};
-function tunMat(st){ return new THREE.ShaderMaterial({side:THREE.DoubleSide,transparent:true,depthWrite:false,uniforms:Object.assign({uSt:{value:st},uIn:{value:0}},U),   // smoked acrylic: 70% black, with the pattern projected on it
+function tunMat(st){ return new THREE.ShaderMaterial({side:THREE.DoubleSide,uniforms:Object.assign({uSt:{value:st},uIn:{value:0}},U),   // fully opaque: the wall hides the track and the other tunnels beyond it
   vertexShader:`attribute vec2 aUV; attribute float aE; attribute vec3 aN; varying vec2 vUV; varying float vE; varying vec3 vW,vN; void main(){ vUV=aUV; vE=aE; vN=aN; vW=position; gl_Position=projectionMatrix*viewMatrix*vec4(position,1.); }`,
   fragmentShader:`precision highp float; uniform float uSt,uIn,uTime,uBeat,uBass; uniform vec3 uCam; varying vec2 vUV; varying float vE; varying vec3 vW,vN;
 ${PAL}
@@ -158,7 +158,7 @@ void main(){ float u=vUV.x, z=vUV.y, dist=length(vW-uCam); vec3 c;
   vec3 shell=vec3(.006,.005,.014)+pal(z*.01)*.022*step(.93,fract(z/5.));                                   // from outside: a dark tube with faint hoops, nothing given away
   float inner=step(dot(vN,uCam-vW),0.);                                                                    // are we looking at the inside of the wall?
   vec3 col=mix(shell,(lit+vec3(.004,.003,.008))*(.6+.4*uIn),inner);                                        // the projection always runs on the inside; it comes up to full strength as you ride in
-  gl_FragColor=vec4(col,clamp(.7+max(col.r,max(col.g,col.b))*.9,.7,1.)); }`}); }   // dark wall lets 30% of what is behind it through; where the projection is bright the wall is solid colour
+  gl_FragColor=vec4(col,1.); }`}); }   // dark wall lets 30% of what is behind it through; where the projection is bright the wall is solid colour
 const PT_FRAG=`precision highp float; varying vec3 vC; void main(){ float d=length(gl_PointCoord-.5); if(d>.5) discard; gl_FragColor=vec4(vC*(smoothstep(.5,.15,d)+.8*smoothstep(.2,0.,d)),1.); }`;
 const fieldMat=new THREE.ShaderMaterial(Object.assign({uniforms:U,
   vertexShader:`attribute float aS; uniform float uTime,uBeat,uBass,uPx; varying vec3 vC;
