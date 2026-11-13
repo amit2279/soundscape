@@ -212,7 +212,8 @@ function buildWorld(R){ while(world.children.length){ const m=world.children.pop
   const burst=(tb,scale)=>{ bT.push(tb); frameAt(R,idxAt(R,tb+.85),P,D,Uu,Rr); const cx=P.x+Rr.x*(rnd()-.5)*5+Uu.x*2, cy=P.y+Rr.y*(rnd()-.5)*5+Uu.y*2, cz=P.z+Rr.z*(rnd()-.5)*5+Uu.z*2, hue=rnd();
     for(let r=0;r<190;r++){ const c=rnd()*2-1, a=rnd()*6.283, sn=Math.sqrt(1-c*c), inner=r%4===0, sp=scale*(inner?.42:.85+.3*rnd());
       for(let l=0;l<4;l++){ fc.push(cx,cy,cz); fd.push(sn*Math.cos(a)*sp,c*sp,sn*Math.sin(a)*sp); ft.push(tb,l*.05); fh.push(inner?hue+.5:hue); } } };   // every ray is four points, each a moment behind the last: a trail
-  { let last=-9; for(const b of A.beats){ if(b.s<.5||b.t<3||b.t-last<1.9||b.t>A.dur-3) continue; last=b.t; burst(b.t,11+6*b.s); } for(const m of R.marks) for(let k=0;k<3;k++) burst(m.td+.35+k*.5,17); }
+  const FIREWORKS=false;   /* switched off for now: they were in the rider's face. When they come back: place them well to the side of the track and fire far fewer. */
+  if(FIREWORKS) { let last=-9; for(const b of A.beats){ if(b.s<.5||b.t<3||b.t-last<1.9||b.t>A.dur-3) continue; last=b.t; burst(b.t,11+6*b.s); } for(const m of R.marks) for(let k=0;k<3;k++) burst(m.td+.35+k*.5,17); }
   if(ft.length){ const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(Float32Array.from(fc),3)); g.setAttribute('aDir',new THREE.BufferAttribute(Float32Array.from(fd),3)); g.setAttribute('aT',new THREE.BufferAttribute(Float32Array.from(ft),2)); g.setAttribute('aH',new THREE.BufferAttribute(Float32Array.from(fh),1)); add(new THREE.Points(g,fireMat)); }
   R.fx={tunnels:tunT,bursts:bT.sort((a,b)=>a-b),fieldPoints:fieldS.length};
   R.objects={gates:gates.reduce((s,g)=>s+g.length,0),solids:solids.reduce((s,g)=>s+g.length,0)}; }
