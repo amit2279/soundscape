@@ -258,7 +258,8 @@ void main(){ float T=uTime; vec3 l=vec3(sin(T*(.5+aS.x)+aS.y*40.)*5.+sin(T*.9+aS
   l*=(1.-.45*uBeat)*(.55+.8*aS.w);                                                                          // every beat pulls the flock tight, then it relaxes
   vec4 mv=viewMatrix*vec4(uSwC+uSwR*l.x+uSwU*l.y+uSwD*l.z,1.); gl_Position=projectionMatrix*mv; float d=-mv.z;
   gl_PointSize=clamp(uPx*(.035+.07*aS.w*aS.w)/max(d,.3),1.,40.); vC=mix(pal(.5+aS.w*.25+T*.03),vec3(1.),.25)*(.45+1.6*uBeat+.5*uBass)*uSwOn*exp(-d*.012)*smoothstep(.4,2.,d); }`,fragmentShader:PT_FRAG},ADD)));
-  m.frustumCulled=false; scene.add(m); return m; })();
+  m.frustumCulled=false; m.visible=false;   /* SWARM switched off: the owner said it was not working. Set visible=true to bring it back. */
+  scene.add(m); return m; })();
 /* the sea: a black ocean far below the lowest point of the ride. Plankton glitter in it; every strong beat drops a ring of light under the train that spreads away */
 const sea=(()=>{ const m=new THREE.Mesh(new THREE.PlaneGeometry(5000,5000).rotateX(-Math.PI/2),new THREE.ShaderMaterial({uniforms:U,
     vertexShader:`varying vec3 vW; void main(){ vec4 w=modelMatrix*vec4(position,1.); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }`,

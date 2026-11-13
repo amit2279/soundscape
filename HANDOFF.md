@@ -184,6 +184,7 @@ All use `objMat` with per-instance `aI = (song time, hue, seed/phase, mode)`; in
 
 ### 9.6c Added 2026-11-14 (unreviewed by the owner at the time of writing)
 - **Speed streaks** (`streaks`): 420 line segments fixed in a 40 m repeating lattice round the camera; the second vertex of each is pushed along the velocity by up to 5.5 m; they fade in between 16 and 38 m/s.
+- **Swarm is switched off** (`m.visible=false` where it is created): the owner said it was not working. The streaks, sea and soft tunnel mouths he approved ("madness").
 - **Swarm** (`swarm`): 2,600 points in a flock whose centre (`uSwC`, eased) sits 1 s ahead on the track and weaves ±9 m sideways and 0 to 7.5 m up; each point follows its own sine paths in the track frame; the flock contracts 45% on each beat; it fades out in tunnels and for part of the time (`uSwOn`).
 - **Sea** (`sea`): a 5 km plane 8 m below the lowest track point (so no tunnel dips into it), following the camera in x and z. Shader: dark swell, glittering plankton cells, a wake glow that grows as the camera gets lower, and up to six rings (`uRip`: x, z, song time) dropped under the train on strong beats and spreading at 26 m/s.
 - **Tunnel mouths**: wall material is `transparent` again only so alpha can fade over the first and last 11% of the length; the body stays alpha 1 (opaque). Do not lower the body alpha.
