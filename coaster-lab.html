@@ -97,8 +97,11 @@ function buildRide(A){
   hold(0,8); const drops=A.drops.filter(d=>d>7);
   for(const td of drops){ let n=0; while(td-t>15&&n++<200) pick(); liftAndDrop(td); }
   { let n=0; while(t<A.dur-2&&n++<400) pick(); }
+  // A loop ends with pitch 2π further on, and a corkscrew with roll 2π further on. The generator resets those to zero, which is the same direction
+  // but a jump in the stored number; anything that blends between two samples across that jump would swing through a full turn. So make them continuous.
+  let jumps=0; for(const k of ['PIT','ROL','YAW']){ const a=T[k]; let o=0; for(let i=1;i<a.length;i++){ const d=a[i]+o-a[i-1]; if(d>3.1416){ o-=6.283185307; jumps++; } else if(d<-3.1416){ o+=6.283185307; jumps++; } a[i]+=o; } }
   const N=T.X.length, R={N,marks,A}; for(const k in T) R[k]=Float32Array.from(T[k]);
-  R.report={metres:Math.round(N*DS),vmax:Math.max(...T.V)*3.6|0,gmax:+Math.max(...T.GN).toFixed(2),gmin:+Math.min(...T.GN).toFixed(2),drops:marks.map(m=>({song:+m.td.toFixed(2),ride:+m.at.toFixed(2)}))};
+  R.report={jumpsFixed:jumps,metres:Math.round(N*DS),vmax:Math.max(...T.V)*3.6|0,gmax:+Math.max(...T.GN).toFixed(2),gmin:+Math.min(...T.GN).toFixed(2),drops:marks.map(m=>({song:+m.td.toFixed(2),ride:+m.at.toFixed(2)}))};
   return R; }
 function idxAt(R,tt){ let lo=0, hi=R.N-1; while(lo<hi){ const m=(lo+hi)>>1; if(R.T[m]<tt) lo=m+1; else hi=m; } const i=Math.max(1,lo), k=clamp((tt-R.T[i-1])/Math.max(1e-6,R.T[i]-R.T[i-1]),0,1); return i-1+k; }
 function frameAt(R,f,pos,d,u,r){ f=clamp(f,0,R.N-1.001); const i=f|0, k=f-i, L=a=>a[i]+(a[i+1]-a[i])*k, ya=L(R.YAW), pi=L(R.PIT), ro=L(R.ROL), sy=Math.sin(ya), cy=Math.cos(ya), sp=Math.sin(pi), cp=Math.cos(pi);

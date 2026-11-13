@@ -146,6 +146,8 @@ Elements (all sized from the speed the train has at that point):
 Order: 8 m of straight, then for each drop fill until 15 s before it and call `liftAndDrop`, then fill to the end.
 Demo numbers: 1,426 m, 138 km/h, +4.4 g, −0.6 g, both drops within 0.02 s.
 
+**Angle continuity (bug fixed 2026-11-14):** `loop()` and `corkscrew()` reset pitch and roll by 2π when they finish. Stored raw, that is a jump between two neighbouring samples, and `frameAt` interpolating across it swung the camera through a full turn for one sample (the owner saw the rails flash across the screen). `buildRide` now unwraps `PIT`, `ROL` and `YAW` before storing. Keep this when porting.
+
 `idxAt(R,t)` is a binary search from song time to sample index; `frameAt(R,f,pos,d,u,r)` interpolates the frame (roll applied).
 
 ### 9.4 Track model: `buildWorld(R)`
