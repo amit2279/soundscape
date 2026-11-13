@@ -148,12 +148,12 @@ function sweep(R,offs,every,radial){ const rings=Math.floor((R.N-1)/every), nv=r
 function buildWorld(R){ while(world.children.length){ const m=world.children.pop(); m.geometry.dispose(); }
   const add=m=>{ m.frustumCulled=false; world.add(m); return m; };
   add(new THREE.Mesh(sweep(R,[[-.62,0,.085],[.62,0,.085]],2,6),trackMat(0x12262e,.05,0)));               // two running rails: dark bodies
-  add(new THREE.Mesh(sweep(R,[[0,-.5,.2]],3,8),trackMat(0x1c1038,.06,0)));                               // the spine underneath
-  add(new THREE.Mesh(sweep(R,[[-.69,.062,.019],[-.55,.062,.019],[.55,.062,.019],[.69,.062,.019],[-.13,-.33,.017],[0,-.3,.017],[.13,-.33,.017]],2,5),trackMat(0xd8f6ff,1.15,1,.55)));   // neon lines running along both rails and the spine
+  add(new THREE.Mesh(sweep(R,[[-.2,-.52,.125],[.2,-.52,.125]],3,7),trackMat(0x1c1038,.06,0)));                               // two spines underneath
+  add(new THREE.Mesh(sweep(R,[[-.69,.062,.019],[-.55,.062,.019],[.55,.062,.019],[.69,.062,.019],[-.26,-.41,.016],[-.14,-.41,.016],[.14,-.41,.016],[.26,-.41,.016]],2,5),trackMat(0xd8f6ff,1.15,1,.55)));   // neon lines running along both rails and the spine
   const P=new THREE.Vector3(), D=new THREE.Vector3(), Uu=new THREE.Vector3(), Rr=new THREE.Vector3(), B=new THREE.Matrix4(), M=new THREE.Matrix4(), S=new THREE.Vector3(), Q=new THREE.Quaternion(), E=new THREE.Euler();
   // the connector: a yoke that hangs from one rail, wraps under the spine and comes up to the other rail, drawn as an open frame
-  const YK=[[-.62,-.1],[-.5,-.44],[-.2,-.76],[.2,-.76],[.5,-.44],[.62,-.1]], local=[];   // from under each rail an arm angles down and in to a short cradle beneath the spine; nothing crosses above
-  for(let k=0;k<YK.length-1;k++){ const a=YK[k], b=YK[k+1], dx=b[0]-a[0], dy=b[1]-a[1]; local.push(new THREE.Matrix4().compose(new THREE.Vector3((a[0]+b[0])/2,(a[1]+b[1])/2,0),new THREE.Quaternion().setFromEuler(E.set(0,0,Math.atan2(dy,dx))),new THREE.Vector3(Math.hypot(dx,dy)+.04,.045,.1))); }
+  const YK=[], local=[]; for(let q=0;q<=14;q++){ const a=q/14*Math.PI; YK.push([-.62*Math.cos(a),-.1-.74*Math.pow(Math.sin(a),.8)]); }   // one smooth curve from under one rail, round beneath both spines, up to the other rail
+  for(let k=0;k<YK.length-1;k++){ const a=YK[k], b=YK[k+1], dx=b[0]-a[0], dy=b[1]-a[1]; local.push(new THREE.Matrix4().compose(new THREE.Vector3((a[0]+b[0])/2,(a[1]+b[1])/2,0),new THREE.Quaternion().setFromEuler(E.set(0,0,Math.atan2(dy,dx))),new THREE.Vector3(Math.hypot(dx,dy)+.012,.045,.1))); }
   const nt=Math.floor((R.N-1)/6), ties=add(new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),trackMat(0xff2fd0,.75,0),nt*local.length));   // one every 2.4 m
   for(let j=0;j<nt;j++){ frameAt(R,j*6,P,D,Uu,Rr); B.makeBasis(Rr,Uu,D).setPosition(P); for(let k=0;k<local.length;k++) ties.setMatrixAt(j*local.length+k,M.multiplyMatrices(B,local[k])); }
   // what you ride through and past: only on the big moments, and all of it solid
@@ -202,7 +202,7 @@ function frame(ms){ requestAnimationFrame(frame); const dt=Math.min(.05,(ms-last
     gS+=(gn-gS)*Math.min(1,dt*5); shk+=dt*(18+v);
     const k=(v/40)*(v/40)*.022, sx=Math.sin(shk*1.7)*k, sy=Math.sin(shk*2.3+1)*k;
     camera.position.copy(P).addScaledVector(Uu,.6-clamp(gS-1,-1.2,3.2)*.04+sy).addScaledVector(Rr,sx);   // pressed into the seat in the pull-outs, lifted over the crests, a rattle that grows with speed
-    camera.quaternion.copy(camQ); const fov=84+20*Math.min(1,v/50); if(Math.abs(camera.fov-fov)>.05){ camera.fov+=(fov-camera.fov)*Math.min(1,dt*4); camera.updateProjectionMatrix(); }
+    camera.quaternion.copy(camQ); const fov=70+16*Math.min(1,v/50);   // a longer lens than before: a very wide one shrinks everything ahead and makes the track look far away if(Math.abs(camera.fov-fov)>.05){ camera.fov+=(fov-camera.fov)*Math.min(1,dt*4); camera.updateProjectionMatrix(); }
     U.uCam.value.copy(camera.position); U.uNow.value=t; stars.position.copy(camera.position);
     const A_=R.A, fr=clamp(Math.floor(t*A_.fps),0,A_.F-1); U.uBass.value+=(A_.B[fr]-U.uBass.value)*Math.min(1,dt*10); U.uInt.value=A_.inten[fr];
     while(beatI<A_.beats.length&&A_.beats[beatI].t<t-1) beatI++; if(beatI>0&&A_.beats[beatI-1].t>t) beatI=0; let bp=0; for(let b=beatI;b<A_.beats.length&&A_.beats[b].t<=t;b++) bp=Math.max(bp,A_.beats[b].s*Math.exp(-(t-A_.beats[b].t)*7)); U.uBeat.value=playing?bp:0;
