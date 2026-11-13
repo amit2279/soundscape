@@ -149,7 +149,7 @@ ${PAL}
 float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
 void main(){ float u=vUV.x, z=vUV.y, dist=length(vW-uCam); vec3 c;
   if(uSt<.5){ vec2 g=vec2(u*26.,z/1.5); g.y+=hash(vec2(floor(g.x),1.))*7.; vec2 id=floor(g), f=fract(g)-.5; float h=hash(id), r=.08+.3*h*h, d=length(f);      // glowing motes, scattered
-    c=pal(h*3.+uTime*.05)*step(.45,hash(id+3.))*((1.-smoothstep(r*.6,r,d))+exp(-d*d/(r*r*2.))*(.3+1.6*uBeat)); }
+    c=pal(h*3.+uTime*.05)*step(.45,hash(id+3.))*((1.-smoothstep(r*.6,r,d))+exp(-d*d/(r*r*2.))*(.3+1.6*uBeat)*smoothstep(.5,.24,d)); }   // the glow dies away in a circle well inside its cell, so no square edge can show
   else if(uSt<1.5){ float k=fract(u*5.+z*.06-uTime*.15), w=.42+.2*uBass; c=pal(z*.012+u-uTime*.1)*step(k,w); }                                              // spiral bands
   else if(uSt<2.5){ float a=u*6.28318, n=sin(a*3.+sin(z*.25+uTime*.5)*2.)+sin(z*.3+sin(a*2.-uTime*.4)*2.), k=fract(n*1.5+uTime*.3); c=pal(n*.2+z*.006-uTime*.05)*smoothstep(0.,.08,k)*smoothstep(.6,.5,k); }   // liquid contours
   else { vec2 g=vec2(u*90.,z/.45); g.y+=hash(vec2(floor(g.x),2.))*5.; vec2 id=floor(g), f=fract(g)-.5; float h=hash(id), r=.12+.3*h;                         // a dust of fine particles
