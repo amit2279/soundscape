@@ -109,3 +109,74 @@ RenderPass → kaleidoscope pass → light rays (kaleidoscope planet only) → U
 - Do not re-enable Temple, Mandala, Runner, the twisted-lines illusion or Wormhole type 1 unless asked.
 - Do not make illusions change by themselves.
 - Do not tie free-roam speed to the music.
+
+## 9. Coaster lab: full specification (state on 2026-11-14)
+
+File `coaster-lab.html`, about 300 lines, standalone. Artifact "Coaster lab", slug `c68270d2-057b-4b14-83d6-67b9296d41d3`. The owner rides it and loves it ("vertigo-inducing"); it is the benchmark. When he says so, port it into `index.html` in place of `coastPlan`/`coastStep`/`coastCam`.
+
+### 9.1 Principles the owner has set
+- It must feel like a real coaster: speed changes come from the track, never from the music directly.
+- Drops must bite. Gravity is deliberately stronger than real (`G=14`).
+- Objects only on big musical moments, and all solid 3D. No flat shapes. Nothing cluttered.
+- The view must feel close: camera low on the rails, moderate lens.
+- No mouse look in the lab.
+- Effects live inside closed tunnels and are hidden until you are in them.
+- Fireworks are off for now (too close, too frequent). If they return: beside the track, rare.
+
+### 9.2 Audio
+`synthDemo()` makes a 95 s demo (quiet, build, full, twice). `analyse()` gives per-frame (60 fps) energy `E`, bass `B`, smoothed intensity `inten`, `beats` (`{t,s}` from bass onsets) and `drops` (largest rise of 4 s mean energy, at least 20 s apart, snapped to the nearest strong beat). When porting, use the main app's `A.beats`, `A.drops`, `A.inten`, `A.bass` instead.
+
+### 9.3 Track generation: `buildRide(A)`
+State: position, yaw, pitch, bank, speed `v`, time `t`. One `step(kp, ky, mode)` advances `DS=0.4` m:
+- pitch and yaw curvature requests are low-pass filtered over about 4.5 m and 7 m (this is what removes jerk);
+- bank eases toward `atan(v²·ky/G)·0.95`, so lateral force goes down through the seat;
+- speed: `free` mode uses energy, `v² += 2·(−G·sin(pitch) − (0.012·G + 0.00016·v²))·DS`, floor 2.5 m/s; `chain` eases to the chain speed; `brake` decelerates at 7 m/s² to the chain speed; `boost` accelerates at 9 m/s²;
+- `t += DS/v`; normal force `GN` is stored for the readout and camera.
+Samples are stored per step: `X Y Z YAW PIT ROL V T GN`.
+
+Elements (all sized from the speed the train has at that point):
+- `toPitch(target, Gt)`: curve until the pitch is reached, curvature from `kFor` = `(Gt − cos(pitch))·G/v²`, minimum radius 9 m, maximum 70 m.
+- `hill(th)`: pull up at 3.5 g, float over at 0.02 g, pull out at 3.6 g.
+- `turn(angle, gLat, side)`: yaw curvature `gLat·G/v²`, radius at least 13 m; a 450-degree version with a slight descent is the helix.
+- `loop()`: full circle of pitch with target g `2.9 + 1.8·cos(pitch)`, radius between 7 and 45 m: tight at the slow top, wide at the fast bottom (a teardrop).
+- `corkscrew()`: roll through 360 degrees over `clamp(2.3·v, 38, 85)` m, smoothstep eased.
+- `boost(vt)`: only if speed falls under 11 m/s.
+- `liftAndDrop(td)`: level out, brake to chain speed, climb at 35 degrees (`0.61` rad) for height `H = clamp((time available − 4)·6.5, 26, 92)` m, round the crest at 0.12 g, fall at 73 to 82 degrees, pull out at 4 g where the pull-out arc reaches the base height. **Sync**: the whole lift is rebuilt up to five times, each time correcting chain speed by `Tc/(Tc − error)`, until the moment pitch passes −30 degrees is within 0.03 s of the song's drop.
+- `pick()` chooses the filler between lifts from intensity and speed: loop (fast, loud, at most one per 14 s), corkscrew (loud), hill (never two in a row), otherwise a turn or helix, alternating sides.
+Order: 8 m of straight, then for each drop fill until 15 s before it and call `liftAndDrop`, then fill to the end.
+Demo numbers: 1,426 m, 138 km/h, +4.4 g, −0.6 g, both drops within 0.02 s.
+
+`idxAt(R,t)` is a binary search from song time to sample index; `frameAt(R,f,pos,d,u,r)` interpolates the frame (roll applied).
+
+### 9.4 Track model: `buildWorld(R)`
+- `sweep(R, offsets, every, radial)` sweeps tubes along the track; each offset is `[right, up, radius]`.
+- Two rails at ±0.62 m, radius 0.085, dark.
+- Two spines at ±0.2 m, 0.52 m below, radius 0.125, dark.
+- Eight neon line tubes: two on each rail, two on each spine. Material `trackMat(colour, emissive, run, neon)`; with `neon` the colour flows along the track by distance and time, brightness follows the beat and bass, and a pulse runs away along the lines with the bass.
+- Connector every 2.4 m: one smooth half-ellipse-like curve from under one rail, beneath both spines, up to the other rail, built from 14 short instanced boxes, magenta. No bar above the rails, no straight struts, no pillars.
+
+### 9.5 What you pass
+All use `objMat` with per-instance `aI = (song time, hue, seed/phase, mode)`; instances more than 30 s of song away are culled in the vertex shader.
+- **Gates** (mode 0): `TorusGeometry` with 3, 4, 6 or 40 segments (triangle, square, hexagon, ring), stretched 4x along the track so they are deep frames. Placed in **series**: 10 down each drop from 0.2 s after it at 0.26 s spacing, and 5 at 0.11 s spacing on each of the strongest accents (the top `dur/7` beats, at least 4 s apart, not near a lift). Size grows slightly down a series.
+- **Rotation with inertia**: `spinV` rests at 0.4 rad/s; every beat adds `2.6·strength`; friction returns it at rate 0.8; capped at 7. `uSpA` is the integrated angle; `uSpB` and `uSpC` each trail the one before (rate 3.5). A gate's angle blends A→B→C by its place in the series, so the surge travels down the line. Direction alternates by series.
+- **Glow**: gates brighten with beat and bass, flare as you approach, and dim inside 7 m so they never flood the screen.
+- **Solids** (mode 1): icosahedron, octahedron, dodecahedron, torus knot, 8 to 25 m from the track, kept clear of every part of the track (`clear`) and never beside a tunnel; they tumble and swell with the bass.
+
+### 9.6 Closed tunnels
+- Stretches: every 12 s or more of song, 8 s long (`TUNLEN`), never from 13 s before a drop to 5 s after it. Demo: five.
+- Geometry: a tube of radius 6.5 m centred 0.6 m above the rails, one ring every 1.2 m, 28 segments. **The ring is built from the track frame with the roll removed**, so the wall does not bank with the train: when the train banks or corkscrews, the pattern turns round the rider. `aUV` = (angle 0..1, metres along), `aE` = 0..1 along the tunnel.
+- Material `tunMat(style)`: **opaque**, double-sided. Uniform `uIn` eases to 1 while song time is inside the tunnel (from 0.12 s before the mouth) and back to 0 after. Output is `mix(shell, pattern, uIn)`: from outside or before entry it is a near-black tube with faint hoops every 5 m; inside it shows the pattern. Because it is opaque it hides the stars, the far track and the gates beyond it.
+- Styles cycle 0 to 3: glowing motes, spiral bands, liquid contours, fine particle dust. All use whole-number repeats round the tube so there is no seam. Brightness follows beat and bass.
+- The old open particle field (`fieldMat`) is no longer placed; its material is still defined.
+
+### 9.7 Rider camera (in `frame`)
+- Position: 0.6 m above the track centre, moved down by `0.04·(g − 1)` (clamped), plus a rattle of amplitude `0.022·(v/40)²`.
+- Direction: 62% the current track direction, 38% the direction `clamp(0.35·v, 3, 14)` m ahead, tilted slightly down; up vector is the track's up. The quaternion is slerped toward this at rate 9, which is the head lag.
+- Field of view `70 + 16·min(1, v/50)` degrees, eased. Do not go wider: the owner sees wide lenses as "far".
+- Bloom strength 0.62, radius 0.5, threshold 0.3.
+
+### 9.8 Readout and controls
+Top left: speed, force, height, "chain lift", countdown to the next drop. Bottom: play/pause, seek, time, upload. Space toggles play. Test hooks: `window.__lab = {report, objects, ride, seek, play, pause}`; `ride.fx.tunnels` lists tunnel start times.
+
+### 9.9 Ideas the owner has raised but not approved or built
+Motion blur and speed streaks; chain and wind sound; fireworks placed beside the track; tunnels with more wall styles (the Wormhole patterns); deliberately putting corkscrews inside tunnels to show off the turning walls.
