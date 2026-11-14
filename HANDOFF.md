@@ -202,6 +202,23 @@ The owner saw a test frame where the whole ride was blue with heavy glow and ask
 
 The owner is reworking the top bar one step at a time. Done: every mode tab has its own thin line icon beside its name (`WI` map, inserted at startup next to where Planet is created; icons only under 1040 px width). Planet is out of the tab bar, in its own group `#planetSeg` beside Go Nitro; **where Planet and Go Nitro finally live is undecided, the owner will say.** His references for the icons were outlined category chips (icon plus label, thin strokes); ours are original glyphs. Next from him: which mode and option combinations do not work together.
 
+## 8m. Toolbar rework, step 2 (2026-11-15)
+
+- **Abyss and Illusions are hidden** (CSS on their tabs, removed from `WORLDS`, so T and shuffle skip them). The code is intact; restore by removing the CSS rule and adding them back to `WORLDS`.
+- **Planet** shows only where it exists (`PLANET_OK`: city, terrain); **Go Nitro** only where it does something (`NITRO_OK`: city, terrain, worm, tun). `setWorld` toggles class `gone` (drops in, lifts away), leaves Planet view when switching to a mode without it, and `togglePlanet` refuses there.
+- **What works where** (from a 30-frame contact sheet, `test/matrix.png` in the build folder, plus the code):
+
+| | City | Terrain | Wormhole | Tunnel | Coaster | Loom |
+|---|---|---|---|---|---|---|
+| Cruise / Fly / Skyline | 3 views | 3 views | no effect | no effect | no effect | 3 distances |
+| Planet | yes | yes | no | no | no | camera only, hidden |
+| Go Nitro | yes | yes | faster | faster | no | no |
+| Kaleidoscope | yes | yes | yes | yes | yes | yes |
+| Drive yourself | yes | yes | no | no | yes (on rails) | no |
+| Scroll zoom | yes | yes | no | no | no | yes |
+
+- **Open, owner deciding:** a new name for Go Nitro; an animated wireframe globe as the Planet button; whether the Cruise/Fly/Skyline switch should hide in Wormhole, Tunnel and Coaster; final place for Planet and Nitro. Daylight was not tested outside the City.
+
 ## 9. Coaster lab: full specification (state on 2026-11-14)
 
 File `coaster-lab.html`, about 300 lines, standalone. Artifact "Coaster lab", slug `c68270d2-057b-4b14-83d6-67b9296d41d3`. The owner rides it and loves it ("vertigo-inducing"); it is the benchmark. When he says so, port it into `index.html` in place of `coastPlan`/`coastStep`/`coastCam`.

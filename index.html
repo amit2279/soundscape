@@ -376,7 +376,9 @@ h1 .hollow{display:block;color:transparent;-webkit-text-stroke:2px var(--text)}
 @media (prefers-reduced-motion:reduce){.sw.shuf[aria-pressed="true"]::after{animation:none;border-color:var(--b)}}
 #worldSeg button{padding:0 10px}
 @media (max-width:1650px){#worldSeg button{padding:0 7px;font-size:11px}.brand .track{display:none}}
-#worldSeg button[data-world="mandala"]{display:none}
+#worldSeg button[data-world="mandala"],#worldSeg button[data-world="abyss"],#worldSeg button[data-world="ill"]{display:none}
+#planetSeg,#nitroWrap{max-width:240px;transition:opacity .3s ease,transform .5s cubic-bezier(.2,1.3,.4,1),max-width .45s ease,margin .45s ease}
+#planetSeg.gone,#nitroWrap.gone{opacity:0;transform:translateY(-34px) scale(.85);max-width:0;margin-left:-10px;pointer-events:none;overflow:hidden}
 .swwrap{position:relative;display:inline-flex}
 .swdrop{position:absolute;top:calc(100% + 10px);left:50%;transform:translateX(-50%);z-index:40;display:flex;flex-direction:row;flex-wrap:wrap;justify-content:center;align-items:center;gap:10px;padding:10px 14px;border-radius:24px;width:max-content;max-width:calc(100vw - 16px);transition:opacity .22s ease,transform .3s cubic-bezier(.2,.8,.2,1),visibility 0s}
 .swdrop.closed,#app.nohud .swdrop,#app[data-state="landing"] .swdrop,#app[data-state="loading"] .swdrop{opacity:0;transform:translate(-50%,-12px);pointer-events:none;visibility:hidden;transition:opacity .2s ease,transform .26s ease,visibility 0s .26s}
@@ -2554,7 +2556,7 @@ function showSign(i){ const s=A.segs[i]; $('#signNum').textContent=i+1; $('#sign
 function toast(msg){ const el=$('#toast'); el.textContent=msg; el.classList.add('on'); clearTimeout(toast.t); toast.t=setTimeout(()=>el.classList.remove('on'),7000); }
 
 let mode='cruise', lastCam='cruise';
-function togglePlanet(){ setMode(mode==='planet'?lastCam:'planet'); }
+function togglePlanet(){ if(mode!=='planet'&&!PLANET_OK[world]) return; setMode(mode==='planet'?lastCam:'planet'); }
 function setMode(m){ fr.on=false; app.dataset.mode=m; if(m==='surf'&&mode!=='surf'){ fly.x=mode==='skyline'?0:clamp(off.x,-20,20); fly.y=mode==='skyline'?40:off.y; fly.vx=0; ky=0; } mode=m; if(m!=='planet') lastCam=m; { const bp=document.querySelector('#btnPlanet'); if(bp) bp.setAttribute('aria-pressed',String(m==='planet')); } document.querySelectorAll('.dock .seg button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode===m))); }
 document.querySelectorAll('.dock .seg button').forEach(b=>b.addEventListener('click',()=>setMode(b.dataset.mode)));
 
@@ -3273,7 +3275,7 @@ const attract={a:0,y:110}; let skyY=380, nitro=false, flash=0, party=0, diveT=0,
 const camUp=new THREE.Vector3(0,1,0), lkF=new THREE.Vector3(), lkR=new THREE.Vector3(), lkU=new THREE.Vector3(); let fovOver=0, lookYaw=0, lookPitch=0, loomIn=false;
 const diverV=new THREE.Vector3(), diverT=new THREE.Vector3(), ptrV=new THREE.Vector2();
 const fly={x:0,y:30,vx:0}, TRAIL=400; let world='city';
-const ORBW={abyss:1,loom:1,temple:1,mandala:1}, WORLDS=['city','terrain','abyss','worm','tun','ill','coast','loom'];   // 'temple' and 'mandala' are built but hidden; add them back here and remove the CSS rule to restore them
+const ORBW={abyss:1,loom:1,temple:1,mandala:1}, WORLDS=['city','terrain','worm','tun','coast','loom'], PLANET_OK={city:1,terrain:1}, NITRO_OK={city:1,terrain:1,worm:1,tun:1};   // 'abyss' and 'ill' are built but hidden (2026-11-15), like 'temple' and 'mandala'. PLANET_OK and NITRO_OK: the modes where Planet and Go Nitro do something;   // 'temple' and 'mandala' are built but hidden; add them back here and remove the CSS rule to restore them
 const orbit={az:.6,el:.5,dist:PR*3.9,drag:false,lx:0,ly:0,idle:0};
 canvas.addEventListener('pointerdown',e=>{ if(mode!=='planet'&&!ORBW[world]) return; orbit.drag=true; orbit.lx=e.clientX; orbit.ly=e.clientY; try{canvas.setPointerCapture(e.pointerId)}catch(_){} });
 canvas.addEventListener('pointermove',e=>{ if(!orbit.drag) return; orbit.az-=(e.clientX-orbit.lx)*.006; orbit.el=clamp(orbit.el+(e.clientY-orbit.ly)*.005,-1.35,1.45); orbit.lx=e.clientX; orbit.ly=e.clientY; orbit.idle=0; });
@@ -3282,7 +3284,9 @@ canvas.addEventListener('click',()=>{ if(world==='ill'&&started) illNext(); else
 const endDrag=()=>{ orbit.drag=false; }; canvas.addEventListener('pointerup',endDrag); canvas.addEventListener('pointercancel',endDrag);
 let zoomT=1, zoomK=1, fovBase=60;   // scroll zoom for the ride cameras: 1 is normal, above 1 zooms in, below 1 widens the view
 canvas.addEventListener('wheel',e=>{ if(mode!=='planet'&&!ORBW[world]){ if(started&&(world==='city'||world==='terrain'||world==='abyss'||world==='loom')){ e.preventDefault(); zoomT=clamp(zoomT*Math.exp(-e.deltaY*(e.ctrlKey?.012:.0016)),.55,5); } return; } e.preventDefault(); orbit.dist=clamp(orbit.dist*Math.exp(e.deltaY*.0012),PR*2.2,PR*10); },{passive:false});
-function setWorld(w){ world=w; fr.on=false; zoomT=1; app.dataset.world=w; document.querySelectorAll('#worldSeg button[data-world]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.world===w))); fly.x=clamp(fly.x,-20,20); fly.vx=0; }
+function setWorld(w){ if(mode==='planet'&&!PLANET_OK[w]) setMode(lastCam);   /* Planet only exists for the city and the terrain */
+  { const ps=$('#planetSeg'), nw=$('#nitroWrap'); if(ps) ps.classList.toggle('gone',!PLANET_OK[w]); if(nw) nw.classList.toggle('gone',!NITRO_OK[w]); }   /* the buttons drop in where they work and lift away where they do not */
+  world=w; fr.on=false; zoomT=1; app.dataset.world=w; document.querySelectorAll('#worldSeg button[data-world]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.world===w))); fly.x=clamp(fly.x,-20,20); fly.vx=0; }
 // Height a flyer must clear over the strip of blocks under x (0 over a street), looking a little ahead.
 function stripH(x,along){
   const ax=Math.abs(x); if(ax<AV/2-2 || !blockH) return 0;
