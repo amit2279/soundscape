@@ -126,7 +126,7 @@ function buildRide(A,ver){ const V2=ver===2, cuts=[], els=[], GF=G*1.4, TK=V2?1/
     /* same direction in space, written the ordinary way up again; frameAt must not blend across this sample */
     yaw+=3.14159265; pit+=3.14159265; rolX=0; kpS=-kpS; kyS=0; cuts.push(T.X.length); toPitch(0,3.4); hold(0,6); }
   function topHat(){ if(v<36) launch(36); toPitch(1.05,3.6); let n=0; while(pit>-1.05&&n++<6000) step(clamp((.1-Math.cos(pit))*G/(v*v),-1/5,-1/70),0); toPitch(0,3.8); hold(0,5); }
-  let lastLaunch=-99, lastEl='', crossings=0, rerouted=0; const crossAt=[];
+  let lastLaunch=-99, lastEl='', crossings=0, rerouted=0, beatIn=0; const crossAt=[];
   const snap=()=>({x,y,z,yaw,pit,rolB,rolX,v,t,kpS,kyS,vc,sg,lastLoop,lastEl,lastLaunch,n:T.X.length,ne:els.length,nc:cuts.length,nm:marks.length});
   const back=q=>{ ({x,y,z,yaw,pit,rolB,rolX,v,t,kpS,kyS,vc,sg,lastLoop,lastEl,lastLaunch}=q); for(const k in T) T[k].length=q.n; els.length=q.ne; cuts.length=q.nc; marks.length=q.nm; };
   /* does anything laid since sample n0 come within 4 m of track laid earlier (more than 44 m back along the ride)? */
@@ -164,7 +164,10 @@ function buildRide(A,ver){ const V2=ver===2, cuts=[], els=[], GF=G*1.4, TK=V2?1/
     { const el=choose(); safe(()=>run(el)); } }
   function chain(tn){ const n=2+(rnd()<.5?1:0); for(let i=0;i<n&&tn-t>19;i++){ let el=choose(); if(i===1) el='helix'; else if(el==='hill'||el==='turn'||el==='cruise') el=i?'zero-g roll':'loop'; const e2=el; safe(()=>run(e2)); } }
   const med=a=>{ const c=Array.from(a).filter((_,i)=>i%7===0).sort((p,q)=>p-q); return c[c.length>>1]||0; }, eMed=med(A.inten), bMed=med(A.B);
-  hold(0,8); const drops=A.drops.filter(d=>d>7);
+  hold(0,8); let drops=A.drops.filter(d=>d>7);
+  if(V2){ /* when does the beat come in? the first place with four strong beats inside 2.6 s. No big drop before that; and if the song has no drop of its own there, that moment becomes one */
+    const sb=A.beats.filter(b=>b.s>.45); let tBeat=0; for(let i=0;i+3<sb.length;i++) if(sb[i+3].t-sb[i].t<2.6){ tBeat=sb[i].t; break; }
+    drops=drops.filter(d=>d>=tBeat-1); if(tBeat>9&&!drops.some(d=>Math.abs(d-tBeat)<8)){ drops.push(tBeat); drops.sort((p,q)=>p-q); } beatIn=tBeat; }
   if(V2){ const minis=[], w=Math.round(A.fps*1.5), cand=[];
     /* smaller drops where the song lifts without being a main drop */
     for(let f=w;f<A.F-w;f+=3) cand.push([A.inten[f+w]-A.inten[f-w],f/A.fps]); cand.sort((p,q)=>q[0]-p[0]);
@@ -181,7 +184,7 @@ function buildRide(A,ver){ const V2=ver===2, cuts=[], els=[], GF=G*1.4, TK=V2?1/
   let jumps=0; for(const k of ['PIT','ROL','YAW']){ const a=T[k]; let o=0; for(let i=1;i<a.length;i++){ if(CUT[i]){ a[i]+=o; continue; } const d=a[i]+o-a[i-1]; if(d>3.1416){ o-=6.283185307; jumps++; } else if(d<-3.1416){ o+=6.283185307; jumps++; } a[i]+=o; } }
   const N=T.X.length, R={N,marks,A,CUT,els,ver:V2?2:1}; for(const k in T) R[k]=Float32Array.from(T[k]);
   { const c={}; for(const e of els) c[e[1]]=(c[e[1]]||0)+1; R.count=c; }
-  R.report={rerouted,crossings,crossAt,ver:R.ver,elements:R.count,jumpsFixed:jumps,metres:Math.round(N*DS),vmax:Math.max(...T.V)*3.6|0,gmax:+Math.max(...T.GN).toFixed(2),gmin:+Math.min(...T.GN).toFixed(2),drops:marks.map(m=>({song:+m.td.toFixed(2),ride:+m.at.toFixed(2)}))};
+  R.report={beatIn:+beatIn.toFixed(1),rerouted,crossings,crossAt,ver:R.ver,elements:R.count,jumpsFixed:jumps,metres:Math.round(N*DS),vmax:Math.max(...T.V)*3.6|0,gmax:+Math.max(...T.GN).toFixed(2),gmin:+Math.min(...T.GN).toFixed(2),drops:marks.map(m=>({song:+m.td.toFixed(2),ride:+m.at.toFixed(2)}))};
   return R; }
 function idxAt(R,tt){ let lo=0, hi=R.N-1; while(lo<hi){ const m=(lo+hi)>>1; if(R.T[m]<tt) lo=m+1; else hi=m; } const i=Math.max(1,lo), k=clamp((tt-R.T[i-1])/Math.max(1e-6,R.T[i]-R.T[i-1]),0,1); return i-1+k; }
 function frameAt(R,f,pos,d,u,r){ f=clamp(f,0,R.N-1.001); const i=f|0, k=f-i, ka=R.CUT&&R.CUT[i+1]?(k<.5?0:1):k, L=a=>a[i]+(a[i+1]-a[i])*k, LA=a=>a[i]+(a[i+1]-a[i])*ka, ya=LA(R.YAW), pi=LA(R.PIT), ro=LA(R.ROL), sy=Math.sin(ya), cy=Math.cos(ya), sp=Math.sin(pi), cp=Math.cos(pi);
@@ -235,7 +238,8 @@ void main(){ float u=vUV.x, z=vUV.y, dist=length(vW-uCam); vec3 c;
   else { vec2 g=vec2(u*90.,z/.45); g.y+=hash(vec2(floor(g.x),2.))*5.; vec2 id=floor(g), f=fract(g)-.5; float h=hash(id), r=.12+.3*h;                         // a dust of fine particles
     c=pal(h*5.+z*.004-uTime*.06)*step(.6,hash(id+9.))*(1.-smoothstep(r*.5,r,length(f)))*(.5+.5*sin(uTime*3.+h*60.)+3.*uBeat*step(.5,h)); }
   vec3 lit=c*(.35+1.8*uBeat+.9*uBass)*smoothstep(0.,.05,vE)*smoothstep(1.,.95,vE)*exp(-dist*.006);
-  vec3 shell=vec3(.006,.005,.014)+pal(z*.01)*.022*step(.93,fract(z/5.));                                   // from outside: a dark tube with faint hoops, nothing given away
+  vec2 sg=vec2(u*44.,z/.9); sg.y+=hash(vec2(floor(sg.x),5.))*5.; vec2 sid=floor(sg), sf=fract(sg)-.5; float sh=hash(sid), sr=.12+.26*sh;
+  vec3 shell=vec3(.006,.005,.014)+pal(sh*4.+z*.004+uTime*.03)*step(.5,hash(sid+7.))*(1.-smoothstep(sr*.4,sr,length(sf)))*(.4+.35*sin(uTime*2.+sh*50.)+1.8*uBeat*step(.5,sh))*exp(-dist*.004);   /* from outside: a dark tube covered in glowing particles that flare on the beat; still nothing of the inside given away */
   float inner=step(dot(vN,uCam-vW),0.);                                                                    // are we looking at the inside of the wall?
   vec3 col=mix(shell,(lit+vec3(.004,.003,.008))*(.6+.4*uIn),inner);                                        // the projection always runs on the inside; it comes up to full strength as you ride in
   float al=smoothstep(0.,.11,vE)*smoothstep(1.,.89,vE); if(al<.02) discard; gl_FragColor=vec4(col,al); }`}); }   // solid along its length; only the first and last metres dissolve, so the mouth has a soft edge   // dark wall lets 30% of what is behind it through; where the projection is bright the wall is solid colour
@@ -317,9 +321,12 @@ function buildWorld(R){ while(world.children.length){ const m=world.children.pop
   const FIREWORKS=true;
   if(FIREWORKS){ const dts=[]; for(let i=1;i<A.beats.length;i++){ const d=A.beats[i].t-A.beats[i-1].t; if(d>.28&&d<.8) dts.push(d); } dts.sort((a,b)=>a-b);
     const spb=dts.length?dts[dts.length>>1]:.5, gap=spb*24; let last=-gap*.6, n=0, sd2=1;                 // at least eight bars between events
-    for(const b of A.beats){ if(b.s<.45||b.t<4||b.t-last<gap||b.t>A.dur-5||stretches.some(ts=>b.t+3.5>ts&&b.t<ts+TUNLEN+.5)) continue; last=b.t;   /* never fired where a tunnel would hide it: it waits for the next strong beat in the open */ sd2=-sd2;
-      if(++n%3===0) for(let k=0;k<3;k++) burst(b.t+k*spb,9+2*k,k%2?-sd2:sd2);                             // now and then, three in a row on three beats, on alternate sides
-      else burst(b.t,10+4*b.s,sd2); } }
+    const ev=[]; for(const b of A.beats){ if(b.s<.45||b.t<4||b.t-last<gap||b.t>A.dur-5||stretches.some(ts=>b.t+3.5>ts&&b.t<ts+TUNLEN+.5)) continue; last=b.t; ev.push(b); }   /* never fired where a tunnel would hide it: it waits for the next strong beat in the open */
+    /* some events are a run of two or three on consecutive beats: one in four, but never fewer than three in a song if it has that many events, spread evenly through it */
+    const nRun=Math.min(ev.length,Math.max(3,Math.round(ev.length/4))); R.fxRuns=nRun;
+    ev.forEach((b,j)=>{ sd2=-sd2; const isRun=Math.floor((j+1)*nRun/ev.length)>Math.floor(j*nRun/ev.length);
+      if(isRun){ const len=rnd()<.5?2:3; for(let k=0;k<len;k++) burst(b.t+k*spb,9+2*k,k%2?-sd2:sd2); }
+      else burst(b.t,10+4*b.s,sd2); }); }
   if(ft.length){ const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(Float32Array.from(fc),3)); g.setAttribute('aDir',new THREE.BufferAttribute(Float32Array.from(fd),3)); g.setAttribute('aT',new THREE.BufferAttribute(Float32Array.from(ft),2)); g.setAttribute('aH',new THREE.BufferAttribute(Float32Array.from(fh),1)); add(new THREE.Points(g,fireMat)); }
   R.fx={tunnels:tunT,bursts:bT.sort((a,b)=>a-b),fieldPoints:fieldS.length};
   R.objects={gates:gates.reduce((s,g)=>s+g.length,0),solids:solids.reduce((s,g)=>s+g.length,0)}; }
@@ -361,14 +368,33 @@ void main(){ vec2 p=vW.xz; float d=length(vW-uCam), ring=0.;
   gl_FragColor=vec4(c*exp(-d*.0035),1.); }`})); m.frustumCulled=false; scene.add(m); return m; })();
 let ripI=0;
 const composer=new THREE.EffectComposer(renderer); composer.addPass(new THREE.RenderPass(scene,camera)); const bloom=new THREE.UnrealBloomPass(new THREE.Vector2(1,1),.62,.5,.3); composer.addPass(bloom);
-function resize(){ const w=innerWidth,h=innerHeight, pr=Math.min(1.5,devicePixelRatio||1); renderer.setPixelRatio(pr); renderer.setSize(w,h,false); composer.setSize(w*pr,h*pr); camera.aspect=w/h; camera.updateProjectionMatrix(); U.uPx.value=h*pr; } addEventListener('resize',resize); resize();
+/* a slight blur with distance. The scene is drawn a second time, small and with a plain material that only writes how far away each thing is; a last pass softens what is far. Key B switches it off */
+const depthRT=new THREE.WebGLRenderTarget(4,4,{minFilter:THREE.LinearFilter,magFilter:THREE.LinearFilter});
+const depthMat=new THREE.ShaderMaterial({side:THREE.DoubleSide,vertexShader:`#include <common>
+varying float vD; void main(){
+#include <begin_vertex>
+#include <project_vertex>
+vD=-mvPosition.z; }`,fragmentShader:`varying float vD; void main(){ gl_FragColor=vec4(vec3(clamp(vD/260.,0.,1.)),1.); }`});
+const dof=new THREE.ShaderPass({uniforms:{tDiffuse:{value:null},tD:{value:depthRT.texture},uPx:{value:new THREE.Vector2(1,1)},uOn:{value:1}},
+  vertexShader:`varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
+  fragmentShader:`uniform sampler2D tDiffuse,tD; uniform vec2 uPx; uniform float uOn; varying vec2 vUv;
+void main(){ vec3 c=texture2D(tDiffuse,vUv).rgb; float r=smoothstep(.2,.8,texture2D(tD,vUv).r)*1.8*uOn;
+  if(r>.05){ vec2 a=uPx*r, b=a*.7; c+=texture2D(tDiffuse,vUv+vec2(a.x,0.)).rgb+texture2D(tDiffuse,vUv-vec2(a.x,0.)).rgb+texture2D(tDiffuse,vUv+vec2(0.,a.y)).rgb+texture2D(tDiffuse,vUv-vec2(0.,a.y)).rgb
+      +texture2D(tDiffuse,vUv+b).rgb+texture2D(tDiffuse,vUv-b).rgb+texture2D(tDiffuse,vUv+vec2(b.x,-b.y)).rgb+texture2D(tDiffuse,vUv+vec2(-b.x,b.y)).rgb; c/=9.; }
+  gl_FragColor=vec4(c,1.); }`}); dof.uniforms.tD.value=depthRT.texture;   /* the pass copies its uniforms, and a copied render-target texture is empty */ composer.addPass(dof);
+const hidden=[];
+function renderDepth(){ if(dof.uniforms.uOn.value<.5) return; hidden.length=0; scene.traverse(o=>{ if(o.visible&&(o.isPoints||o.isLine||o===streaks||o===sea||o===swarm)){ hidden.push(o); o.visible=false; } });
+  const bg=scene.background; scene.background=null; scene.overrideMaterial=depthMat; renderer.setRenderTarget(depthRT); renderer.setClearColor(0,1); renderer.clear(); renderer.render(scene,camera);
+  renderer.setRenderTarget(null); scene.overrideMaterial=null; scene.background=bg; for(const o of hidden) o.visible=true; }
+function resize(){ const w=innerWidth,h=innerHeight, pr=Math.min(1.5,devicePixelRatio||1); renderer.setPixelRatio(pr); renderer.setSize(w,h,false); composer.setSize(w*pr,h*pr); depthRT.setSize(Math.ceil(w*pr/2),Math.ceil(h*pr/2)); dof.uniforms.uPx.value.set(1/(w*pr),1/(h*pr)); camera.aspect=w/h; camera.updateProjectionMatrix(); U.uPx.value=h*pr; } addEventListener('resize',resize); resize();
 
 /* ---------------- transport ---------------- */
 let actx=null, buf=null, src=null, t0=0, off=0, playing=false, A=null;
 const now=()=>playing?clamp(actx.currentTime-t0,0,A.dur):off;
-function play(){ if(!buf||playing) return; src=actx.createBufferSource(); src.buffer=buf; src.connect(actx.destination); src.start(0,off); t0=actx.currentTime-off; playing=true; $('#pp').textContent='Pause'; src.onended=()=>{ if(playing&&now()>=A.dur-.05){ playing=false; off=0; $('#pp').textContent='Play'; } }; }
+const free={on:false,f:0,v:0,th:0,up:false,down:false,ended:false};
+function play(){ if(!buf||playing) return; free.on=false; free.ended=false; $('#msg').style.display='none'; src=actx.createBufferSource(); src.buffer=buf; src.connect(actx.destination); src.start(0,off); t0=actx.currentTime-off; playing=true; $('#pp').textContent='Pause'; src.onended=()=>{ if(playing&&now()>=A.dur-.05){ playing=false; off=0; $('#pp').textContent='Play'; free.ended=true; $('#msg').style.display=''; $('#msg').textContent='The song is over. Hold the up arrow to ride it yourself.'; } }; }
 function pause(){ if(!playing) return; off=now(); playing=false; src.onended=null; try{ src.stop(); }catch(e){} $('#pp').textContent='Play'; }
-function seek(t){ const was=playing; pause(); off=clamp(t,0,A.dur-.05); camQ=null; if(was) play(); }
+function seek(t){ const was=playing; pause(); free.on=false; off=clamp(t,0,A.dur-.05); camQ=null; if(was) play(); }
 function start(data,sr){ $('#msg').textContent='Laying out the ride…'; setTimeout(()=>{ A=analyse(data,sr); RIDE=buildRide(A,VER); buildWorld(RIDE); actx=actx||new (window.AudioContext||window.webkitAudioContext)();
   buf=actx.createBuffer(1,data.length,sr); buf.copyToChannel(data,0); off=0; camQ=null; $('#msg').style.display='none'; window.__lab={report:RIDE.report,objects:RIDE.objects,seek,play,pause,ride:RIDE}; console.warn('RIDE '+JSON.stringify(RIDE.report)+' '+JSON.stringify(RIDE.objects)); actx.resume(); play(); },30); }
 $('#demo').onclick=()=>{ const d=synthDemo(); start(d.data,d.sr); };
@@ -381,13 +407,26 @@ let VER=2;
 function setVer(v){ VER=v; $('#ver').textContent='Track v'+VER; if(!A||!RIDE) return; RIDE=buildRide(A,VER); buildWorld(RIDE); camQ=null;
   window.__lab={report:RIDE.report,objects:RIDE.objects,seek,play,pause,ride:RIDE}; console.warn('RIDE '+JSON.stringify(RIDE.report)); }
 $('#ver').onclick=()=>setVer(VER===2?1:2);
-addEventListener('keydown',e=>{ if(e.code==='KeyV') setVer(VER===2?1:2); if(e.code==='Space'&&A){ e.preventDefault(); playing?pause():play(); } });
+/* ride it yourself: with the song stopped, the up arrow is the motor. Its push builds while held; let go and only gravity and drag are left */
+addEventListener('keydown',e=>{ if(e.code==='KeyB') dof.uniforms.uOn.value=dof.uniforms.uOn.value?0:1;
+  if((e.code==='ArrowUp'||e.code==='KeyW')&&RIDE&&!playing){ e.preventDefault(); if(!free.on){ free.on=true; free.f=free.ended?0:idxAt(RIDE,now()); free.v=0; free.th=0; if(free.ended) camQ=null; free.ended=false; $('#msg').style.display='none'; } free.up=true; }
+  if((e.code==='ArrowDown'||e.code==='KeyS')&&free.on){ e.preventDefault(); free.down=true; } });
+addEventListener('keyup',e=>{ if(e.code==='ArrowUp'||e.code==='KeyW') free.up=false; if(e.code==='ArrowDown'||e.code==='KeyS') free.down=false; });
+addEventListener('keydown',e=>{ if(e.code==='KeyV'){ free.on=false; }
+  if(e.code==='KeyV') setVer(VER===2?1:2); if(e.code==='Space'&&A){ e.preventDefault(); playing?pause():play(); } });
 
 /* ---------------- the rider ---------------- */
 const P=new THREE.Vector3(), D=new THREE.Vector3(), Uu=new THREE.Vector3(), Rr=new THREE.Vector3(), P2=new THREE.Vector3(), D2=new THREE.Vector3(), U2=new THREE.Vector3(), R2=new THREE.Vector3(), mB=new THREE.Matrix4(), qT=new THREE.Quaternion(), zA=new THREE.Vector3();
 let camQ=null, gS=1, beatI=0, last=performance.now(), shk=0, spinV=.4, prevT=0;
 function frame(ms){ requestAnimationFrame(frame); const dt=Math.min(.05,(ms-last)/1000); last=ms; U.uTime.value+=dt;
-  if(RIDE){ const R=RIDE, t=now(), f=idxAt(R,t), i=clamp(f|0,0,R.N-1), v=R.V[i], gn=R.GN[i];
+  if(RIDE){ const R=RIDE; let t=now(), f=idxAt(R,t);
+    if(free.on){ const j=clamp(free.f|0,0,R.N-2);
+      free.th+=((free.up?1:0)-free.th)*Math.min(1,dt*(free.up?.9:5));                                       // the motor winds up over a second or so, and cuts quickly
+      let a=16*free.th-G*Math.sin(R.PIT[j])-Math.sign(free.v)*(.012*G+.00016*free.v*free.v); if(free.down) a-=Math.sign(free.v)*14;
+      free.v=clamp(free.v+a*dt,-25,60); if(free.down&&Math.abs(free.v)<.3) free.v=0; free.f+=free.v*dt/DS;
+      if(free.f>R.N-3){ free.f=0; free.v*=.3; camQ=null; } if(free.f<0){ free.f=0; free.v=0; }                // off the far end: back to the start. It cannot roll off the near end
+      f=free.f; const j2=clamp(f|0,0,R.N-2); t=R.T[j2]+(f-j2)*(R.T[j2+1]-R.T[j2]); }
+    const i=clamp(f|0,0,R.N-1), v=free.on?Math.abs(free.v):R.V[i], gn=free.on?1+(R.GN[i]-1)*Math.min(4,(v*v)/Math.max(9,R.V[i]*R.V[i])):R.GN[i];
     frameAt(R,f,P,D,Uu,Rr); frameAt(R,f+clamp(v*.35,3,14)/DS,P2,D2,U2,R2);                                // where the track is a moment ahead: the rider looks into the curve
     zA.copy(D).multiplyScalar(-.62).addScaledVector(D2,-.38).addScaledVector(Uu,.13).normalize(); R2.crossVectors(Uu,zA).normalize(); U2.crossVectors(zA,R2);
     qT.setFromRotationMatrix(mB.makeBasis(R2,U2,zA)); if(!camQ) camQ=qT.clone(); else camQ.slerp(qT,1-Math.exp(-dt*9));   // the head follows the car a beat late
@@ -397,8 +436,8 @@ function frame(ms){ requestAnimationFrame(frame); const dt=Math.min(.05,(ms-last
     camera.quaternion.copy(camQ); const fov=56+10*Math.min(1,v/50);   /* a long lens: a wide one shrinks everything ahead and makes the track look far away */ if(Math.abs(camera.fov-fov)>.05){ camera.fov+=(fov-camera.fov)*Math.min(1,dt*4); camera.updateProjectionMatrix(); }
     U.uCam.value.copy(camera.position); U.uNow.value=t; stars.position.copy(camera.position);
     const A_=R.A, fr=clamp(Math.floor(t*A_.fps),0,A_.F-1); U.uBass.value+=(A_.B[fr]-U.uBass.value)*Math.min(1,dt*10); U.uInt.value=A_.inten[fr];
-    while(beatI<A_.beats.length&&A_.beats[beatI].t<t-1) beatI++; if(beatI>0&&A_.beats[beatI-1].t>t) beatI=0; let bp=0; for(let b=beatI;b<A_.beats.length&&A_.beats[b].t<=t;b++) bp=Math.max(bp,A_.beats[b].s*Math.exp(-(t-A_.beats[b].t)*7)); U.uBeat.value=playing?bp:0;
-    if(playing&&t>prevT&&t-prevT<.5) for(const b of A_.beats){ if(b.t>t) break; if(b.t>prevT){ spinV+=2.6*b.s; if(b.s>.45) U.uRip.value[ripI++%6].set(P.x,P.z,b.t); } } prevT=t;   // each beat is a push on the wheels
+    while(beatI<A_.beats.length&&A_.beats[beatI].t<t-1) beatI++; if(beatI>0&&A_.beats[beatI-1].t>t) beatI=0; let bp=0; for(let b=beatI;b<A_.beats.length&&A_.beats[b].t<=t;b++) bp=Math.max(bp,A_.beats[b].s*Math.exp(-(t-A_.beats[b].t)*7)); U.uBeat.value=playing||free.on?bp:0;
+    if((playing||free.on)&&t>prevT&&t-prevT<.5) for(const b of A_.beats){ if(b.t>t) break; if(b.t>prevT){ spinV+=2.6*b.s; if(b.s>.45) U.uRip.value[ripI++%6].set(P.x,P.z,b.t); } } prevT=t;   // each beat is a push on the wheels
     spinV+=(.4-spinV)*Math.min(1,dt*.8); spinV=Math.min(spinV,7); U.uSpA.value+=spinV*dt; U.uSpB.value+=(U.uSpA.value-U.uSpB.value)*Math.min(1,dt*3.5); U.uSpC.value+=(U.uSpB.value-U.uSpC.value)*Math.min(1,dt*3.5);   // friction brings them back to a slow turn; B and C trail A, which is the delay down a series
     for(const tn of R.tun){ const k=t>tn.t0-.12&&t<tn.t1+.05?1:0; tn.mat.uniforms.uIn.value+=(k-tn.mat.uniforms.uIn.value)*Math.min(1,dt*(k?2.2:3)); }   // a tunnel's walls light up as you enter and go dark behind you
     U.uVel.value.copy(D).multiplyScalar(v); U.uSpd.value+=(v-U.uSpd.value)*Math.min(1,dt*4); sea.position.x=P.x; sea.position.z=P.z;
@@ -407,8 +446,8 @@ function frame(ms){ requestAnimationFrame(frame); const dt=Math.min(.05,(ms-last
       U.uSwOn.value+=(((!inTun&&Math.sin(T*.11)>-.35)?1:0)-U.uSwOn.value)*Math.min(1,dt*1.5); }               // the flock comes and goes, and never follows you into a tunnel
     let nd=1e9, hit=0; for(const m of R.marks){ if(m.td>t) nd=Math.min(nd,m.td-t); hit=Math.max(hit,Math.exp(-Math.pow((t-m.td)*2.2,2))); } $('#drop').style.opacity=hit;
     const onLift=R.marks.some(m=>i>=m.lift[0]&&i<m.lift[1]);
-    $('#hud').textContent=`speed  ${(v*3.6).toFixed(0).padStart(3)} km/h\nforce  ${gn.toFixed(1).padStart(4)} g\nheight ${P.y.toFixed(0).padStart(4)} m\n${(()=>{ let n=''; if(R.els) for(const e of R.els){ if(e[0]<=i) n=e[1]; else break; } return 'track v'+R.ver+(n&&R.ver===2?'  '+n:''); })()}\n${onLift?'chain lift':''}${nd<1e8?`\ndrop in ${nd.toFixed(1)} s`:''}`;
+    $('#hud').textContent=`speed  ${(v*3.6).toFixed(0).padStart(3)} km/h\nforce  ${gn.toFixed(1).padStart(4)} g\nheight ${P.y.toFixed(0).padStart(4)} m\n${(()=>{ let n=''; if(R.els) for(const e of R.els){ if(e[0]<=i) n=e[1]; else break; } return 'track v'+R.ver+(n&&R.ver===2?'  '+n:''); })()}\n${free.on?'your ride: hold up to drive, down to brake':onLift?'chain lift':''}${nd<1e8&&!free.on?`\ndrop in ${nd.toFixed(1)} s`:''}`;
     if(document.activeElement!==$('#seek')) $('#seek').value=t/A_.dur; $('#tm').textContent=`${(t/60)|0}:${String((t%60)|0).padStart(2,'0')}`; }
-  composer.render(); }
+  renderDepth(); composer.render(); }
 requestAnimationFrame(frame);
 </script></body></html>
