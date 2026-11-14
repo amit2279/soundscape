@@ -230,16 +230,19 @@ function tunMat(st){ return new THREE.ShaderMaterial({side:THREE.DoubleSide,tran
   fragmentShader:`precision highp float; uniform float uSt,uIn,uTime,uBeat,uBass; uniform vec3 uCam; varying vec2 vUV; varying float vE; varying vec3 vW,vN;
 ${PAL}
 float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+float spark(vec2 g,float wrap,float sd,out float h){ vec2 id=floor(g), f=fract(g); id.x=mod(id.x,wrap); vec2 o=.18+.64*vec2(hash(id+sd),hash(id+sd+17.)); h=hash(id+sd+5.); float r=.055+.16*h*h, d=length(f-o);
+  return step(.5,hash(id+sd+9.))*exp(-d*d/(r*r)); }
 void main(){ float u=vUV.x, z=vUV.y, dist=length(vW-uCam); vec3 c;
-  if(uSt<.5){ vec2 g=vec2((u+uTime*.012)*26.,z/1.5); g.y+=hash(vec2(mod(floor(g.x),26.),1.))*7.; vec2 id=floor(g), f=fract(g)-.5; id.x=mod(id.x,26.); float h=hash(id), r=.08+.3*h*h, d=length(f);      // glowing motes, scattered
+  if(uSt<.5){ vec2 g=vec2((u+uTime*.035)*26.,z/1.5); g.y+=hash(vec2(mod(floor(g.x),26.),1.))*7.; vec2 id=floor(g), f=fract(g)-.5; id.x=mod(id.x,26.); float h=hash(id), r=.08+.3*h*h, d=length(f);      // glowing motes, scattered
     c=pal(h*3.+uTime*.05)*step(.45,hash(id+3.))*((1.-smoothstep(r*.6,r,d))+exp(-d*d/(r*r*2.))*(.3+3.2*uBeat)*smoothstep(.5,.24,d)); }   // the glow dies away in a circle well inside its cell, so no square edge can show
   else if(uSt<1.5){ float k=fract(u*5.+z*.06-uTime*.15), w=.42+.2*uBass; c=pal(z*.012+u-uTime*.1)*step(k,w); }                                              // spiral bands
   else if(uSt<2.5){ float a=u*6.28318, n=sin(a*3.+sin(z*.25+uTime*.5)*2.)+sin(z*.3+sin(a*2.-uTime*.4)*2.), k=fract(n*1.5+uTime*.3); c=pal(n*.2+z*.006-uTime*.05)*smoothstep(0.,.08,k)*smoothstep(.6,.5,k); }   // liquid contours
-  else { vec2 g=vec2(u*90.,z/.45); g.y+=hash(vec2(floor(g.x),2.))*5.; vec2 id=floor(g), f=fract(g)-.5; float h=hash(id), r=.12+.3*h;                         // a dust of fine particles
+  else { vec2 g=vec2((u-uTime*.028)*90.,z/.45); g.y+=hash(vec2(mod(floor(g.x),90.),2.))*5.; vec2 id=floor(g), f=fract(g)-.5; id.x=mod(id.x,90.); float h=hash(id), r=.12+.3*h;                         // a dust of fine particles
     c=pal(h*5.+z*.004-uTime*.06)*step(.6,hash(id+9.))*(1.-smoothstep(r*.5,r,length(f)))*(.5+.5*sin(uTime*3.+h*60.)+3.*uBeat*step(.5,h)); }
   vec3 lit=c*(.35+1.8*uBeat+.9*uBass)*smoothstep(0.,.05,vE)*smoothstep(1.,.95,vE)*exp(-dist*.006);
-  vec2 sg=vec2(u*44.,z/.9); sg.y+=hash(vec2(floor(sg.x),5.))*5.; vec2 sid=floor(sg), sf=fract(sg)-.5; float sh=hash(sid), sr=.12+.26*sh;
-  vec3 shell=vec3(.006,.005,.014)+pal(sh*4.+z*.004+uTime*.03)*step(.5,hash(sid+7.))*(1.-smoothstep(sr*.4,sr,length(sf)))*(.4+.35*sin(uTime*2.+sh*50.)+1.8*uBeat*step(.5,sh))*exp(-dist*.004);   /* from outside: a dark tube covered in glowing particles that flare on the beat; still nothing of the inside given away */
+  float h1,h2, s1=spark(vec2(u*30.,z/1.4),30.,1.,h1), s2=spark(vec2(u*74.,z/.56),74.,40.,h2);
+  vec3 shell=vec3(.006,.005,.014)+(pal(h1*4.+z*.004+uTime*.03)*s1*(.6+.4*sin(uTime*2.+h1*50.)+2.2*uBeat*step(.5,h1))*3.4
+                                  +pal(h2*5.+uTime*.05)*s2*2.2*(.4+.35*sin(uTime*3.+h2*70.)+1.4*uBeat*step(.6,h2)))*exp(-dist*.004);   /* from outside: a dark tube scattered with glowing sparks of two sizes, each somewhere random in its patch, flaring on the beat */
   float inner=step(dot(vN,uCam-vW),0.);                                                                    // are we looking at the inside of the wall?
   vec3 col=mix(shell,(lit+vec3(.004,.003,.008))*(.6+.4*uIn),inner);                                        // the projection always runs on the inside; it comes up to full strength as you ride in
   float al=smoothstep(0.,.11,vE)*smoothstep(1.,.89,vE); if(al<.02) discard; gl_FragColor=vec4(col,al); }`}); }   // solid along its length; only the first and last metres dissolve, so the mouth has a soft edge   // dark wall lets 30% of what is behind it through; where the projection is bright the wall is solid colour
