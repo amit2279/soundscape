@@ -175,6 +175,14 @@ A one-hour mix took for ever because the whole song is decoded and analysed befo
 - **Instruments** (self-drive only): `#gauge` speed dial with motor bar and g, `#map` heading-up map of the track within about 210 m, brighter near the rider's height, drops marked. Original design; the owner's references were a racing game and a car cluster, for the idea only.
 - **Tunnels:** walls are fully opaque (`transparent:false`, mouths cut clean at 2.5% of the length). Styles 0 and 3 are now layers of randomly placed glowing particles (`sparkR`) that turn around the rider at different speeds; the glow fades before its patch edge so no square shows.
 
+## 8i. Lab: glow, bioluminescent tunnel, map always on (2026-11-14 late)
+
+- **Glow:** bloom is now 0.8 strength, 0.82 radius, 0.34 threshold (was 0.62/0.5/0.3): a wider, softer halo on everything lit. 1.15/0.9/0.16 was tried and floods the screen.
+- **Bioluminescent tunnel:** `tunMat` style 4: long blue streaks drifting along the wall, finer ones between, a faint blue haze. Every third tunnel starting with the second (`k%3===1`); the others cycle styles 0 to 3. While the rider is inside one, `U.uBio` eases to 1 and `trackMat` turns rails and connectors blue; it eases back outside. **The owner was clear: this is an occasional accent. The coaster stays colourful and psychedelic. Do not spread the blue.**
+- **Map** is shown for the whole ride; the speed dial only in self-drive.
+- **Not built:** closing the track into a circuit (owner said it is fine to leave).
+- Seen while testing, not new: paused inside a run of round gates, the nearest ones fill the screen with their colour.
+
 ## 9. Coaster lab: full specification (state on 2026-11-14)
 
 File `coaster-lab.html`, about 300 lines, standalone. Artifact "Coaster lab", slug `c68270d2-057b-4b14-83d6-67b9296d41d3`. The owner rides it and loves it ("vertigo-inducing"); it is the benchmark. When he says so, port it into `index.html` in place of `coastPlan`/`coastStep`/`coastCam`.

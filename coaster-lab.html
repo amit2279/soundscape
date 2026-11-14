@@ -195,7 +195,7 @@ function frameAt(R,f,pos,d,u,r){ f=clamp(f,0,R.N-1.001); const i=f|0, k=f-i, ka=
 /* ---------------- rendering ---------------- */
 const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true}); document.body.prepend(renderer.domElement);
 const scene=new THREE.Scene(), camera=new THREE.PerspectiveCamera(72,1,.08,2600), world=new THREE.Group(); scene.add(world);
-const U={uVel:{value:new THREE.Vector3()},uSpd:{value:0},uSeaY:{value:0},uRip:{value:[0,1,2,3,4,5].map(()=>new THREE.Vector3(0,0,-99))},uSwC:{value:new THREE.Vector3()},uSwR:{value:new THREE.Vector3(1,0,0)},uSwU:{value:new THREE.Vector3(0,1,0)},uSwD:{value:new THREE.Vector3(0,0,1)},uSwOn:{value:0},uPx:{value:600},uSpA:{value:0},uSpB:{value:0},uSpC:{value:0},uTime:{value:0},uCam:{value:new THREE.Vector3()},uBass:{value:0},uBeat:{value:0},uInt:{value:0},uNow:{value:0}};
+const U={uBio:{value:0},uVel:{value:new THREE.Vector3()},uSpd:{value:0},uSeaY:{value:0},uRip:{value:[0,1,2,3,4,5].map(()=>new THREE.Vector3(0,0,-99))},uSwC:{value:new THREE.Vector3()},uSwR:{value:new THREE.Vector3(1,0,0)},uSwU:{value:new THREE.Vector3(0,1,0)},uSwD:{value:new THREE.Vector3(0,0,1)},uSwOn:{value:0},uPx:{value:600},uSpA:{value:0},uSpB:{value:0},uSpC:{value:0},uTime:{value:0},uCam:{value:new THREE.Vector3()},uBass:{value:0},uBeat:{value:0},uInt:{value:0},uNow:{value:0}};
 const PAL='vec3 pal(float t){ return .5+.5*cos(6.28318*(t+vec3(0.,.33,.67))); }';
 function trackMat(col,em,run,neon,hue){ return new THREE.ShaderMaterial({uniforms:Object.assign({uCol:{value:new THREE.Color(col)},uEm:{value:em},uRun:{value:run||0},uNe:{value:neon||0},uHue:{value:hue||0}},U),
   vertexShader:`varying vec3 vW,vN; void main(){ vec4 w=vec4(position,1.); vec3 n=normal;
@@ -203,12 +203,13 @@ function trackMat(col,em,run,neon,hue){ return new THREE.ShaderMaterial({uniform
   w=instanceMatrix*w; n=mat3(instanceMatrix)*n;
 #endif
   w=modelMatrix*w; vW=w.xyz; vN=n; gl_Position=projectionMatrix*viewMatrix*w; }`,
-  fragmentShader:`precision highp float; uniform vec3 uCol,uCam; uniform float uEm,uRun,uNe,uHue,uTime,uBass,uBeat; varying vec3 vW,vN;
+  fragmentShader:`precision highp float; uniform vec3 uCol,uCam; uniform float uEm,uRun,uNe,uHue,uTime,uBass,uBeat,uBio; varying vec3 vW,vN;
 ${PAL}
 void main(){ vec3 n=normalize(vN), V=normalize(uCam-vW); float dist=length(uCam-vW), dif=max(dot(n,normalize(vec3(.3,.85,.4))),0.), rim=pow(1.-abs(dot(n,V)),2.5);
   float run=uRun*pow(.5+.5*sin(dist*.22-uTime*7.),8.)*(.4+1.6*uBass);                                      // light running away along the rails with the bass
   vec3 base=mix(uCol,mix(pal(dist*.011-uTime*.12),vec3(1.),.35),uNe); base=mix(base,pal(uTime*.035+.83),uHue);   // the connectors drift slowly through the colours, all together                                      // neon lines: colour flows along the track
   vec3 c=base*(.1+.5*dif+.7*rim)*(1.-uNe)+base*uEm*mix(1.+.5*uBeat+run,.5+1.5*uBeat+.6*uBass+run,step(.01,uNe));   // the neon lines breathe with the beat
+  c=mix(c,vec3(.08,.55,1.)*dot(c,vec3(.4,.5,.3))*1.7+vec3(0.,.25,.3)*c.g,uBio);   /* inside a bioluminescent tunnel the track itself turns blue */
   gl_FragColor=vec4(c*exp(-dist*.0055),1.); }`}); }
 const objMat=new THREE.ShaderMaterial({uniforms:U,extensions:{derivatives:true},
   vertexShader:`attribute vec4 aI; uniform float uTime,uNow,uBeat,uBass,uSpA,uSpB,uSpC; varying vec3 vW; varying float vHue,vNear,vM;
@@ -240,6 +241,10 @@ void main(){ float u=vUV.x, z=vUV.y, dist=length(vW-uCam); vec3 c;
     c=pal(ha*3.+uTime*.05)*sa*(1.1+3.*uBeat)+pal(hb*4.+z*.003-uTime*.04)*sb*(.9+.5*sin(uTime*2.+hb*40.)+2.4*uBeat*step(.5,hb))+pal(hc*5.+uTime*.07)*sc*(.6+.5*sin(uTime*3.+hc*70.)); }
   else if(uSt<1.5){ float k=fract(u*5.+z*.06-uTime*.15), w=.42+.2*uBass; c=pal(z*.012+u-uTime*.1)*step(k,w); }                                              // spiral bands
   else if(uSt<2.5){ float a=u*6.28318, n=sin(a*3.+sin(z*.25+uTime*.5)*2.)+sin(z*.3+sin(a*2.-uTime*.4)*2.), k=fract(n*1.5+uTime*.3); c=pal(n*.2+z*.006-uTime*.05)*smoothstep(0.,.08,k)*smoothstep(.6,.5,k); }   // liquid contours
+  else if(uSt>3.5){ float ha,hb,hc, sa=sparkR(vec2((u+uTime*.02)*34.,(z+uTime*5.)/5.5),34.,61.,1.2,ha), sb=sparkR(vec2((u-uTime*.015)*70.,(z+uTime*9.)/3.),70.,77.,1.,hb), sc=sparkR(vec2((u+uTime*.03)*130.,(z+uTime*3.)/1.1),130.,93.,.9,hc);
+    /* bioluminescent algae: long blue streaks of light drifting along the wall, finer ones between them, in a faint blue haze. Everything flares together on the beat */
+    float haze=.5+.5*sin(u*18.85+sin(z*.11+uTime*.4)*2.5);
+    c=(mix(vec3(.03,.3,1.),vec3(.25,.95,1.),ha)*sa*2.2+mix(vec3(.02,.2,.9),vec3(.3,.8,1.),hb)*sb*1.6*(.6+.4*sin(uTime*2.+hb*40.))+vec3(.35,.8,1.)*sc*.9*(.5+.5*sin(uTime*3.+hc*70.))+vec3(0.,.035,.1)*haze)*(1.+1.2*uBeat); }
   else { float ha,hb, sa=sparkR(vec2((u-uTime*.03)*46.,z/.9),46.,5.,.9,ha), sb=sparkR(vec2((u+uTime*.045)*104.,z/.4),104.,33.,.85,hb);                         // a dust of fine particles, two layers turning against each other
     c=pal(ha*5.+z*.004-uTime*.06)*sa*(.7+.5*sin(uTime*3.+ha*60.)+3.*uBeat*step(.5,ha))+pal(hb*6.+uTime*.05)*sb*(.5+.5*sin(uTime*4.+hb*90.)); }
   vec3 lit=c*(.35+1.8*uBeat+.9*uBass)*smoothstep(0.,.05,vE)*smoothstep(1.,.95,vE)*exp(-dist*.006);
@@ -316,7 +321,7 @@ function buildWorld(R){ while(world.children.length){ const m=world.children.pop
           pos[o*3]=P.x+Rr.x*cx+Uu.x*sy; pos[o*3+1]=P.y+Rr.y*cx+Uu.y*sy; pos[o*3+2]=P.z+Rr.z*cx+Uu.z*sy; nrm[o*3]=(Rr.x*cx+Uu.x*sy)/6.5; nrm[o*3+1]=(Rr.y*cx+Uu.y*sy)/6.5; nrm[o*3+2]=(Rr.z*cx+Uu.z*sy)/6.5; uv[o*2]=a/radial; uv[o*2+1]=j*every*DS; ee[o]=j/(rings-1);
           if(j<rings-1&&a<radial){ const q=o+radial+1; idx[ii++]=o; idx[ii++]=q; idx[ii++]=o+1; idx[ii++]=o+1; idx[ii++]=q; idx[ii++]=q+1; } } }
       const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3)); g.setAttribute('aUV',new THREE.BufferAttribute(uv,2)); g.setAttribute('aN',new THREE.BufferAttribute(nrm,3)); g.setAttribute('aE',new THREE.BufferAttribute(ee,1)); g.setIndex(new THREE.BufferAttribute(idx,1));
-      const mat=tunMat(k%4); add(new THREE.Mesh(g,mat)); R.tun.push({t0:ts,t1:ts+TUNLEN,mat}); }
+      const mat=tunMat(k%3===1?4:(k-(k/3|0))%4);   /* every third tunnel, starting with the second, is the bioluminescent one */ mat.bio=k%3===1; add(new THREE.Mesh(g,mat)); R.tun.push({t0:ts,t1:ts+TUNLEN,mat,bio:mat.bio}); }
   });
   if(fieldS.length){ const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(Float32Array.from(fieldPos),3)); g.setAttribute('aS',new THREE.BufferAttribute(Float32Array.from(fieldS),1)); add(new THREE.Points(g,fieldMat)); }
   // ---- chrysanthemum fireworks: each bursts on a strong beat, a little way ahead on the track, so you fly through the open flower ----
@@ -373,7 +378,7 @@ void main(){ vec2 p=vW.xz; float d=length(vW-uCam), ring=0.;
   vec3 c=vec3(0.,.012,.02)*swell+mix(vec3(.05,.9,.8),pal(.55+ring*.2),.35)*(sp*(.18+1.4*wake+.5*uBeat)+wake*.02);   /* the spreading rings were removed: seen from the track they read as blurred green circles */
   gl_FragColor=vec4(c*exp(-d*.0035),1.); }`})); m.frustumCulled=false; scene.add(m); return m; })();
 let ripI=0;
-const composer=new THREE.EffectComposer(renderer); composer.addPass(new THREE.RenderPass(scene,camera)); const bloom=new THREE.UnrealBloomPass(new THREE.Vector2(1,1),.62,.5,.3); composer.addPass(bloom);
+const composer=new THREE.EffectComposer(renderer); composer.addPass(new THREE.RenderPass(scene,camera)); const bloom=new THREE.UnrealBloomPass(new THREE.Vector2(1,1),.8,.82,.34)   /* a wide soft halo round everything that is lit (was .62, .5, .3) */; composer.addPass(bloom);
 /* a slight blur with distance. The scene is drawn a second time, small and with a plain material that only writes how far away each thing is; a last pass softens what is far. Key B switches it off */
 const depthRT=new THREE.WebGLRenderTarget(4,4,{minFilter:THREE.LinearFilter,magFilter:THREE.LinearFilter});
 const depthMat=new THREE.ShaderMaterial({side:THREE.DoubleSide,vertexShader:`#include <common>
@@ -492,9 +497,10 @@ function frame(ms){ requestAnimationFrame(frame); const dt=Math.min(.05,(ms-last
     while(beatI<A_.beats.length&&A_.beats[beatI].t<t-1) beatI++; if(beatI>0&&A_.beats[beatI-1].t>t) beatI=0; let bp=0; for(let b=beatI;b<A_.beats.length&&A_.beats[b].t<=t;b++) bp=Math.max(bp,A_.beats[b].s*Math.exp(-(t-A_.beats[b].t)*7)); U.uBeat.value=playing||free.on?bp:0;
     if((playing||free.on)&&t>prevT&&t-prevT<.5) for(const b of A_.beats){ if(b.t>t) break; if(b.t>prevT){ spinV+=2.6*b.s; if(b.s>.45) U.uRip.value[ripI++%6].set(P.x,P.z,b.t); } } prevT=t;   // each beat is a push on the wheels
     spinV+=(.4-spinV)*Math.min(1,dt*.8); spinV=Math.min(spinV,7); U.uSpA.value+=spinV*dt; U.uSpB.value+=(U.uSpA.value-U.uSpB.value)*Math.min(1,dt*3.5); U.uSpC.value+=(U.uSpB.value-U.uSpC.value)*Math.min(1,dt*3.5);   // friction brings them back to a slow turn; B and C trail A, which is the delay down a series
+    { const inBio=R.tun.some(tn=>tn.bio&&t>tn.t0-.3&&t<tn.t1+.2)?1:0; U.uBio.value+=(inBio-U.uBio.value)*Math.min(1,dt*2.5); }
     for(const tn of R.tun){ const k=t>tn.t0-.12&&t<tn.t1+.05?1:0; tn.mat.uniforms.uIn.value+=(k-tn.mat.uniforms.uIn.value)*Math.min(1,dt*(k?2.2:3)); }   // a tunnel's walls light up as you enter and go dark behind you
     sfxStep(R,t,f,v,R.marks.some(m=>i>=m.lift[0]&&i<m.lift[1])&&!free.on,playing||(free.on&&v>.3));
-    { const show=free.on?'block':'none'; if(gaugeC.style.display!==show){ gaugeC.style.display=show; mapC.style.display=show; } if(free.on){ drawGauge(free.v,free.th,gS); drawMap(R,f); } }
+    { const show=free.on?'block':'none'; if(gaugeC.style.display!==show) gaugeC.style.display=show; if(mapC.style.display!=='block') mapC.style.display='block'; if(free.on) drawGauge(free.v,free.th,gS); drawMap(R,f); }   /* the map is there for the whole ride; the dial only when you drive */
     U.uVel.value.copy(D).multiplyScalar(v); U.uSpd.value+=(v-U.uSpd.value)*Math.min(1,dt*4); sea.position.x=P.x; sea.position.z=P.z;
     { const T=U.uTime.value, inTun=R.tun.some(tn=>t>tn.t0-1.5&&t<tn.t1+.6); frameAt(R,idxAt(R,t+1.),P2,D2,U2,R2); P2.addScaledVector(R2,9*Math.sin(T*.23)).addScaledVector(U2,3.5+4*Math.sin(T*.31));
       const far=U.uSwC.value.distanceTo(P2)>60; U.uSwC.value.lerp(P2,far?1:Math.min(1,dt*2.4)); U.uSwR.value.lerp(R2,Math.min(1,dt*3)); U.uSwU.value.lerp(U2,Math.min(1,dt*3)); U.uSwD.value.lerp(D2,Math.min(1,dt*3));
