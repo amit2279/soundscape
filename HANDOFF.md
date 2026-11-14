@@ -226,6 +226,13 @@ The owner is reworking the top bar one step at a time. Done: every mode tab has 
 - **Planet icon** is a still wireframe globe (the owner did not want it animated).
 - **Black out theme** (`THEMES.lights`, flag `lights:1`): black sky, fog and walls, plus `dkPass`, a pass straight after the scene render that multiplies each pixel by `smoothstep(.2,.5,brightest channel)`, eased in by `darkT`. Only lit things survive, and bloom comes after it so they keep their halos. Needs the composer (Quality 3 or higher); below that it is just the black colours. The older "Blackout neon" theme is unchanged.
 
+## 8o. Per-mode visibility, part 2 (2026-11-15)
+
+- **The Coaster is always in open space. Never a horizon, whatever the colours** (owner, firmly). Three causes fixed: its sea was an opaque plane with a far edge (now additive, light only, faded out by 420 m; lab and main); the void sky took the theme's sky colour (`uTintV` is 0 in the Coaster); the Mono light theme's invert filter (cancelled for the Coaster in CSS).
+- **Colours are hidden in the Coaster** (`.swwrap`). The connectors still take whatever theme was last chosen elsewhere.
+- **Effect toggles fold away where they do nothing** (`fxVis()`, called from `setWorld`, `setMode`, `setKal`): fireworks only in City and Terrain; solar system only in Planet view; crystal facets and light rays only on the kaleidoscope planet; the two kaleidoscope switches everywhere.
+- **Keys in the Coaster:** only up and down are shown.
+
 ## 9. Coaster lab: full specification (state on 2026-11-14)
 
 File `coaster-lab.html`, about 300 lines, standalone. Artifact "Coaster lab", slug `c68270d2-057b-4b14-83d6-67b9296d41d3`. The owner rides it and loves it ("vertigo-inducing"); it is the benchmark. When he says so, port it into `index.html` in place of `coastPlan`/`coastStep`/`coastCam`.

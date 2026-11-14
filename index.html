@@ -381,6 +381,14 @@ h1 .hollow{display:block;color:transparent;-webkit-text-stroke:2px var(--text)}
 #worldSeg button[data-world="mandala"],#worldSeg button[data-world="abyss"],#worldSeg button[data-world="ill"]{display:none}
 #camSeg{max-width:320px;transition:opacity .3s ease,transform .5s cubic-bezier(.2,1.3,.4,1),max-width .45s ease,margin .45s ease,padding .45s ease}
 #camSeg.gone{opacity:0;transform:translateY(30px) scale(.9);max-width:0;margin-left:0;margin-right:-12px;padding-left:0;padding-right:0;pointer-events:none;overflow:hidden}
+/* the Coaster is always in open space with its own colours: no colour picker, no theme filter; and only the two keys that drive it */
+#app[data-world="coast"] .swwrap{display:none}
+#app[data-world="coast"] canvas:not(.cinst){filter:none!important}
+#app[data-world="coast"] .keypad .kcol:has([data-k="shift"]),#app[data-world="coast"] .keypad .kcol:has([data-k="q"]),#app[data-world="coast"] .keypad .kcol:has([data-k="e"]){display:none}
+#app[data-world="coast"] .keypad [data-k="arrowleft"],#app[data-world="coast"] .keypad [data-k="arrowright"]{visibility:hidden}
+/* effect toggles that do nothing in the current mode fold away */
+.fxstack label{max-height:60px;transition:max-height .35s ease,opacity .25s ease,margin .35s ease}
+.fxstack label.gone{max-height:0;opacity:0;margin-top:-8px;pointer-events:none;overflow:hidden}
 #planetSeg,#nitroWrap{max-width:240px;transition:opacity .3s ease,transform .5s cubic-bezier(.2,1.3,.4,1),max-width .45s ease,margin .45s ease}
 #planetSeg.gone,#nitroWrap.gone{opacity:0;transform:translateY(-34px) scale(.85);max-width:0;margin-left:-10px;pointer-events:none;overflow:hidden}
 .swwrap{position:relative;display:inline-flex}
@@ -688,7 +696,7 @@ const U = {
   uGrowC:{value:new THREE.Vector3()}, uFogD:{value:1/2100}, uLen:{value:1}, uRows:{value:1},
   uSkyTop:{value:C('#000')}, uSkyMid:{value:C('#000')}, uHorizon:{value:C('#000')}, uFog:{value:C('#000')},
   uA:{value:C('#000')}, uB:{value:C('#000')}, uWarm:{value:C('#000')}, uCool:{value:C('#000')}, uFacade:{value:C('#000')},
-  uData:{value:null}, uBlocks:{value:null}, uPx:{value:1}, uSpec:{value:new Float32Array(12)}, uNitro:{value:1}, uFlash:{value:0}, uSearch:{value:0}, uNeon:{value:0}, uDay:{value:0}, uHeight:{value:null}, uTBase:{value:0}, uTStep:{value:3}, uPlanet:{value:0}, uPC:{value:0}, uAmp:{value:1}, uPSize:{value:1}, uAtmo:{value:1}, uShowP:{value:1}, uAbyss:{value:0}, uBall:{value:0}, uSwim:{value:0}, uVoid:{value:0}, uWormZ:{value:0}, uCNow:{value:0}, uTunZ:{value:0}, uTunW:{value:999}, uTunD:{value:0}, uTunA:{value:0}, uTunB:{value:0}, uTunF:{value:-99}, uIllA:{value:0}, uIllB:{value:0}, uIllMix:{value:1}, uIllT:{value:0}, uIllFade:{value:1}, uPA:{value:0}, uPB:{value:0}, uPMix:{value:1}, uPShow:{value:0}, uSpecS:{value:new Float32Array(12)}, uBassS:{value:0}, uAsp:{value:1}, uPtr:{value:new THREE.Vector2()}, uDiver:{value:new THREE.Vector3(0,9999,0)}, uRay:{value:new THREE.Vector3(0,1,0)}, uCtr:{value:new THREE.Vector3()}, uSpecTex:{value:null},
+  uData:{value:null}, uBlocks:{value:null}, uPx:{value:1}, uSpec:{value:new Float32Array(12)}, uNitro:{value:1}, uFlash:{value:0}, uSearch:{value:0}, uNeon:{value:0}, uDay:{value:0}, uHeight:{value:null}, uTBase:{value:0}, uTStep:{value:3}, uPlanet:{value:0}, uTintV:{value:1}, uPC:{value:0}, uAmp:{value:1}, uPSize:{value:1}, uAtmo:{value:1}, uShowP:{value:1}, uAbyss:{value:0}, uBall:{value:0}, uSwim:{value:0}, uVoid:{value:0}, uWormZ:{value:0}, uCNow:{value:0}, uTunZ:{value:0}, uTunW:{value:999}, uTunD:{value:0}, uTunA:{value:0}, uTunB:{value:0}, uTunF:{value:-99}, uIllA:{value:0}, uIllB:{value:0}, uIllMix:{value:1}, uIllT:{value:0}, uIllFade:{value:1}, uPA:{value:0}, uPB:{value:0}, uPMix:{value:1}, uPShow:{value:0}, uSpecS:{value:new Float32Array(12)}, uBassS:{value:0}, uAsp:{value:1}, uPtr:{value:new THREE.Vector2()}, uDiver:{value:new THREE.Vector3(0,9999,0)}, uRay:{value:new THREE.Vector3(0,1,0)}, uCtr:{value:new THREE.Vector3()}, uSpecTex:{value:null},
   uBPos:{value:Array.from({length:10},()=>new THREE.Vector3())}, uBT:{value:new Float32Array(10).fill(-99)}
 };
 const specData=new Uint8Array(48), specTex=new THREE.DataTexture(specData,12,1,THREE.RGBAFormat); specTex.magFilter=specTex.minFilter=THREE.LinearFilter; specTex.needsUpdate=true; U.uSpecTex.value=specTex;
@@ -722,7 +730,7 @@ const sky = new THREE.Mesh(new THREE.SphereGeometry(6000, 48, 24), new THREE.Sha
   side:THREE.BackSide, depthWrite:false, depthTest:false, uniforms:U,
   vertexShader:`varying vec3 vD; void main(){ vD=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
   fragmentShader:`precision highp float;
-uniform vec3 uSkyTop,uSkyMid,uHorizon,uFog,uBands,uA,uB; uniform float uTime,uPulse,uNitro,uFlash,uNeon,uPlanet,uAtmo,uShowP,uAbyss,uVoid,uDay; uniform sampler2D uSpecTex; varying vec3 vD;
+uniform vec3 uSkyTop,uSkyMid,uHorizon,uFog,uBands,uA,uB; uniform float uTime,uPulse,uNitro,uFlash,uNeon,uPlanet,uAtmo,uShowP,uAbyss,uVoid,uDay,uTintV; uniform sampler2D uSpecTex; varying vec3 vD;
 ${GLSL_COMMON}
 float fbm(vec2 p){ float a=.5,s=0.; for(int i=0;i<4;i++){ s+=a*vnoise(p); p=p*2.03+7.1; a*=.5; } return s; }
 float h3(vec3 p){ p=fract(p*.3183099+.1); p*=17.; return fract(p.x*p.y*p.z*(p.x+p.y+p.z)); }
@@ -803,7 +811,7 @@ void main(){
     c=mix(c,w,uAbyss);
   }
   if(uVoid>.001){
-    vec3 v=uSkyTop*.22+vec3(.003,.003,.01);
+    vec3 v=uSkyTop*.22*uTintV+vec3(.003,.003,.01);   /* uTintV is 0 in the Coaster: its space stays black whatever the colour theme */
     v+=mix(uA,uB,fbm(d.yz*2.+3.))*smoothstep(.45,.95,fbm(d.xy*1.7+d.z+9.))*.1*(.6+uBands.x);
     vec3 g4=d*150.; v+=vec3(.85,.9,1.)*step(.99,h3(floor(g4)))*smoothstep(.45,.1,length(fract(g4)-.5))*(.5+uBands.z);
     c=mix(c,v,uVoid);
@@ -2566,8 +2574,12 @@ function showSign(i){ const s=A.segs[i]; $('#signNum').textContent=i+1; $('#sign
 function toast(msg){ const el=$('#toast'); el.textContent=msg; el.classList.add('on'); clearTimeout(toast.t); toast.t=setTimeout(()=>el.classList.remove('on'),7000); }
 
 let mode='cruise', lastCam='cruise';
+/* which effect toggles mean anything right now: fireworks only in the City and Terrain; the solar system only in Planet view;
+   crystal facets and light rays only on the kaleidoscope planet. The two kaleidoscope switches work everywhere */
+function fxVis(){ try{ const cityish=world==='city'||world==='terrain', pl=mode==='planet', set=(id,on)=>{ const l=$(id)&&$(id).closest('label'); if(l) l.classList.toggle('gone',!on); };
+  set('#cFx',cityish); set('#cPl',cityish&&pl); set('#cCry',pl&&kaleido); set('#cRay',pl&&kaleido); }catch(e){} }
 function togglePlanet(){ if(mode!=='planet'&&!PLANET_OK[world]) return; setMode(mode==='planet'?lastCam:'planet'); }
-function setMode(m){ fr.on=false; app.dataset.mode=m; if(m==='surf'&&mode!=='surf'){ fly.x=mode==='skyline'?0:clamp(off.x,-20,20); fly.y=mode==='skyline'?40:off.y; fly.vx=0; ky=0; } mode=m; if(m!=='planet') lastCam=m; { const bp=document.querySelector('#btnPlanet'); if(bp) bp.setAttribute('aria-pressed',String(m==='planet')); } document.querySelectorAll('.dock .seg button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode===m))); }
+function setMode(m){ fr.on=false; app.dataset.mode=m; if(m==='surf'&&mode!=='surf'){ fly.x=mode==='skyline'?0:clamp(off.x,-20,20); fly.y=mode==='skyline'?40:off.y; fly.vx=0; ky=0; } mode=m; fxVis(); if(m!=='planet') lastCam=m; { const bp=document.querySelector('#btnPlanet'); if(bp) bp.setAttribute('aria-pressed',String(m==='planet')); } document.querySelectorAll('.dock .seg button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode===m))); }
 document.querySelectorAll('.dock .seg button').forEach(b=>b.addEventListener('click',()=>setMode(b.dataset.mode)));
 
 const swBox=$('#swatches');
@@ -2615,7 +2627,7 @@ document.addEventListener('pointerdown',e=>{ const p=$('#panel'); if(p.classList
 $('#btnPanel').addEventListener('click',togglePanel);
 $('#btnHouse').addEventListener('click',loadHouse); $('#btnT2').addEventListener('click',loadHouse);
 $('#btnT1').addEventListener('click',()=>{ ensureCtx(); const p=actx.resume(); if(p&&p.catch) p.catch(()=>{}); loadDemo(true); });
-function setKal(v){ kaleido=v&&!!kPass; $('#cKal').checked=kaleido; }
+function setKal(v){ kaleido=v&&!!kPass; $('#cKal').checked=kaleido; fxVis(); }
 $('#cKal').addEventListener('change',e=>setKal(e.target.checked));
 $('#cGem').addEventListener('change',e=>{ if(kPass){ kPass.uniforms.uGem.value=e.target.checked?1:0; if(e.target.checked&&!kaleido&&e.isTrusted) setKal(true); } });
 $('#cCry').addEventListener('change',e=>{ kCrystal.value=e.target.checked?1:0; }); $('#cRay').addEventListener('change',e=>{ CT.rays=e.target.checked; });
@@ -2673,7 +2685,7 @@ $('#cCry').addEventListener('change',e=>{ kCrystal.value=e.target.checked?1:0; }
     const ct=document.createElement('div'); ct.className='ptog'; ct.appendChild(tg.querySelector('#cCap').closest('label')); pbs[0].insertBefore(ct,$('#btnReset'));
     const rb=document.createElement('div'); rb.className='pb'; rb.appendChild($('#btnReset'));
     panel.append(ph,...prs,sep(),tl,pbs[1],sep(),sl,pbs[0],sep(),rb);
-    tg.className='ptog fxstack plate'; tg.setAttribute('role','group'); tg.setAttribute('aria-label','Effects'); panel.after(tg); }   // the effect toggles live outside the panel: always on screen, stacked down the right edge
+    tg.className='ptog fxstack plate'; tg.setAttribute('role','group'); tg.setAttribute('aria-label','Effects'); panel.after(tg); setTimeout(fxVis,0); }   // the effect toggles live outside the panel: always on screen, stacked down the right edge
   const eyeOff='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18M10.600 6.200A9.500 9.500 0 0 1 12 6c5 0 8.500 4 9.500 6a13 13 0 0 1-2.600 3.400M6.300 7.700A13 13 0 0 0 2.500 12c1 2 4.500 6 9.500 6 1.300 0 2.500-.3 3.600-.7M9.900 9.900a3 3 0 0 0 4.200 4.200"/></svg>';
   const eyeOn='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M2.500 12C3.500 10 7 6 12 6s8.500 4 9.500 6c-1 2-4.500 6-9.500 6s-8.500-4-9.500-6z"/><circle cx="12" cy="12" r="3"/></svg>';
   const hb=document.createElement('button'); hb.className='tbtn icon plate'; hb.id='btnHide'; hb.title='Hide all tools (H)'; hb.setAttribute('aria-label','Hide all tools'); hb.innerHTML=eyeOff;
@@ -3168,7 +3180,7 @@ void main(){ float T=uTime; vec3 l=vec3(sin(T*(.5+aS.x)+aS.y*40.)*5.+sin(T*.9+aS
   m.frustumCulled=false; m.visible=false;   /* SWARM switched off: the owner said it was not working. Set visible=true to bring it back. */
   scene.add(m); return m; })();
 /* the sea: a black ocean far below the lowest point of the ride. Plankton glitter in it; every strong beat drops a ring of light under the train that spreads away */
-const sea=(()=>{ const m=new THREE.Mesh(new THREE.PlaneGeometry(5000,5000).rotateX(-Math.PI/2),new THREE.ShaderMaterial({uniforms:U,
+const sea=(()=>{ const m=new THREE.Mesh(new THREE.PlaneGeometry(5000,5000).rotateX(-Math.PI/2),new THREE.ShaderMaterial({uniforms:U,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,   /* only light is added: the sea never hides the stars below it, and it is gone long before any horizon, so the ride is always in open space */
     vertexShader:`varying vec3 vW; void main(){ vec4 w=modelMatrix*vec4(position,1.); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }`,
     fragmentShader:`precision highp float; uniform vec3 uCam; uniform vec3 uRip[6]; uniform float uNow,uTime,uBass,uBeat; varying vec3 vW;
 ${PAL}
@@ -3179,7 +3191,7 @@ void main(){ vec2 p=vW.xz; float d=length(vW-uCam), ring=0.;
   vec2 q=p+vec2(sin(p.y*.07+uTime*.4),cos(p.x*.06-uTime*.3))*1.5, id=floor(q/1.1); float h=hash(id), sp=step(.965,h)*(1.-smoothstep(.1,.42,length(fract(q/1.1)-.5)))*(.4+.6*sin(uTime*2.+h*50.));
   float swell=.5+.5*sin(p.x*.05+uTime*.5)*sin(p.y*.045-uTime*.35);
   vec3 c=vec3(0.,.012,.02)*swell+mix(vec3(.05,.9,.8),pal(.55+ring*.2),.35)*(sp*(.18+1.4*wake+.5*uBeat)+wake*.02);   /* the spreading rings were removed: seen from the track they read as blurred green circles */
-  gl_FragColor=vec4(c*exp(-d*.0035),1.); }`})); m.frustumCulled=false; scene.add(m); return m; })();
+  gl_FragColor=vec4(c*exp(-d*.0035)*smoothstep(420.,90.,d),1.); }`})); m.frustumCulled=false; scene.add(m); return m; })();
 let ripI=0;
 
 U.uA=MU.uA; U.uB=MU.uB;   /* the connectors take the current theme's colours */
@@ -3296,7 +3308,7 @@ let zoomT=1, zoomK=1, fovBase=60;   // scroll zoom for the ride cameras: 1 is no
 canvas.addEventListener('wheel',e=>{ if(mode!=='planet'&&!ORBW[world]){ if(started&&(world==='city'||world==='terrain'||world==='abyss'||world==='loom')){ e.preventDefault(); zoomT=clamp(zoomT*Math.exp(-e.deltaY*(e.ctrlKey?.012:.0016)),.55,5); } return; } e.preventDefault(); orbit.dist=clamp(orbit.dist*Math.exp(e.deltaY*.0012),PR*2.2,PR*10); },{passive:false});
 function setWorld(w){ if(mode==='planet'&&!PLANET_OK[w]) setMode(lastCam);   /* Planet only exists for the city and the terrain */
   { const ps=$('#planetSeg'), nw=$('#nitroWrap'); if(ps) ps.classList.toggle('gone',!PLANET_OK[w]); if(nw) nw.classList.toggle('gone',!NITRO_OK[w]); const cs=$('#camSeg'); if(cs) cs.classList.toggle('gone',!CAM_OK[w]); }   /* the buttons drop in where they work and lift away where they do not */
-  world=w; fr.on=false; zoomT=1; app.dataset.world=w; document.querySelectorAll('#worldSeg button[data-world]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.world===w))); fly.x=clamp(fly.x,-20,20); fly.vx=0; }
+  world=w; fr.on=false; zoomT=1; app.dataset.world=w; fxVis(); document.querySelectorAll('#worldSeg button[data-world]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.world===w))); fly.x=clamp(fly.x,-20,20); fly.vx=0; }
 // Height a flyer must clear over the strip of blocks under x (0 over a street), looking a little ahead.
 function stripH(x,along){
   const ax=Math.abs(x); if(ax<AV/2-2 || !blockH) return 0;
@@ -3359,7 +3371,7 @@ function frame(ms){
   mandala.visible=mandOn;
   for(const o of abyssObjs) o.visible=absOn; loom.visible=loomOn; if(loomOn&&!RM) loomStep(dt,sb); coastStep(dt,t,coastOn);
   for(const o of templeObjs){ o.visible=tempOn; if(tempOn){ o.position.set(0,170,-along); if(!RM) o.rotateOnAxis(o.userData.ax,dt*o.userData.dir*(.05+.5*U.uSpec.value[o.userData.band]*(nitro?1:.3))); } }
-  U.uVoid.value+=(((loomOn||tempOn||mandOn||coastOn)?1:0)-U.uVoid.value)*Math.min(1,dt*6);
+  U.uVoid.value+=(((loomOn||tempOn||mandOn||coastOn)?1:0)-U.uVoid.value)*Math.min(1,dt*6); U.uTintV.value+=((coastOn?0:1)-U.uTintV.value)*Math.min(1,dt*6);
   U.uCtr.value.set(0,0,-along); U.uSwim.value+=dt*.2;
   U.uBall.value+=((mode==='planet'?1:0)-U.uBall.value)*Math.min(1,dt*2.5); U.uAbyss.value+=((absOn?1:0)-U.uAbyss.value)*Math.min(1,dt*6);
   sparks.visible=!terr&&!aby;

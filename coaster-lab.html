@@ -368,7 +368,7 @@ void main(){ float T=uTime; vec3 l=vec3(sin(T*(.5+aS.x)+aS.y*40.)*5.+sin(T*.9+aS
   m.frustumCulled=false; m.visible=false;   /* SWARM switched off: the owner said it was not working. Set visible=true to bring it back. */
   scene.add(m); return m; })();
 /* the sea: a black ocean far below the lowest point of the ride. Plankton glitter in it; every strong beat drops a ring of light under the train that spreads away */
-const sea=(()=>{ const m=new THREE.Mesh(new THREE.PlaneGeometry(5000,5000).rotateX(-Math.PI/2),new THREE.ShaderMaterial({uniforms:U,
+const sea=(()=>{ const m=new THREE.Mesh(new THREE.PlaneGeometry(5000,5000).rotateX(-Math.PI/2),new THREE.ShaderMaterial({uniforms:U,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,   /* only light is added: the sea never hides the stars below it, and it is gone long before any horizon, so the ride is always in open space */
     vertexShader:`varying vec3 vW; void main(){ vec4 w=modelMatrix*vec4(position,1.); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }`,
     fragmentShader:`precision highp float; uniform vec3 uCam; uniform vec3 uRip[6]; uniform float uNow,uTime,uBass,uBeat; varying vec3 vW;
 ${PAL}
@@ -379,7 +379,7 @@ void main(){ vec2 p=vW.xz; float d=length(vW-uCam), ring=0.;
   vec2 q=p+vec2(sin(p.y*.07+uTime*.4),cos(p.x*.06-uTime*.3))*1.5, id=floor(q/1.1); float h=hash(id), sp=step(.965,h)*(1.-smoothstep(.1,.42,length(fract(q/1.1)-.5)))*(.4+.6*sin(uTime*2.+h*50.));
   float swell=.5+.5*sin(p.x*.05+uTime*.5)*sin(p.y*.045-uTime*.35);
   vec3 c=vec3(0.,.012,.02)*swell+mix(vec3(.05,.9,.8),pal(.55+ring*.2),.35)*(sp*(.18+1.4*wake+.5*uBeat)+wake*.02);   /* the spreading rings were removed: seen from the track they read as blurred green circles */
-  gl_FragColor=vec4(c*exp(-d*.0035),1.); }`})); m.frustumCulled=false; scene.add(m); return m; })();
+  gl_FragColor=vec4(c*exp(-d*.0035)*smoothstep(420.,90.,d),1.); }`})); m.frustumCulled=false; scene.add(m); return m; })();
 let ripI=0;
 const composer=new THREE.EffectComposer(renderer); composer.addPass(new THREE.RenderPass(scene,camera)); const bloom=new THREE.UnrealBloomPass(new THREE.Vector2(1,1),.8,.82,.34)   /* a wide soft halo round everything that is lit (was .62, .5, .3) */; composer.addPass(bloom);
 /* a slight blur with distance. The scene is drawn a second time, small and with a plain material that only writes how far away each thing is; a last pass softens what is far. Key B switches it off */
