@@ -174,7 +174,7 @@ function buildRide(A,ver){ const V2=ver===2, cuts=[], els=[], GF=G*1.4, TK=V2?1/
     for(let f=w;f<A.F-w;f+=3) cand.push([A.inten[f+w]-A.inten[f-w],f/A.fps]); cand.sort((p,q)=>q[0]-p[0]);
     for(const [rise,tt] of cand){ if(rise<=0||minis.length>=8) break; if(tt<10||tt>A.dur-10||drops.some(d=>Math.abs(d-tt)<16)||minis.some(m=>Math.abs(m-tt)<18)) continue; minis.push(tt); }
     const ev=[...drops.map(d=>[d,1]),...minis.map(m=>[m,.45])].sort((p,q)=>p[0]-q[0]);
-    for(let k=0;k<ev.length;k++){ const [td,sc]=ev[k], tn=k+1<ev.length?ev[k+1][0]:A.dur; let n=0; nextT=td; while(td-t>(sc<1?12:17)&&n++<200) pick2(td);
+    for(let k=0;k<ev.length;k++){ const [td,sc]=ev[k], tn=k+1<ev.length?ev[k+1][0]:A.dur; let n=0; nextT=td; while(td-t>(sc<1?12:17)+Math.max(0,v-28)*.15&&n++<200) pick2(td);   /* going fast, it needs longer to slow for the lift */
       if(td-t<3) continue; safe(()=>liftAndDrop(td,sc)); nextT=tn; if(sc===1) chain(tn); }
     nextT=1e9; let n=0; while(t<A.dur-2&&n++<400) pick2(1e9); }
   else { for(const td of drops){ let n=0; while(td-t>15&&n++<200) pick(); liftAndDrop(td); }

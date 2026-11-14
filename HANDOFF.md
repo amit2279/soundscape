@@ -187,6 +187,17 @@ A one-hour mix took for ever because the whole song is decoded and analysed befo
 
 The owner saw a test frame where the whole ride was blue with heavy glow and asked for that look a few times per ride. `R.bio` is a list of windows `[td-0.6, td+9.5]` at every second big drop starting with the first (a second one at 62% of the song if there would be only one). In a window, or inside a bioluminescent tunnel, `U.uBio` eases to 1: rails and connectors (`trackMat`) and gates and solids (`objMat`) turn blue and cyan, and bloom opens from 0.8/0.82/0.34 to 1.15/0.9/0.16; all ease back after. Ordinary tunnel walls keep their own colours. Still an accent: the rest of the ride stays colourful.
 
+## 8k. Lab coaster v2 merged into the main app (2026-11-14, 23:30)
+
+`index.html` now has track v2 and everything from sections 8c to 8j except depth of field, the lab's stars, its text readout and the v1/v2 switch.
+- **How:** `tools/port_coaster.py coaster-lab.html index.html` regenerates the whole Coaster section from the lab (four text ranges plus a `step` written for the main app). **Change the lab, run the script; do not hand-edit the copied parts in `index.html`.**
+- **Wiring:** play bar, seek and song loading are the main app's. `coastStep` passes `drive` from the app's `keys` (up/W = +1, down/S = -1) and whether the song has ended. Self-drive starts when a drive key is held while the song is paused or over, and stops when the song plays. The on-screen keypad is shown in the Coaster too.
+- **Glow:** while the Coaster is on, `coastStep` sets the app's bloom to 0.8/0.82/0.34 (times the theme's glow), opening to 1.15/0.9/0.16 in a blue moment; leaving the Coaster restores radius 0.55 and threshold 0.86.
+- **Instruments:** `#cMap` (top left, whole ride) and `#cGauge` (bottom right, self-drive only), class `cinst`, hidden with the rest of the interface (`nohud`).
+- **Sounds** use the app's audio context and go straight to its output (not through the volume slider). No mute key in the main app yet.
+- **Generator fix made during the merge:** the lead before a lift grows with speed (`+0.15 s per m/s above 28`), which fixed a drop that was 2.2 s late on the main demo.
+- Checked headless on the main demo: four drops within 0.01 s, no crossings, blue moment, bioluminescent tunnel, self-drive with dial, switching back to City restores it. Not checked: real songs, motion, sound.
+
 ## 9. Coaster lab: full specification (state on 2026-11-14)
 
 File `coaster-lab.html`, about 300 lines, standalone. Artifact "Coaster lab", slug `c68270d2-057b-4b14-83d6-67b9296d41d3`. The owner rides it and loves it ("vertigo-inducing"); it is the benchmark. When he says so, port it into `index.html` in place of `coastPlan`/`coastStep`/`coastCam`.
