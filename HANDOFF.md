@@ -189,6 +189,11 @@ All use `objMat` with per-instance `aI = (song time, hue, seed/phase, mode)`; in
 - **Sea** (`sea`): a 5 km plane 8 m below the lowest track point (so no tunnel dips into it), following the camera in x and z. Shader: dark swell, glittering plankton cells, a wake glow that grows as the camera gets lower, and up to six rings (`uRip`: x, z, song time) dropped under the train on strong beats and spreading at 26 m/s.
 - **Tunnel mouths**: wall material is `transparent` again only so alpha can fade over the first and last 11% of the length; the body stays alpha 1 (opaque). Do not lower the body alpha.
 
+### 9.6d Changes of 2026-11-14 (afternoon)
+- **Sea rings removed** (owner disliked the blurred green circles). The sea keeps its glitter and a faint wake; the `uRip` loop is still computed but no longer adds light.
+- **More gates, closer together, five shapes**: triangle, square, pentagon, hexagon, ring (torus segments 3, 4, 5, 6, 40). 18 per drop at 0.17 s spacing; a series of 9 at 0.1 s spacing on any beat stronger than 0.3, at least 2.6 s apart, outside 6.5 s before to 3.6 s after a drop, still never in or near a tunnel or a lift.
+- **Lens**: field of view is now `56 + 10·min(1, v/50)`. **Bug found**: since the "longer lens" change, a `//` comment had cut off the statement that applies the field of view, so the camera had been stuck at its initial 72 degrees. Fixed (comment is now `/* */`). This is the same trap as in section 3.
+
 ### 9.7 Rider camera (in `frame`)
 - Position: 0.6 m above the track centre, moved down by `0.04·(g − 1)` (clamped), plus a rattle of amplitude `0.022·(v/40)²`.
 - Direction: 62% the current track direction, 38% the direction `clamp(0.35·v, 3, 14)` m ahead, tilted slightly down; up vector is the track's up. The quaternion is slerped toward this at rate 9, which is the head lag.
