@@ -183,6 +183,10 @@ A one-hour mix took for ever because the whole song is decoded and analysed befo
 - **Not built:** closing the track into a circuit (owner said it is fine to leave).
 - Seen while testing, not new: paused inside a run of round gates, the nearest ones fill the screen with their colour.
 
+## 8j. Blue moments (2026-11-14 late)
+
+The owner saw a test frame where the whole ride was blue with heavy glow and asked for that look a few times per ride. `R.bio` is a list of windows `[td-0.6, td+9.5]` at every second big drop starting with the first (a second one at 62% of the song if there would be only one). In a window, or inside a bioluminescent tunnel, `U.uBio` eases to 1: rails and connectors (`trackMat`) and gates and solids (`objMat`) turn blue and cyan, and bloom opens from 0.8/0.82/0.34 to 1.15/0.9/0.16; all ease back after. Ordinary tunnel walls keep their own colours. Still an accent: the rest of the ride stays colourful.
+
 ## 9. Coaster lab: full specification (state on 2026-11-14)
 
 File `coaster-lab.html`, about 300 lines, standalone. Artifact "Coaster lab", slug `c68270d2-057b-4b14-83d6-67b9296d41d3`. The owner rides it and loves it ("vertigo-inducing"); it is the benchmark. When he says so, port it into `index.html` in place of `coastPlan`/`coastStep`/`coastCam`.
