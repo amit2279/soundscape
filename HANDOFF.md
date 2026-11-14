@@ -217,7 +217,8 @@ The owner is reworking the top bar one step at a time. Done: every mode tab has 
 | Drive yourself | yes | yes | no | no | yes (on rails) | no |
 | Scroll zoom | yes | yes | no | no | no | yes |
 
-- **Open, owner deciding:** a new name for Go Nitro; an animated wireframe globe as the Planet button; whether the Cruise/Fly/Skyline switch should hide in Wormhole, Tunnel and Coaster; final place for Planet and Nitro. Daylight was not tested outside the City.
+- **Step 3 (done):** Go Nitro is now called **Amplify** (same bolt icon; the code still says `nitro`). Planet's icon is a turning wireframe globe (CSS, class `globe`). The camera switch `#camSeg` hides in Wormhole, Tunnel and Coaster (`CAM_OK`). The mode bar is frosted white (0.86).
+- **Open, owner deciding:** the final place for Planet and Amplify. Suggested to him: Planet beside the camera views in the bottom bar (it is a fourth view), Amplify at the top of the right-hand effects column (it is an effect). Daylight was not tested outside the City.
 
 ## 9. Coaster lab: full specification (state on 2026-11-14)
 

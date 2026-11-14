@@ -204,6 +204,11 @@ h1 .hollow{display:block;color:transparent;-webkit-text-stroke:2px var(--text)}
 #btnNitro[aria-pressed="true"]{color:#0b0618;background:linear-gradient(180deg,rgba(255,255,255,.45),rgba(255,255,255,0) 60%),var(--a);border:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.55)}
 #worldSeg button{position:relative;overflow:hidden;isolation:isolate}
 #worldSeg button,#planetSeg button{display:inline-flex;align-items:center;gap:6px}.wi{width:17px;height:17px;flex:none}
+/* the Planet button is a small wireframe globe: three meridians sweep across it one after another, so it reads as turning */
+.wi.globe{width:22px;height:22px;stroke-width:1.25}.globe .gm{transform-origin:12px 12px;animation:gspin 3.6s linear infinite}.globe .g2{animation-delay:-1.2s}.globe .g3{animation-delay:-2.4s}
+@keyframes gspin{0%{transform:scaleX(1)}50%{transform:scaleX(0)}100%{transform:scaleX(1)}}
+#btnPlanet[aria-pressed="true"] .globe .gm{animation-duration:1.4s}
+@media (prefers-reduced-motion:reduce){.globe .gm{animation:none}.globe .g2{transform:scaleX(.6)}.globe .g3{transform:scaleX(.25)}}
 @media (max-width:1180px){#worldSeg button{padding:0 10px;gap:5px}}@media (max-width:1040px){#worldSeg button span{display:none}#worldSeg button{padding:0 11px}}   /* on a narrow window the tabs fall back to icons alone */
 #worldSeg button[aria-pressed="true"]{color:#0b0618;background:color-mix(in srgb,var(--a) 62%,var(--b));
   filter:brightness(calc(1 + .4*var(--lv,0))) saturate(calc(1 + .5*var(--beat,0)));
@@ -309,7 +314,7 @@ h1 .hollow{display:block;color:transparent;-webkit-text-stroke:2px var(--text)}
 
 .segdiv{width:1px;height:18px;background:rgba(255,255,255,.28);margin:0 5px;flex:none}
 
-#worldSeg,#worldSeg.plate{background:rgba(255,255,255,.55)}
+#worldSeg,#worldSeg.plate{background:rgba(255,255,255,.86)}
 #worldSeg button{color:#0b0618}
 #worldSeg button:hover{color:#000}
 #worldSeg button[aria-pressed="true"]{color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.65);background:color-mix(in srgb,var(--a) 55%,#1a1030)}
@@ -377,6 +382,8 @@ h1 .hollow{display:block;color:transparent;-webkit-text-stroke:2px var(--text)}
 #worldSeg button{padding:0 10px}
 @media (max-width:1650px){#worldSeg button{padding:0 7px;font-size:11px}.brand .track{display:none}}
 #worldSeg button[data-world="mandala"],#worldSeg button[data-world="abyss"],#worldSeg button[data-world="ill"]{display:none}
+#camSeg{max-width:320px;transition:opacity .3s ease,transform .5s cubic-bezier(.2,1.3,.4,1),max-width .45s ease,margin .45s ease,padding .45s ease}
+#camSeg.gone{opacity:0;transform:translateY(30px) scale(.9);max-width:0;margin-left:0;margin-right:-12px;padding-left:0;padding-right:0;pointer-events:none;overflow:hidden}
 #planetSeg,#nitroWrap{max-width:240px;transition:opacity .3s ease,transform .5s cubic-bezier(.2,1.3,.4,1),max-width .45s ease,margin .45s ease}
 #planetSeg.gone,#nitroWrap.gone{opacity:0;transform:translateY(-34px) scale(.85);max-width:0;margin-left:-10px;pointer-events:none;overflow:hidden}
 .swwrap{position:relative;display:inline-flex}
@@ -461,9 +468,9 @@ h1 .hollow{display:block;color:transparent;-webkit-text-stroke:2px var(--text)}
         <button data-world="mandala" aria-pressed="false" title="A stepped well of decorated rings, different for every song. Drag to look around, Fly looks straight down (T switches)">Mandala</button>
       </div>
       <span class="vmt-rainbow-wrap" id="nitroWrap">
-        <button class="vmt-rainbow-btn" id="btnNitro" aria-pressed="false" title="Make the whole city move with the sound (N)">
+        <button class="vmt-rainbow-btn" id="btnNitro" aria-pressed="false" title="Amplify: everything moves harder with the sound, and the tunnels run faster (N)">
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>
-          <span id="nitroTxt">Go Nitro</span>
+          <span id="nitroTxt">Amplify</span>
         </button>
       </span>
       <button class="tbtn plate" id="btnLoad" title="Upload a song from your device">
@@ -512,7 +519,7 @@ h1 .hollow{display:block;color:transparent;-webkit-text-stroke:2px var(--text)}
     <div class="pb"><button class="btn primary" id="btnSnap2">Take snapshot</button><button class="btn" id="btnReset">Reset</button></div>
     <div class="plab">Built-in tracks</div>
     <div class="pb"><button class="btn" id="btnT1">Late Line</button><button class="btn" id="btnT2">Night Shift</button></div>
-    <p class="pn">Glow needs Quality at 3 or higher. Movement needs Nitro on.</p>
+    <p class="pn">Glow needs Quality at 3 or higher. Movement needs Amplify on.</p>
   </aside>
   <div class="snapview" id="snapview" hidden><div class="plate snapbox"><img id="snapimg" alt="Snapshot of the current scene"><p>Right-click the picture, or press and hold it, to save it.</p><button class="btn" id="snapClose">Close</button></div></div>
   <div class="flashfx" id="flashfx"></div>
@@ -540,7 +547,7 @@ h1 .hollow{display:block;color:transparent;-webkit-text-stroke:2px var(--text)}
       <canvas id="skyline"></canvas>
       <div class="tip" id="tip"><b id="tipT">0:00</b><span id="tipD"></span></div>
     </div>
-    <div class="seg" role="group" aria-label="Camera">
+    <div class="seg" id="camSeg" role="group" aria-label="Camera">
       <button data-mode="cruise" aria-pressed="true" title="The camera flies itself (1)">Cruise</button>
       <button data-mode="surf" aria-pressed="false" title="Fly it yourself with the mouse, or press the arrow keys or W A S D to drive anywhere you like: Q and E for height, Shift to boost (2)">Fly</button>
       <button data-mode="skyline" aria-pressed="false" title="Watch from far back. In Loom this puts you in the centre of the ring (3)">Skyline</button>
@@ -2639,10 +2646,10 @@ $('#cCry').addEventListener('change',e=>{ kCrystal.value=e.target.checked?1:0; }
       ill:'<path d="M2.500 12s3.500-6 9.500-6 9.500 6 9.500 6-3.500 6-9.500 6-9.500-6-9.500-6z"/><circle cx="12" cy="12" r="2.600"/>',
       coast:'<path d="M2 18.500c5 0 4.500-13 10-13a4.700 4.700 0 010 9.400c-2.600 0-4.200-2-4.200-4.500M12 14.900c5 0 5.500 3.600 10 3.600M5 18.200V21M9.500 12V21M14.500 15.200V21M19 17.800V21"/>',
       loom:'<path d="M4 7c6 0 5 10 16 10M4 17c6 0 5-10 16-10M4 12h16"/>',
-      planet:'<circle cx="12" cy="12" r="5"/><path d="M4.500 15.500c-2 .5-2.500-.5-1-2.200C6 10.500 13 7 18 6.500c2.500-.3 3.500.5 2.500 2"/>' };
+      planet:'<circle cx="12" cy="12" r="9"/><path d="M3.800 8.500h16.400M3.800 15.500h16.400M3 12h18"/><ellipse class="gm g1" cx="12" cy="12" rx="9" ry="9"/><ellipse class="gm g2" cx="12" cy="12" rx="9" ry="9"/><ellipse class="gm g3" cx="12" cy="12" rx="9" ry="9"/>' };
     const ico=k=>'<svg class="wi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+WI[k]+'</svg>';
     document.querySelectorAll('#worldSeg button[data-world]').forEach(b=>{ if(WI[b.dataset.world]) b.innerHTML=ico(b.dataset.world)+'<span>'+b.textContent+'</span>'; });
-    pb.innerHTML=ico('planet')+'<span>'+pb.textContent+'</span>'; }
+    pb.innerHTML=ico('planet').replace('class="wi"','class="wi globe"')+'<span>'+pb.textContent+'</span>'; }
   $('#btnSnap2').innerHTML=$('#btnSnap').innerHTML+'<span>Take snapshot</span>';
   { const ICON={
       cFx:'<path d="M12 3l1.800 5.200L19 10l-5.200 1.800L12 17l-1.800-5.200L5 10l5.200-1.800zM18 15l.8 2.200L21 18l-2.200.8L18 21l-.8-2.200L15 18l2.200-.8z"/>',
@@ -2657,7 +2664,7 @@ $('#cCry').addEventListener('change',e=>{ kCrystal.value=e.target.checked?1:0; }
       sp.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">'+ICON[inp.id]+'</svg>'; tg.appendChild(l); });
     const sep=()=>{ const d=document.createElement('div'); d.className='psep'; return d; };
     const prs=[...panel.querySelectorAll('.pr')], pbs=panel.querySelectorAll('.pb'), tl=[...panel.querySelectorAll('.plab')].find(e=>e.textContent==='Built-in tracks');
-    prs.forEach(r=>{ const t=r.querySelector('span').textContent; if(t==='Glow') r.title='Glow needs Quality at 3 or higher'; if(t==='Movement') r.title='Movement needs Nitro on'; });
+    prs.forEach(r=>{ const t=r.querySelector('span').textContent; if(t==='Glow') r.title='Glow needs Quality at 3 or higher'; if(t==='Movement') r.title='Movement needs Amplify on'; });
     const pn=panel.querySelector('.pn'); if(pn) pn.remove();
     const sl=document.createElement('div'); sl.className='plab'; sl.textContent='Snapshot';
     const ct=document.createElement('div'); ct.className='ptog'; ct.appendChild(tg.querySelector('#cCap').closest('label')); pbs[0].insertBefore(ct,$('#btnReset'));
@@ -2724,7 +2731,7 @@ function rollAll(){
 }
 $('#btnShuffle').addEventListener('click',()=>{ autoShuf=!autoShuf; shufBeat=0; if(autoShuf) fadeRoll(); else applyTheme(); });
 const eqBars=[]; for(let b=0;b<12;b++){ const c=document.createElement('div'); c.className='col'; const i=document.createElement('i'); c.appendChild(i); $('#eq').appendChild(c); eqBars.push(i); }
-function setNitro(v){ nitro=v; $('#btnNitro').setAttribute('aria-pressed',String(v)); $('#nitroTxt').textContent=v?'Nitro on':'Go Nitro'; $('#nitroWrap').classList.toggle('on',v); }
+function setNitro(v){ nitro=v; $('#btnNitro').setAttribute('aria-pressed',String(v)); $('#nitroTxt').textContent=v?'Amplified':'Amplify'; $('#nitroWrap').classList.toggle('on',v); }
 $('#btnNitro').addEventListener('click',()=>setNitro(!nitro));
 document.querySelectorAll('#worldSeg button[data-world]').forEach(b=>b.addEventListener('click',()=>setWorld(b.dataset.world)));
 function toggleFs(){ try{ if(document.fullscreenElement) document.exitFullscreen(); else { const p=app.requestFullscreen&&app.requestFullscreen(); if(p&&p.catch) p.catch(()=>{}); } }catch(e){} }
@@ -3275,7 +3282,7 @@ const attract={a:0,y:110}; let skyY=380, nitro=false, flash=0, party=0, diveT=0,
 const camUp=new THREE.Vector3(0,1,0), lkF=new THREE.Vector3(), lkR=new THREE.Vector3(), lkU=new THREE.Vector3(); let fovOver=0, lookYaw=0, lookPitch=0, loomIn=false;
 const diverV=new THREE.Vector3(), diverT=new THREE.Vector3(), ptrV=new THREE.Vector2();
 const fly={x:0,y:30,vx:0}, TRAIL=400; let world='city';
-const ORBW={abyss:1,loom:1,temple:1,mandala:1}, WORLDS=['city','terrain','worm','tun','coast','loom'], PLANET_OK={city:1,terrain:1}, NITRO_OK={city:1,terrain:1,worm:1,tun:1};   // 'abyss' and 'ill' are built but hidden (2026-11-15), like 'temple' and 'mandala'. PLANET_OK and NITRO_OK: the modes where Planet and Go Nitro do something;   // 'temple' and 'mandala' are built but hidden; add them back here and remove the CSS rule to restore them
+const ORBW={abyss:1,loom:1,temple:1,mandala:1}, WORLDS=['city','terrain','worm','tun','coast','loom'], PLANET_OK={city:1,terrain:1}, NITRO_OK={city:1,terrain:1,worm:1,tun:1}, CAM_OK={city:1,terrain:1,loom:1};   // 'abyss' and 'ill' are built but hidden (2026-11-15), like 'temple' and 'mandala'. PLANET_OK and NITRO_OK: the modes where Planet and Go Nitro do something;   // 'temple' and 'mandala' are built but hidden; add them back here and remove the CSS rule to restore them
 const orbit={az:.6,el:.5,dist:PR*3.9,drag:false,lx:0,ly:0,idle:0};
 canvas.addEventListener('pointerdown',e=>{ if(mode!=='planet'&&!ORBW[world]) return; orbit.drag=true; orbit.lx=e.clientX; orbit.ly=e.clientY; try{canvas.setPointerCapture(e.pointerId)}catch(_){} });
 canvas.addEventListener('pointermove',e=>{ if(!orbit.drag) return; orbit.az-=(e.clientX-orbit.lx)*.006; orbit.el=clamp(orbit.el+(e.clientY-orbit.ly)*.005,-1.35,1.45); orbit.lx=e.clientX; orbit.ly=e.clientY; orbit.idle=0; });
@@ -3285,7 +3292,7 @@ const endDrag=()=>{ orbit.drag=false; }; canvas.addEventListener('pointerup',end
 let zoomT=1, zoomK=1, fovBase=60;   // scroll zoom for the ride cameras: 1 is normal, above 1 zooms in, below 1 widens the view
 canvas.addEventListener('wheel',e=>{ if(mode!=='planet'&&!ORBW[world]){ if(started&&(world==='city'||world==='terrain'||world==='abyss'||world==='loom')){ e.preventDefault(); zoomT=clamp(zoomT*Math.exp(-e.deltaY*(e.ctrlKey?.012:.0016)),.55,5); } return; } e.preventDefault(); orbit.dist=clamp(orbit.dist*Math.exp(e.deltaY*.0012),PR*2.2,PR*10); },{passive:false});
 function setWorld(w){ if(mode==='planet'&&!PLANET_OK[w]) setMode(lastCam);   /* Planet only exists for the city and the terrain */
-  { const ps=$('#planetSeg'), nw=$('#nitroWrap'); if(ps) ps.classList.toggle('gone',!PLANET_OK[w]); if(nw) nw.classList.toggle('gone',!NITRO_OK[w]); }   /* the buttons drop in where they work and lift away where they do not */
+  { const ps=$('#planetSeg'), nw=$('#nitroWrap'); if(ps) ps.classList.toggle('gone',!PLANET_OK[w]); if(nw) nw.classList.toggle('gone',!NITRO_OK[w]); const cs=$('#camSeg'); if(cs) cs.classList.toggle('gone',!CAM_OK[w]); }   /* the buttons drop in where they work and lift away where they do not */
   world=w; fr.on=false; zoomT=1; app.dataset.world=w; document.querySelectorAll('#worldSeg button[data-world]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.world===w))); fly.x=clamp(fly.x,-20,20); fly.vx=0; }
 // Height a flyer must clear over the strip of blocks under x (0 over a street), looking a little ahead.
 function stripH(x,along){
