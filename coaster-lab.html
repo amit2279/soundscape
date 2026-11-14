@@ -78,7 +78,7 @@ function buildRide(A,ver){ const V2=ver===2, cuts=[], els=[], GF=G*1.4, TK=V2?1/
   function hold(p,len,mode,ky){ for(let s=0;s<len;s+=DS) step((p-pit)*.07,ky||0,mode); }
   function hill(th){ toPitch(th,3.5); toPitch(-th,.02); toPitch(0,3.6); hold(0,4); }                      // pull up, float over the top, pull out
   function turn(ang,gl,sg,p){ const y0=yaw; let n=0; while(Math.abs(yaw-y0)<ang&&n++<6000) step(((p||0)-pit)*.07,sg*Math.min(gl*G/(v*v),TK)); hold(0,10); }
-  function loop(ga,gb,km){ ga=ga||2.9; gb=gb||1.8; km=km||1/7; const p0=pit; let n=0; while(pit<p0+6.283-.04&&n++<6000){ const Gt=ga+gb*Math.cos(pit); step(clamp(Math.max((Gt-Math.cos(pit))*G/(v*v),1/45),0,v<10?1/7:km),.005); } pit-=6.283; kyS=0; hold(0,8); }   // tighter at the top, where it is slow: a teardrop
+  function loop(ga,gb,km){ ga=ga||2.9; gb=gb||1.8; km=km||1/7; const p0=pit; let n=0; while(pit<p0+6.283-.04&&n++<6000){ const Gt=ga+gb*Math.cos(pit); step(clamp(Math.max((Gt-Math.cos(pit))*G/(v*v),1/45),0,v<10?1/7:km),V2?(Math.cos(pit)<.5?.016:.004):.005); }   /* version 2 swings the upper half sideways, so the way out clears the way in */ pit-=6.283; kyS=0; hold(0,8); }   // tighter at the top, where it is slow: a teardrop
   function corkscrew(){ const L=V2?clamp(v*3.1,60,115):clamp(v*2.3,38,85), dir=rnd()<.5?1:-1; for(let s=0;s<L;s+=DS){ const u=s/L; rolX=dir*6.283*u*u*(3-2*u); step((0-pit)*.07,0); } rolX=0; hold(0,6); }
   function boost(vt){ let n=0; while(v<vt&&n++<3000) step((0-pit)*.07,0,'boost'); }
   function liftAndDrop(td,sc){ sc=sc||1; const avail=td-t; let H=clamp((avail-4)*6.5,26,92)*sc, steep=(V2&&sc===1?1.42+.1*rnd():1.28+.15*rnd())*(sc<1?.72:1), yBase=y-rnd()*10*sc; 
@@ -87,7 +87,9 @@ function buildRide(A,ver){ const V2=ver===2, cuts=[], els=[], GF=G*1.4, TK=V2?1/
     for(let tr=0;tr<6;tr++){ vc=clamp(H/.574/Math.max(4,avail-3),3,16); let lo=null, hi=null, lastErr=0;
     for(let it=0;it<(V2?12:8);it++){ load(s0); toPitch(0,2.5); const tb0=t; let n=0; while(v>vc+.4&&n++<3000) step((0-pit)*.07,0,'brake'); if(v<vc-.5) boost(vc);
       const tA=t; i0=T.X.length; const yTop=y+H; toPitch(.61,0,'chain',1/20); n=0; while(y<yTop-3&&n++<6000) step((.61-pit)*.07,0,'chain'); i1=T.X.length;
-      V2?toPitch(-.52,.12,undefined,undefined,1/17):toPitch(-.52,.12); const err=t-td, Tc=t-tA; lastErr=err; if(Math.abs(err)<.03) break;
+      if(V2){ toPitch(-.52,.12,undefined,undefined,1/17); toPitch(-steep*.8,.1,'fall',undefined,1/13); }   /* version 2 times the moment the train is already plunging, not the moment it tips over */
+      else toPitch(-.52,.12);
+      const err=t-td, Tc=t-tA; lastErr=err; if(Math.abs(err)<.03) break;
       /* version 2 brackets the answer, so a lift that needs braking first cannot bounce either side of it for ever */
       if(V2){ if(err>0) lo=[vc,err]; else hi=[vc,err]; }
       vc=lo&&hi?.5*(lo[0]+(hi[0]-lo[0])*lo[1]/(lo[1]-hi[1]))+.25*(lo[0]+hi[0]):clamp(vc*Tc/Math.max(1,Tc-err),2.5,17); }
@@ -119,12 +121,19 @@ function buildRide(A,ver){ const V2=ver===2, cuts=[], els=[], GF=G*1.4, TK=V2?1/
     rolX=0; toPitch(0,3.2); hold(0,6); }
   function dive(){ if(v<26) boost(26); toPitch(.75,3.2); const L=clamp(v*.8,14,26), dir=rnd()<.5?1:-1;
     /* half a roll on the way up, then pull through half a loop downwards and leave the way you came */
-    for(let s2=0;s2<L;s2+=DS){ const u=s2/L; rolX=dir*3.1416*u*u*(3-2*u); step((.75-pit)*.07,0); }
+    for(let s2=0;s2<L;s2+=DS){ const u=s2/L; rolX=dir*3.1416*u*u*(3-2*u); step((.75-pit)*.07,dir*.02); }
     let n=0; while(pit>-3.1416+.03&&n++<6000) step(-clamp((3+Math.cos(pit))*G/(v*v),1/45,1/7),0);
     /* same direction in space, written the ordinary way up again; frameAt must not blend across this sample */
     yaw+=3.14159265; pit+=3.14159265; rolX=0; kpS=-kpS; kyS=0; cuts.push(T.X.length); toPitch(0,3.4); hold(0,6); }
   function topHat(){ if(v<36) launch(36); toPitch(1.05,3.6); let n=0; while(pit>-1.05&&n++<6000) step(clamp((.1-Math.cos(pit))*G/(v*v),-1/5,-1/70),0); toPitch(0,3.8); hold(0,5); }
-  let lastLaunch=-99, lastEl='';
+  let lastLaunch=-99, lastEl='', crossings=0, rerouted=0; const crossAt=[];
+  const snap=()=>({x,y,z,yaw,pit,rolB,rolX,v,t,kpS,kyS,vc,sg,lastLoop,lastEl,lastLaunch,n:T.X.length,ne:els.length,nc:cuts.length,nm:marks.length});
+  const back=q=>{ ({x,y,z,yaw,pit,rolB,rolX,v,t,kpS,kyS,vc,sg,lastLoop,lastEl,lastLaunch}=q); for(const k in T) T[k].length=q.n; els.length=q.ne; cuts.length=q.nc; marks.length=q.nm; };
+  /* does anything laid since sample n0 come within 4 m of track laid earlier (more than 44 m back along the ride)? */
+  const hits=n0=>{ for(let i=n0;i<T.X.length;i+=3){ const a=T.X[i], b=T.Y[i], c=T.Z[i]; for(let k=0;k<i-110;k+=3){ const dx=T.X[k]-a, dy=T.Y[k]-b, dz=T.Z[k]-c; if(dx*dx+dy*dy+dz*dz<16) return true; } } return false; };
+  /* lay a piece; if it would run through other track, take it back, swing a little to one side and lay it again */
+  function safe(fn){ for(let k=0;k<4;k++){ const q=snap(); if(k){ els.push([T.X.length,'turn']); turn(.3+.25*k,2.4,(k%2?1:-1)*sg,k===2?-.1:.1); }
+      const n0=T.X.length; fn(); const h=hits(n0); if(!h){ if(k) rerouted++; return; } if(k===3){ crossings++; crossAt.push(Math.round(t)); return; } back(q); } }
   function launchOnBeat(){ const b=A.beats.find(b=>b.t>t+.5&&b.t<t+3.2&&b.s>.45); if(!b) return false;
     let n=0; while(t<b.t&&n++<3000) step((0-pit)*.07,0); els.push([T.X.length,'launch']); launch(clamp(v+13,31,42)); return true; }
   let nextT=1e9;
@@ -151,9 +160,9 @@ function buildRide(A,ver){ const V2=ver===2, cuts=[], els=[], GF=G*1.4, TK=V2?1/
     if(el===lastEl&&el!=='cruise') el=(el==='hill'||el==='turn')?'overbanked turn':'hill';
     return el; }
   function pick2(tn){ if(v<11) boost(21); const rise=at(A.inten,t+3)-e0();
-    if(t-lastLaunch>12&&tn-t>18&&(rise>.06||rnd()<.18)&&launchOnBeat()){ lastLaunch=t; { const r=rnd(); run(r<.4?'top hat':r<.7?'giant loop':'double loop'); } return; }
-    run(choose()); }
-  function chain(tn){ const n=2+(rnd()<.5?1:0); for(let i=0;i<n&&tn-t>19;i++){ let el=choose(); if(i===1) el='helix'; else if(el==='hill'||el==='turn'||el==='cruise') el=i?'zero-g roll':'loop'; run(el); } }
+    if(t-lastLaunch>12&&tn-t>18&&(rise>.06||rnd()<.18)&&launchOnBeat()){ lastLaunch=t; { const r=rnd(); const el=r<.4?'top hat':r<.7?'giant loop':'double loop'; safe(()=>run(el)); } return; }
+    { const el=choose(); safe(()=>run(el)); } }
+  function chain(tn){ const n=2+(rnd()<.5?1:0); for(let i=0;i<n&&tn-t>19;i++){ let el=choose(); if(i===1) el='helix'; else if(el==='hill'||el==='turn'||el==='cruise') el=i?'zero-g roll':'loop'; const e2=el; safe(()=>run(e2)); } }
   const med=a=>{ const c=Array.from(a).filter((_,i)=>i%7===0).sort((p,q)=>p-q); return c[c.length>>1]||0; }, eMed=med(A.inten), bMed=med(A.B);
   hold(0,8); const drops=A.drops.filter(d=>d>7);
   if(V2){ const minis=[], w=Math.round(A.fps*1.5), cand=[];
@@ -162,7 +171,7 @@ function buildRide(A,ver){ const V2=ver===2, cuts=[], els=[], GF=G*1.4, TK=V2?1/
     for(const [rise,tt] of cand){ if(rise<=0||minis.length>=8) break; if(tt<10||tt>A.dur-10||drops.some(d=>Math.abs(d-tt)<16)||minis.some(m=>Math.abs(m-tt)<18)) continue; minis.push(tt); }
     const ev=[...drops.map(d=>[d,1]),...minis.map(m=>[m,.45])].sort((p,q)=>p[0]-q[0]);
     for(let k=0;k<ev.length;k++){ const [td,sc]=ev[k], tn=k+1<ev.length?ev[k+1][0]:A.dur; let n=0; nextT=td; while(td-t>(sc<1?12:17)&&n++<200) pick2(td);
-      if(td-t<3) continue; liftAndDrop(td,sc); nextT=tn; if(sc===1) chain(tn); }
+      if(td-t<3) continue; safe(()=>liftAndDrop(td,sc)); nextT=tn; if(sc===1) chain(tn); }
     nextT=1e9; let n=0; while(t<A.dur-2&&n++<400) pick2(1e9); }
   else { for(const td of drops){ let n=0; while(td-t>15&&n++<200) pick(); liftAndDrop(td); }
     let n=0; while(t<A.dur-2&&n++<400) pick(); }
@@ -172,7 +181,7 @@ function buildRide(A,ver){ const V2=ver===2, cuts=[], els=[], GF=G*1.4, TK=V2?1/
   let jumps=0; for(const k of ['PIT','ROL','YAW']){ const a=T[k]; let o=0; for(let i=1;i<a.length;i++){ if(CUT[i]){ a[i]+=o; continue; } const d=a[i]+o-a[i-1]; if(d>3.1416){ o-=6.283185307; jumps++; } else if(d<-3.1416){ o+=6.283185307; jumps++; } a[i]+=o; } }
   const N=T.X.length, R={N,marks,A,CUT,els,ver:V2?2:1}; for(const k in T) R[k]=Float32Array.from(T[k]);
   { const c={}; for(const e of els) c[e[1]]=(c[e[1]]||0)+1; R.count=c; }
-  R.report={ver:R.ver,elements:R.count,jumpsFixed:jumps,metres:Math.round(N*DS),vmax:Math.max(...T.V)*3.6|0,gmax:+Math.max(...T.GN).toFixed(2),gmin:+Math.min(...T.GN).toFixed(2),drops:marks.map(m=>({song:+m.td.toFixed(2),ride:+m.at.toFixed(2)}))};
+  R.report={rerouted,crossings,crossAt,ver:R.ver,elements:R.count,jumpsFixed:jumps,metres:Math.round(N*DS),vmax:Math.max(...T.V)*3.6|0,gmax:+Math.max(...T.GN).toFixed(2),gmin:+Math.min(...T.GN).toFixed(2),drops:marks.map(m=>({song:+m.td.toFixed(2),ride:+m.at.toFixed(2)}))};
   return R; }
 function idxAt(R,tt){ let lo=0, hi=R.N-1; while(lo<hi){ const m=(lo+hi)>>1; if(R.T[m]<tt) lo=m+1; else hi=m; } const i=Math.max(1,lo), k=clamp((tt-R.T[i-1])/Math.max(1e-6,R.T[i]-R.T[i-1]),0,1); return i-1+k; }
 function frameAt(R,f,pos,d,u,r){ f=clamp(f,0,R.N-1.001); const i=f|0, k=f-i, ka=R.CUT&&R.CUT[i+1]?(k<.5?0:1):k, L=a=>a[i]+(a[i+1]-a[i])*k, LA=a=>a[i]+(a[i+1]-a[i])*ka, ya=LA(R.YAW), pi=LA(R.PIT), ro=LA(R.ROL), sy=Math.sin(ya), cy=Math.cos(ya), sp=Math.sin(pi), cp=Math.cos(pi);
@@ -307,7 +316,7 @@ function buildWorld(R){ while(world.children.length){ const m=world.children.pop
       for(let l=0;l<4;l++){ fc.push(cx,cy,cz); fd.push(sn*Math.cos(a)*sp,c*sp,sn*Math.sin(a)*sp); ft.push(tb,l*.05); fh.push(inner?hue+.5:hue+(rnd()-.5)*.08); } } };   // every ray is four points, each a moment behind the last: a trail
   const FIREWORKS=true;
   if(FIREWORKS){ const dts=[]; for(let i=1;i<A.beats.length;i++){ const d=A.beats[i].t-A.beats[i-1].t; if(d>.28&&d<.8) dts.push(d); } dts.sort((a,b)=>a-b);
-    const spb=dts.length?dts[dts.length>>1]:.5, gap=spb*32; let last=-gap*.6, n=0, sd2=1;                 // at least eight bars between events
+    const spb=dts.length?dts[dts.length>>1]:.5, gap=spb*24; let last=-gap*.6, n=0, sd2=1;                 // at least eight bars between events
     for(const b of A.beats){ if(b.s<.45||b.t<4||b.t-last<gap||b.t>A.dur-5||stretches.some(ts=>b.t+3.5>ts&&b.t<ts+TUNLEN+.5)) continue; last=b.t;   /* never fired where a tunnel would hide it: it waits for the next strong beat in the open */ sd2=-sd2;
       if(++n%3===0) for(let k=0;k<3;k++) burst(b.t+k*spb,9+2*k,k%2?-sd2:sd2);                             // now and then, three in a row on three beats, on alternate sides
       else burst(b.t,10+4*b.s,sd2); } }

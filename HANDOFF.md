@@ -143,6 +143,12 @@ Owner loved the v2 path and the track winding through itself (keep that). Change
 - **Balance:** small drops get 8 gates (was 18); beat gate runs at least 5 s apart (2.6 in v1). v2 tunnels are 6 s long (8 in v1), at least 10 s apart, blocked from 6.5 s before a lift starts until 3.4 s after the drop, and need only 9 m from bare track (14 m from another tunnel or their own tube). On the 95 s demo this gives 2 tunnels and about 90 gates against v1's 5 and 90: the demo has four drops in 95 s and loops cannot be inside a tunnel (the tube would cut itself), so there is little room. **Open:** check the balance on real songs; if tunnels are still rare, let the generator plan a `cruise` stretch on purpose and put the tunnel there.
 - **Both versions:** gates and solids that would reach into any tunnel's tube are left out (`inTube`), and a tunnel may not fold back into its own tube (`tubeClear` now checks its own samples more than 36 m away along the track). This was the owner's "other track's shapes visible inside the tunnel" and probably his "black texture" patches; the second is not confirmed.
 
+## 8e. v2 third pass (2026-11-14)
+
+- **Drop timing (v2):** the lift solver now times the moment the train reaches 80% of the drop's steepness in `'fall'` mode, not the tip-over at 30 degrees. On the demo the train is at about 67 degrees down and 85 km/h on a main drop's beat. `m.at` in `R.marks` is that moment.
+- **No riding through track (v2):** `safe(fn)` lays a piece, and if any new sample is within 4 m of track more than 44 m back (`hits`), takes it back (`snap`/`back`), adds a small sideways turn and lays it again, up to three times. Used for every element, chain and lift. Loops swing their upper half sideways (yaw 0.016/m while cos(pitch)<0.5) and the dive loop yaws while rolling, because their own exit used to pass through their own entry. `R.report.rerouted`, `.crossings`, `.crossAt` say what happened; demo: 1 rerouted, 0 left.
+- **Fireworks (both versions):** at least six bars apart (was eight).
+
 ## 9. Coaster lab: full specification (state on 2026-11-14)
 
 File `coaster-lab.html`, about 300 lines, standalone. Artifact "Coaster lab", slug `c68270d2-057b-4b14-83d6-67b9296d41d3`. The owner rides it and loves it ("vertigo-inducing"); it is the benchmark. When he says so, port it into `index.html` in place of `coastPlan`/`coastStep`/`coastCam`.
