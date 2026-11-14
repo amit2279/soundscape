@@ -198,6 +198,10 @@ The owner saw a test frame where the whole ride was blue with heavy glow and ask
 - **Generator fix made during the merge:** the lead before a lift grows with speed (`+0.15 s per m/s above 28`), which fixed a drop that was 2.2 s late on the main demo.
 - Checked headless on the main demo: four drops within 0.01 s, no crossings, blue moment, bioluminescent tunnel, self-drive with dial, switching back to City restores it. Not checked: real songs, motion, sound.
 
+## 8l. Toolbar rework, step 1 (2026-11-14, 23:45)
+
+The owner is reworking the top bar one step at a time. Done: every mode tab has its own thin line icon beside its name (`WI` map, inserted at startup next to where Planet is created; icons only under 1040 px width). Planet is out of the tab bar, in its own group `#planetSeg` beside Go Nitro; **where Planet and Go Nitro finally live is undecided, the owner will say.** His references for the icons were outlined category chips (icon plus label, thin strokes); ours are original glyphs. Next from him: which mode and option combinations do not work together.
+
 ## 9. Coaster lab: full specification (state on 2026-11-14)
 
 File `coaster-lab.html`, about 300 lines, standalone. Artifact "Coaster lab", slug `c68270d2-057b-4b14-83d6-67b9296d41d3`. The owner rides it and loves it ("vertigo-inducing"); it is the benchmark. When he says so, port it into `index.html` in place of `coastPlan`/`coastStep`/`coastCam`.

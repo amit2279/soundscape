@@ -203,6 +203,8 @@ h1 .hollow{display:block;color:transparent;-webkit-text-stroke:2px var(--text)}
 .vmt-rainbow-btn:hover{transform:scale(1.03)}
 #btnNitro[aria-pressed="true"]{color:#0b0618;background:linear-gradient(180deg,rgba(255,255,255,.45),rgba(255,255,255,0) 60%),var(--a);border:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.55)}
 #worldSeg button{position:relative;overflow:hidden;isolation:isolate}
+#worldSeg button,#planetSeg button{display:inline-flex;align-items:center;gap:6px}.wi{width:17px;height:17px;flex:none}
+@media (max-width:1180px){#worldSeg button{padding:0 10px;gap:5px}}@media (max-width:1040px){#worldSeg button span{display:none}#worldSeg button{padding:0 11px}}   /* on a narrow window the tabs fall back to icons alone */
 #worldSeg button[aria-pressed="true"]{color:#0b0618;background:color-mix(in srgb,var(--a) 62%,var(--b));
   filter:brightness(calc(1 + .4*var(--lv,0))) saturate(calc(1 + .5*var(--beat,0)));
   box-shadow:inset 0 1px 0 rgba(255,255,255,.6),0 0 calc(6px + 20px*var(--beat,0)) color-mix(in srgb,var(--a) 75%,transparent)}
@@ -2624,7 +2626,21 @@ $('#cCry').addEventListener('change',e=>{ kCrystal.value=e.target.checked?1:0; }
   tools.insertBefore($('#btnLoad'),tools.firstChild);
   { const old=document.querySelector('.dock .seg button[data-mode="planet"]'), pb=old.cloneNode(true); old.remove(); pb.id='btnPlanet'; pb.removeAttribute('data-mode');
     pb.title='Roll the current world into a planet in deep space, and click again to unroll it. Drag to orbit, scroll to zoom (4)';
-    const dv=document.createElement('i'); dv.className='segdiv'; $('#worldSeg').append(dv,pb); pb.addEventListener('click',togglePlanet); }
+    /* Planet is no longer one of the mode tabs: it sits in its own small group beside Go Nitro, so the pair can be moved somewhere else as one */
+    const grp=document.createElement('div'); grp.className='seg plate'; grp.id='planetSeg'; grp.setAttribute('role','group'); grp.setAttribute('aria-label','Planet view'); grp.append(pb); $('#nitroWrap').before(grp); pb.addEventListener('click',togglePlanet);
+    /* every mode tab has its own small line icon */
+    const WI={ city:'<path d="M4 20V10h5v10M9 20V4h6v16M15 20v-8h5v8M3 20h18M11 7.500h2M11 10.500h2M11 13.500h2M6 13h1M6 16h1M17 15h1"/>',
+      terrain:'<path d="M3 19l6-11 4 6.500 2.500-3.500L21 19zM7.200 11.500l1.800 1.500 1.800-1.500"/><circle cx="17.500" cy="6" r="1.700"/>',
+      abyss:'<path d="M3 12c3-5 9-5 13 0-4 5-10 5-13 0zM16 12l5-4v8z"/><path d="M7.500 11.200v.01"/>',
+      worm:'<circle cx="11" cy="12" r="8.500"/><circle cx="12.500" cy="12" r="5.200"/><circle cx="14" cy="12" r="2"/>',
+      tun:'<path d="M3.500 20v-8a8.500 8.500 0 0117 0v8M8.500 20v-7.500a3.500 3.500 0 017 0V20M12 20v-2.500M12 15v-1"/>',
+      ill:'<path d="M2.500 12s3.500-6 9.500-6 9.500 6 9.500 6-3.500 6-9.500 6-9.500-6-9.500-6z"/><circle cx="12" cy="12" r="2.600"/>',
+      coast:'<path d="M2 18.500c5 0 4.500-13 10-13a4.700 4.700 0 010 9.400c-2.600 0-4.200-2-4.200-4.500M12 14.900c5 0 5.500 3.600 10 3.600M5 18.200V21M9.500 12V21M14.500 15.200V21M19 17.800V21"/>',
+      loom:'<path d="M4 7c6 0 5 10 16 10M4 17c6 0 5-10 16-10M4 12h16"/>',
+      planet:'<circle cx="12" cy="12" r="5"/><path d="M4.500 15.500c-2 .5-2.500-.5-1-2.200C6 10.500 13 7 18 6.500c2.500-.3 3.500.5 2.500 2"/>' };
+    const ico=k=>'<svg class="wi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+WI[k]+'</svg>';
+    document.querySelectorAll('#worldSeg button[data-world]').forEach(b=>{ if(WI[b.dataset.world]) b.innerHTML=ico(b.dataset.world)+'<span>'+b.textContent+'</span>'; });
+    pb.innerHTML=ico('planet')+'<span>'+pb.textContent+'</span>'; }
   $('#btnSnap2').innerHTML=$('#btnSnap').innerHTML+'<span>Take snapshot</span>';
   { const ICON={
       cFx:'<path d="M12 3l1.800 5.200L19 10l-5.200 1.800L12 17l-1.800-5.200L5 10l5.200-1.800zM18 15l.8 2.200L21 18l-2.200.8L18 21l-.8-2.200L15 18l2.200-.8z"/>',
