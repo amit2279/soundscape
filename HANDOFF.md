@@ -220,6 +220,12 @@ The owner is reworking the top bar one step at a time. Done: every mode tab has 
 - **Step 3 (done):** Go Nitro is now called **Amplify** (same bolt icon; the code still says `nitro`). Planet's icon is a turning wireframe globe (CSS, class `globe`). The camera switch `#camSeg` hides in Wormhole, Tunnel and Coaster (`CAM_OK`). The mode bar is frosted white (0.86).
 - **Open, owner deciding:** the final place for Planet and Amplify. Suggested to him: Planet beside the camera views in the bottom bar (it is a fourth view), Amplify at the top of the right-hand effects column (it is an effect). Daylight was not tested outside the City.
 
+## 8n. Small things, 2026-11-15 early
+
+- **Landing flight** fades through black where it restarts (every 360/7 s): `attK`, a black div right after the canvas, under the interface.
+- **Planet icon** is a still wireframe globe (the owner did not want it animated).
+- **Black out theme** (`THEMES.lights`, flag `lights:1`): black sky, fog and walls, plus `dkPass`, a pass straight after the scene render that multiplies each pixel by `smoothstep(.2,.5,brightest channel)`, eased in by `darkT`. Only lit things survive, and bloom comes after it so they keep their halos. Needs the composer (Quality 3 or higher); below that it is just the black colours. The older "Blackout neon" theme is unchanged.
+
 ## 9. Coaster lab: full specification (state on 2026-11-14)
 
 File `coaster-lab.html`, about 300 lines, standalone. Artifact "Coaster lab", slug `c68270d2-057b-4b14-83d6-67b9296d41d3`. The owner rides it and loves it ("vertigo-inducing"); it is the benchmark. When he says so, port it into `index.html` in place of `coastPlan`/`coastStep`/`coastCam`.

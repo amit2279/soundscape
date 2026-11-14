@@ -204,11 +204,8 @@ h1 .hollow{display:block;color:transparent;-webkit-text-stroke:2px var(--text)}
 #btnNitro[aria-pressed="true"]{color:#0b0618;background:linear-gradient(180deg,rgba(255,255,255,.45),rgba(255,255,255,0) 60%),var(--a);border:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.55)}
 #worldSeg button{position:relative;overflow:hidden;isolation:isolate}
 #worldSeg button,#planetSeg button{display:inline-flex;align-items:center;gap:6px}.wi{width:17px;height:17px;flex:none}
-/* the Planet button is a small wireframe globe: three meridians sweep across it one after another, so it reads as turning */
-.wi.globe{width:22px;height:22px;stroke-width:1.25}.globe .gm{transform-origin:12px 12px;animation:gspin 3.6s linear infinite}.globe .g2{animation-delay:-1.2s}.globe .g3{animation-delay:-2.4s}
-@keyframes gspin{0%{transform:scaleX(1)}50%{transform:scaleX(0)}100%{transform:scaleX(1)}}
-#btnPlanet[aria-pressed="true"] .globe .gm{animation-duration:1.4s}
-@media (prefers-reduced-motion:reduce){.globe .gm{animation:none}.globe .g2{transform:scaleX(.6)}.globe .g3{transform:scaleX(.25)}}
+
+.wi.globe{width:22px;height:22px;stroke-width:1.25}.globe .gm{transform-origin:12px 12px}.globe .g2{transform:scaleX(.62)}.globe .g3{transform:scaleX(.26)}   /* a still wireframe globe: the outline, two parallels and the equator, and two meridians */
 @media (max-width:1180px){#worldSeg button{padding:0 10px;gap:5px}}@media (max-width:1040px){#worldSeg button span{display:none}#worldSeg button{padding:0 11px}}   /* on a narrow window the tabs fall back to icons alone */
 #worldSeg button[aria-pressed="true"]{color:#0b0618;background:color-mix(in srgb,var(--a) 62%,var(--b));
   filter:brightness(calc(1 + .4*var(--lv,0))) saturate(calc(1 + .5*var(--beat,0)));
@@ -658,7 +655,8 @@ const THEMES = {
   mono:   {name:'Mono dark',    top:'#000000', mid:'#050505', hor:'#1c1c1c', a:'#ffffff', b:'#c9c9c9', warm:'#ffffff', cool:'#dddddd', fac:'#060606', filter:'grayscale(1) contrast(1.08)'},
   paper:  {name:'Mono light',   top:'#000000', mid:'#050505', hor:'#1c1c1c', a:'#ffffff', b:'#c9c9c9', warm:'#ffffff', cool:'#dddddd', fac:'#060606', filter:'grayscale(1) invert(1) contrast(1.1)', paper:1},
   day:    {name:'Daylight',     top:'#1c5fd2', mid:'#6fb1f2', hor:'#ffe9c4', a:'#ff4f8f', b:'#12b5ff', warm:'#ffd27a', cool:'#e3f3ff', fac:'#8a8f9c', day:1},
-  black:  {name:'Blackout neon', top:'#000002', mid:'#04030d', hor:'#2b1466', a:'#ff2bd6', b:'#00f0ff', warm:'#ffe14a', cool:'#7dffb0', fac:'#020204', neon:1}
+  black:  {name:'Blackout neon', top:'#000002', mid:'#04030d', hor:'#2b1466', a:'#ff2bd6', b:'#00f0ff', warm:'#ffe14a', cool:'#7dffb0', fac:'#020204', neon:1},
+  lights: {name:'Black out',     top:'#000000', mid:'#000000', hor:'#000000', a:'#ff2bd6', b:'#00f0ff', warm:'#ffe14a', cool:'#7dffb0', fac:'#000000', neon:1, lights:1}   /* nothing but the lights: black sky, black fog, black walls, and a pass that drops everything dim */
 };
 function hsl(h,s,l){ const c=new THREE.Color(); c.setHSL(((h%360)+360)%360/360, s, l); return '#'+c.getHexString(); }
 function themeFromHue(h){
@@ -2029,13 +2027,18 @@ function spawnBurst(x,y,z){ U.uBPos.value[fwSlot].set(x,y,z); U.uBT.value[fwSlot
 /* ---------- post ---------- */
 const K_MORPH=false;
 const kCrystal={value:1}, kPolyA={value:5}, kPolyB={value:5}; let rPass=null;
-let composer = null, bloom = null, kPass = null, kaleido = false, kBeat = 0; const KSEG=[3,4,5,6,8,10,12,16];
+let dkPass=null, composer = null, bloom = null, kPass = null, kaleido = false, kBeat = 0; const KSEG=[3,4,5,6,8,10,12,16];
 function setupPost(){
   if (!THREE.EffectComposer || !THREE.UnrealBloomPass || !THREE.RenderPass) return;
   try {
     const rt = new THREE.WebGLRenderTarget(4, 4, {type:THREE.HalfFloatType, samples:4});
     composer = new THREE.EffectComposer(renderer, rt);
     composer.addPass(new THREE.RenderPass(scene, camera));
+    if(THREE.ShaderPass){ /* Black out theme: only what is lit survives. Anything dim (walls, road, haze) goes to black before the glow is added, so the lights keep their halos */
+      dkPass=new THREE.ShaderPass({uniforms:{tDiffuse:{value:null},uK:{value:0}},
+        vertexShader:'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }',
+        fragmentShader:'precision highp float; uniform sampler2D tDiffuse; uniform float uK; varying vec2 vUv; void main(){ vec4 c=texture2D(tDiffuse,vUv); float l=max(c.r,max(c.g,c.b)); gl_FragColor=vec4(c.rgb*mix(1.,smoothstep(.2,.5,l),uK),c.a); }'});
+      dkPass.enabled=false; composer.addPass(dkPass); }
     if(THREE.ShaderPass){ kPass=new THREE.ShaderPass({/* uMorph: 1 = true morph (the wedge count slides, new wedges grow in from one side); 0 = centre-out dissolve between two finished patterns. Kept switchable; set K_MORPH to true to bring the morph back. */
       uniforms:{tDiffuse:{value:null},uMorph:{value:K_MORPH?1:0},uGem:{value:0},uBg:U.uSkyTop,uSeg:{value:6},uSegB:{value:6},uMix:{value:1},uRot:{value:0},uSrc:{value:0},uAsp:{value:1},uZoom:{value:1}},
       vertexShader:'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }',
@@ -2087,14 +2090,14 @@ function resize(over){
 }
 
 const swBg=t=>`radial-gradient(circle at 26% 74%,${t.a} 0%,${t.a}00 52%),radial-gradient(circle at 76% 70%,${t.b} 0%,${t.b}00 52%),linear-gradient(to bottom,${t.top} 0%,${t.mid} 38%,${t.hor} 100%)`;
-const TT={uSkyTop:C('#000'),uSkyMid:C('#000'),uHorizon:C('#000'),uA:C('#000'),uB:C('#000'),uWarm:C('#000'),uCool:C('#000'),uFacade:C('#000'),uFog:C('#000')}; let neonT=0, dayT=0, themeInit=false;
+const TT={uSkyTop:C('#000'),uSkyMid:C('#000'),uHorizon:C('#000'),uA:C('#000'),uB:C('#000'),uWarm:C('#000'),uCool:C('#000'),uFacade:C('#000'),uFog:C('#000')}; let neonT=0, dayT=0, darkT=0, themeInit=false;
 let curFilter='', paperK=1;
 function applyTheme(){
   const t = themeKey === 'auto' ? autoTheme : THEMES[themeKey];
   TT.uSkyTop.set(t.top); TT.uSkyMid.set(t.mid); TT.uHorizon.set(t.hor);
   TT.uA.set(t.a); TT.uB.set(t.b); TT.uWarm.set(t.warm); TT.uCool.set(t.cool); TT.uFacade.set(t.fac);
   TT.uFog.copy(C(t.hor).multiplyScalar(.36).add(C(t.mid).multiplyScalar(.5)));
-  neonT=t.neon?1:0; dayT=t.day?1:0;
+  neonT=t.neon?1:0; dayT=t.day?1:0; darkT=t.lights?1:0;
   if(!themeInit){ themeInit=true; for(const k in TT) U[k].value.copy(TT[k]); U.uNeon.value=neonT; U.uDay.value=dayT; }
   const st = document.documentElement.style;
   st.setProperty('--a', t.a); st.setProperty('--b', t.b); st.setProperty('--warm', t.warm);
@@ -3337,7 +3340,7 @@ function frame(ms){
   { const fi=clamp(Math.round(f),0,A.F-1)*12, sp=U.uSpec.value; for(let b=0;b<12;b++){ const v=playing?A.spec[fi+b]:.3+.2*Math.sin(wall*1.6-b*.55); sp[b]+=(v-sp[b])*(v>sp[b]?Math.min(1,dt*38):Math.min(1,dt*9)); } }
   U.uNitro.value+=((nitro?1:0)-U.uNitro.value)*Math.min(1,dt*4);
   if(kPass&&kaleido){ const ku=kPass.uniforms; ku.uAsp.value=camera.aspect; ku.uRot.value+=dt*(RM?0:.05); ku.uSrc.value+=dt*(RM?0:.035); ku.uZoom.value=1; ku.uMix.value=Math.min(1,ku.uMix.value+dt/(RM?.01:3.8)); }
-  { const kt=RM?1:Math.min(1,dt*2.6); for(const k in TT) U[k].value.lerp(TT[k],kt); U.uNeon.value+=(neonT-U.uNeon.value)*kt; U.uDay.value+=(dayT-U.uDay.value)*kt; }
+  { const kt=RM?1:Math.min(1,dt*2.6); for(const k in TT) U[k].value.lerp(TT[k],kt); U.uNeon.value+=(neonT-U.uNeon.value)*kt; U.uDay.value+=(dayT-U.uDay.value)*kt; if(dkPass){ const u=dkPass.uniforms.uK; u.value+=(darkT-u.value)*kt; dkPass.enabled=u.value>.01; } }
   { const sp=U.uSpec.value; for(let b=0;b<12;b++){ specData[b*4]=clamp(sp[b],0,1)*255; specData[b*4+3]=255; } specTex.needsUpdate=true; }
   sI+=(samp(A.inten,f)-sI)*Math.min(1,dt*1.5);
   if(playing){ while(beatIdx<A.beats.length && A.beats[beatIdx].t<=t){ const s=A.beats[beatIdx].s; if(t-A.beats[beatIdx].t<.2){ pulse=Math.max(pulse,.45+.55*s); if(world==='tun'&&(++tunBeat%48)===0) tunNext(); if(autoShuf&&(++shufBeat%32)===0) fadeRoll(); if(kPass&&kaleido&&(++kBeat%8)===0&&kPass.uniforms.uMix.value>=1){ const ku=kPass.uniforms;
