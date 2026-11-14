@@ -168,6 +168,13 @@ Owner loved the v2 path and the track winding through itself (keep that). Change
 
 A one-hour mix took for ever because the whole song is decoded and analysed before the ride. Main app: `MAX_MIN=12`; `probeDur(file)` reads the length from the file header through an `<audio>` element before decoding (falls back to refusing files over 150 MB when the header gives nothing, and to a check after decoding); too long gives a toast, and in a playlist the song is skipped. Lab: refused after decoding if over 12 minutes. **Open, if long mixes matter:** analyse in chunks in a worker and build the coaster a section at a time (drops are found over the whole song today, so the coaster needs the most work; the reactive worlds only need the analysis to stay ahead of the playhead).
 
+## 8h. Lab: sounds, instruments, reverse, particle tunnels (2026-11-14 night)
+
+- **Reverse:** in self-drive the down arrow or S is the same motor backwards (brakes, then reverses to 45 m/s). Either key starts self-drive.
+- **Ride sounds** (`SFX`, `sfxInit`, `sfxStep`, `blip`, `tone`; all synthesised, key M mutes): wind (band-passed noise, level with speed squared), wheel rumble (low-passed noise), a double click at a rail joint every 7 m, a chain tick every 0.55 m on a lift (song mode only), a panned swoosh for every gate passed (`R.pass`, the gates' times, crossed in either direction), a falling boom at each drop (`m.at`), an air thump at tunnel mouths. Plays in song mode and self-drive. **Not heard by the builder: levels are guesses and need the owner's ear.**
+- **Instruments** (self-drive only): `#gauge` speed dial with motor bar and g, `#map` heading-up map of the track within about 210 m, brighter near the rider's height, drops marked. Original design; the owner's references were a racing game and a car cluster, for the idea only.
+- **Tunnels:** walls are fully opaque (`transparent:false`, mouths cut clean at 2.5% of the length). Styles 0 and 3 are now layers of randomly placed glowing particles (`sparkR`) that turn around the rider at different speeds; the glow fades before its patch edge so no square shows.
+
 ## 9. Coaster lab: full specification (state on 2026-11-14)
 
 File `coaster-lab.html`, about 300 lines, standalone. Artifact "Coaster lab", slug `c68270d2-057b-4b14-83d6-67b9296d41d3`. The owner rides it and loves it ("vertigo-inducing"); it is the benchmark. When he says so, port it into `index.html` in place of `coastPlan`/`coastStep`/`coastCam`.

@@ -8,11 +8,12 @@ canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
 button,label.b{font:inherit;color:#fff;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:9px;padding:6px 12px;cursor:pointer;white-space:nowrap}
 button:hover,label.b:hover{background:rgba(255,255,255,.2)}
 #seek{flex:1;min-width:60px}
+#map,#gauge{position:fixed;top:auto;bottom:74px;width:220px;height:220px;z-index:2;display:none;pointer-events:none}#map{left:16px;right:auto}#gauge{left:auto;right:16px;border-radius:50%;background:radial-gradient(circle,rgba(8,10,20,.6) 55%,rgba(8,10,20,0) 72%)}
 #hud{position:fixed;left:14px;top:12px;z-index:2;text-shadow:0 1px 3px #000;white-space:pre;pointer-events:none}
 #msg{position:fixed;left:50%;top:45%;transform:translate(-50%,-50%);z-index:3;text-align:center;font-size:15px;max-width:80vw}
 #drop{position:fixed;right:16px;top:12px;z-index:2;font-size:22px;font-weight:700;color:#ff4fa3;opacity:0}
 </style></head><body>
-<div id="hud"></div><div id="drop">DROP</div>
+<div id="hud"></div><canvas id="map" width="440" height="440"></canvas><canvas id="gauge" width="440" height="440"></canvas><div id="drop">DROP</div>
 <div id="msg">Coaster lab<br><br><button id="demo">Ride the demo track</button> <label class="b">Upload a song<input id="file" type="file" accept="audio/*" hidden></label></div>
 <div id="bar"><button id="pp">Play</button><button id="ver" title="Switch between the first track layout and the new one (V)">Track v2</button><input id="seek" type="range" min="0" max="1" step="0.001" value="0"><span id="tm">0:00</span><label class="b">Song<input id="file2" type="file" accept="audio/*" hidden></label></div>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
@@ -225,27 +226,29 @@ void main(){ vec3 n=normalize(cross(dFdx(vW),dFdy(vW))), V=normalize(uCam-vW); f
   vec3 col=c*(.12+.5*dif)+mix(c,c2,.5)*pow(1.-f,2.)*1.3+c*(vM<.5?(.22+.8*vNear+1.5*uBeat+.5*uBass)*smoothstep(1.,7.,dist)*.8+.05:(.12+.9*uBass+.6*uBeat));   // a gate dims as it reaches your face, so it does not flood the picture  // lit faces, glowing edges; gates flare as you pass through
   gl_FragColor=vec4(col*exp(-dist*.005),1.); }`});
 const ADD={transparent:true,depthWrite:false,blending:THREE.AdditiveBlending};
-function tunMat(st){ return new THREE.ShaderMaterial({side:THREE.DoubleSide,transparent:true,uniforms:Object.assign({uSt:{value:st},uIn:{value:0}},U),   // fully opaque: the wall hides the track and the other tunnels beyond it
+function tunMat(st){ return new THREE.ShaderMaterial({side:THREE.DoubleSide,transparent:false,uniforms:Object.assign({uSt:{value:st},uIn:{value:0}},U),   // fully opaque: the wall hides the track and the other tunnels beyond it
   vertexShader:`attribute vec2 aUV; attribute float aE; attribute vec3 aN; varying vec2 vUV; varying float vE; varying vec3 vW,vN; void main(){ vUV=aUV; vE=aE; vN=aN; vW=position; gl_Position=projectionMatrix*viewMatrix*vec4(position,1.); }`,
   fragmentShader:`precision highp float; uniform float uSt,uIn,uTime,uBeat,uBass; uniform vec3 uCam; varying vec2 vUV; varying float vE; varying vec3 vW,vN;
 ${PAL}
 float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
-float spark(vec2 g,float wrap,float sd,out float h){ vec2 id=floor(g), f=fract(g); id.x=mod(id.x,wrap); vec2 o=.18+.64*vec2(hash(id+sd),hash(id+sd+17.)); h=hash(id+sd+5.); float r=.055+.16*h*h, d=length(f-o);
-  return step(.5,hash(id+sd+9.))*exp(-d*d/(r*r)); }
+float sparkR(vec2 g,float wrap,float sd,float rs,out float h){ vec2 id=floor(g), f=fract(g); id.x=mod(id.x,wrap); vec2 o=.3+.4*vec2(hash(id+sd),hash(id+sd+17.)); h=hash(id+sd+5.); float r=(.05+.1*h*h)*rs, d=length(f-o), edge=min(min(f.x,1.-f.x),min(f.y,1.-f.y));
+  return step(.5,hash(id+sd+9.))*(exp(-d*d/(r*r))+.3*exp(-d*d/(r*r*4.)))*smoothstep(0.,.14,edge);   /* the glow is gone before the edge of its patch, so no square can show */   /* a bright core with a soft halo, somewhere random in its patch */ }
+float spark(vec2 g,float wrap,float sd,out float h){ return sparkR(g,wrap,sd,1.,h); }
 void main(){ float u=vUV.x, z=vUV.y, dist=length(vW-uCam); vec3 c;
-  if(uSt<.5){ vec2 g=vec2((u+uTime*.035)*26.,z/1.5); g.y+=hash(vec2(mod(floor(g.x),26.),1.))*7.; vec2 id=floor(g), f=fract(g)-.5; id.x=mod(id.x,26.); float h=hash(id), r=.08+.3*h*h, d=length(f);      // glowing motes, scattered
-    c=pal(h*3.+uTime*.05)*step(.45,hash(id+3.))*((1.-smoothstep(r*.6,r,d))+exp(-d*d/(r*r*2.))*(.3+3.2*uBeat)*smoothstep(.5,.24,d)); }   // the glow dies away in a circle well inside its cell, so no square edge can show
+  if(uSt<.5){ float ha,hb,hc, sa=sparkR(vec2((u+uTime*.035)*12.,z/3.4),12.,3.,1.25,ha), sb=sparkR(vec2((u-uTime*.022)*28.,z/1.45),28.,21.,1.,hb), sc=sparkR(vec2((u+uTime*.06)*66.,z/.62),66.,47.,.9,hc);
+    /* glowing particles of three sizes, scattered at random; each layer turns around the rider at its own speed, the middle one the other way */
+    c=pal(ha*3.+uTime*.05)*sa*(1.1+3.*uBeat)+pal(hb*4.+z*.003-uTime*.04)*sb*(.9+.5*sin(uTime*2.+hb*40.)+2.4*uBeat*step(.5,hb))+pal(hc*5.+uTime*.07)*sc*(.6+.5*sin(uTime*3.+hc*70.)); }
   else if(uSt<1.5){ float k=fract(u*5.+z*.06-uTime*.15), w=.42+.2*uBass; c=pal(z*.012+u-uTime*.1)*step(k,w); }                                              // spiral bands
   else if(uSt<2.5){ float a=u*6.28318, n=sin(a*3.+sin(z*.25+uTime*.5)*2.)+sin(z*.3+sin(a*2.-uTime*.4)*2.), k=fract(n*1.5+uTime*.3); c=pal(n*.2+z*.006-uTime*.05)*smoothstep(0.,.08,k)*smoothstep(.6,.5,k); }   // liquid contours
-  else { vec2 g=vec2((u-uTime*.028)*90.,z/.45); g.y+=hash(vec2(mod(floor(g.x),90.),2.))*5.; vec2 id=floor(g), f=fract(g)-.5; id.x=mod(id.x,90.); float h=hash(id), r=.12+.3*h;                         // a dust of fine particles
-    c=pal(h*5.+z*.004-uTime*.06)*step(.6,hash(id+9.))*(1.-smoothstep(r*.5,r,length(f)))*(.5+.5*sin(uTime*3.+h*60.)+3.*uBeat*step(.5,h)); }
+  else { float ha,hb, sa=sparkR(vec2((u-uTime*.03)*46.,z/.9),46.,5.,.9,ha), sb=sparkR(vec2((u+uTime*.045)*104.,z/.4),104.,33.,.85,hb);                         // a dust of fine particles, two layers turning against each other
+    c=pal(ha*5.+z*.004-uTime*.06)*sa*(.7+.5*sin(uTime*3.+ha*60.)+3.*uBeat*step(.5,ha))+pal(hb*6.+uTime*.05)*sb*(.5+.5*sin(uTime*4.+hb*90.)); }
   vec3 lit=c*(.35+1.8*uBeat+.9*uBass)*smoothstep(0.,.05,vE)*smoothstep(1.,.95,vE)*exp(-dist*.006);
   float h1,h2, s1=spark(vec2(u*30.,z/1.4),30.,1.,h1), s2=spark(vec2(u*74.,z/.56),74.,40.,h2);
   vec3 shell=vec3(.006,.005,.014)+(pal(h1*4.+z*.004+uTime*.03)*s1*(.6+.4*sin(uTime*2.+h1*50.)+2.2*uBeat*step(.5,h1))*3.4
                                   +pal(h2*5.+uTime*.05)*s2*2.2*(.4+.35*sin(uTime*3.+h2*70.)+1.4*uBeat*step(.6,h2)))*exp(-dist*.004);   /* from outside: a dark tube scattered with glowing sparks of two sizes, each somewhere random in its patch, flaring on the beat */
   float inner=step(dot(vN,uCam-vW),0.);                                                                    // are we looking at the inside of the wall?
   vec3 col=mix(shell,(lit+vec3(.004,.003,.008))*(.6+.4*uIn),inner);                                        // the projection always runs on the inside; it comes up to full strength as you ride in
-  float al=smoothstep(0.,.11,vE)*smoothstep(1.,.89,vE); if(al<.02) discard; gl_FragColor=vec4(col,al); }`}); }   // solid along its length; only the first and last metres dissolve, so the mouth has a soft edge   // dark wall lets 30% of what is behind it through; where the projection is bright the wall is solid colour
+  float al=smoothstep(0.,.025,vE)*smoothstep(1.,.975,vE); if(al<.5) discard; gl_FragColor=vec4(col,1.); }`});   /* a solid wall everywhere: nothing shows through. The mouth is a clean edge */ }   // solid along its length; only the first and last metres dissolve, so the mouth has a soft edge   // dark wall lets 30% of what is behind it through; where the projection is bright the wall is solid colour
 const PT_FRAG=`precision highp float; varying vec3 vC; void main(){ float d=length(gl_PointCoord-.5); if(d>.5) discard; gl_FragColor=vec4(vC*(smoothstep(.5,.15,d)+.8*smoothstep(.2,0.,d)),1.); }`;
 const fieldMat=new THREE.ShaderMaterial(Object.assign({uniforms:U,
   vertexShader:`attribute float aS; uniform float uTime,uBeat,uBass,uPx; varying vec3 vC;
@@ -294,7 +297,7 @@ function buildWorld(R){ while(world.children.length){ const m=world.children.pop
   const tubePts=[]; for(const ts of stretches){ const i0=Math.floor(idxAt(R,ts)), i1=Math.floor(idxAt(R,ts+TUNLEN)); for(let j=i0;j<=i1;j+=6) tubePts.push(R.X[j],R.Y[j],R.Z[j]); }
   const inTube=(m,rad)=>{ const e=m.elements, r2=(6.5+rad)*(6.5+rad); for(let q=0;q<tubePts.length;q+=3){ const dx=tubePts[q]-e[12], dy=tubePts[q+1]-e[13], dz=tubePts[q+2]-e[14]; if(dx*dx+dy*dy+dz*dz<r2) return true; } return false; };
 
-  const series=(t0,n,gap,shape,hue,r0)=>{ const ph=rnd()*.98; for(let k=0;k<n;k++){ const tt=t0+k*gap, m=place(tt,0,.7,r0*(1+.035*k),4); if(inTube(m,r0*1.7+1)) continue; gates[shape].push({m,a:[tt,hue+k*.045,k+ph,0]}); } };   // a run of gates, each one a beat behind the one before it
+  const series=(t0,n,gap,shape,hue,r0)=>{ const ph=rnd()*.98; for(let k=0;k<n;k++){ const tt=t0+k*gap, m=place(tt,0,.7,r0*(1+.035*k),4); if(inTube(m,r0*1.7+1)) continue; (R.pass=R.pass||[]).push(tt); gates[shape].push({m,a:[tt,hue+k*.045,k+ph,0]}); } };   // a run of gates, each one a beat behind the one before it
   for(const m of R.marks) series(m.td+.2,m.mini?8:18,.17,((m.td*3)|0)%5,(m.td*.13)%1,3.3);                        // ten down each drop
   { const strong=A.beats.filter(b=>b.s>.3); let last=-9;
     for(const b of strong){ if(b.t-last<(R.ver===2?5:2.6)||b.t<3||R.marks.some(m=>b.t>m.td-6.5&&b.t<m.td+3.6)||stretches.some(ts=>b.t>ts-1.2&&b.t<ts+TUNLEN+1.2)) continue;   /* either a tunnel or shapes, never both */ last=b.t; series(b.t,9,.1,(rnd()*5)|0,rnd(),3+.8*rnd()); } }
@@ -395,7 +398,7 @@ function resize(){ const w=innerWidth,h=innerHeight, pr=Math.min(1.5,devicePixel
 let actx=null, buf=null, src=null, t0=0, off=0, playing=false, A=null;
 const now=()=>playing?clamp(actx.currentTime-t0,0,A.dur):off;
 const free={on:false,f:0,v:0,th:0,up:false,down:false,ended:false};
-function play(){ if(!buf||playing) return; free.on=false; free.ended=false; $('#msg').style.display='none'; src=actx.createBufferSource(); src.buffer=buf; src.connect(actx.destination); src.start(0,off); t0=actx.currentTime-off; playing=true; $('#pp').textContent='Pause'; src.onended=()=>{ if(playing&&now()>=A.dur-.05){ playing=false; off=0; $('#pp').textContent='Play'; free.ended=true; $('#msg').style.display=''; $('#msg').textContent='The song is over. Hold the up arrow to ride it yourself.'; } }; }
+function play(){ if(!buf||playing) return; free.on=false; free.ended=false; $('#msg').style.display='none'; src=actx.createBufferSource(); src.buffer=buf; src.connect(actx.destination); src.start(0,off); t0=actx.currentTime-off; playing=true; $('#pp').textContent='Pause'; src.onended=()=>{ if(playing&&now()>=A.dur-.05){ playing=false; off=0; $('#pp').textContent='Play'; free.ended=true; $('#msg').style.display=''; $('#msg').textContent='The song is over. Hold the up arrow to ride it yourself; the down arrow goes backwards.'; } }; }
 function pause(){ if(!playing) return; off=now(); playing=false; src.onended=null; try{ src.stop(); }catch(e){} $('#pp').textContent='Play'; }
 function seek(t){ const was=playing; pause(); free.on=false; off=clamp(t,0,A.dur-.05); camQ=null; if(was) play(); }
 function start(data,sr){ $('#msg').textContent='Laying out the ride…'; setTimeout(()=>{ A=analyse(data,sr); RIDE=buildRide(A,VER); buildWorld(RIDE); actx=actx||new (window.AudioContext||window.webkitAudioContext)();
@@ -412,11 +415,58 @@ function setVer(v){ VER=v; $('#ver').textContent='Track v'+VER; if(!A||!RIDE) re
 $('#ver').onclick=()=>setVer(VER===2?1:2);
 /* ride it yourself: with the song stopped, the up arrow is the motor. Its push builds while held; let go and only gravity and drag are left */
 addEventListener('keydown',e=>{ if(e.code==='KeyB') dof.uniforms.uOn.value=dof.uniforms.uOn.value?0:1;
-  if((e.code==='ArrowUp'||e.code==='KeyW')&&RIDE&&!playing){ e.preventDefault(); if(!free.on){ free.on=true; free.f=free.ended?0:idxAt(RIDE,now()); free.v=0; free.th=0; if(free.ended) camQ=null; free.ended=false; $('#msg').style.display='none'; } free.up=true; }
-  if((e.code==='ArrowDown'||e.code==='KeyS')&&free.on){ e.preventDefault(); free.down=true; } });
+  const fw=e.code==='ArrowUp'||e.code==='KeyW', bk=e.code==='ArrowDown'||e.code==='KeyS';
+  if((fw||bk)&&RIDE&&!playing){ e.preventDefault(); if(!free.on){ free.on=true; free.f=free.ended?0:idxAt(RIDE,now()); free.v=0; free.th=0; if(free.ended) camQ=null; free.ended=false; $('#msg').style.display='none'; } if(fw) free.up=true; else free.down=true; }
+  if(e.code==='KeyM'){ SFX.on=!SFX.on; if(SFX.out) SFX.out.gain.value=SFX.on?.9:0; } });
 addEventListener('keyup',e=>{ if(e.code==='ArrowUp'||e.code==='KeyW') free.up=false; if(e.code==='ArrowDown'||e.code==='KeyS') free.down=false; });
 addEventListener('keydown',e=>{ if(e.code==='KeyV'){ free.on=false; }
   if(e.code==='KeyV') setVer(VER===2?1:2); if(e.code==='Space'&&A){ e.preventDefault(); playing?pause():play(); } });
+
+/* ---------------- ride sounds: all made here, no files. Wind and wheel rumble follow the speed, the rails click at every joint,
+   the chain ticks on a lift, every gate you pass through gives a swoosh, a drop gives a falling boom. Key M switches them off ---------------- */
+const SFX={on:true,ready:false,pt:0,lastJ:0,lastC:0,lastSw:0,pan:1,pi:0};
+function sfxInit(){ if(SFX.ready||!actx) return; const n=actx.sampleRate*2, b=actx.createBuffer(1,n,actx.sampleRate), d=b.getChannelData(0); for(let i=0;i<n;i++) d[i]=Math.random()*2-1; SFX.noise=b;
+  SFX.out=actx.createGain(); SFX.out.gain.value=SFX.on?.9:0; SFX.out.connect(actx.destination);
+  const mk=(type,f,q)=>{ const src=actx.createBufferSource(); src.buffer=b; src.loop=true; const fl=actx.createBiquadFilter(); fl.type=type; fl.frequency.value=f; fl.Q.value=q; const g=actx.createGain(); g.gain.value=0; src.connect(fl); fl.connect(g); g.connect(SFX.out); src.start(); return {fl,g}; };
+  SFX.wind=mk('bandpass',500,.6); SFX.rum=mk('lowpass',110,.7); SFX.ready=true; }
+function blip(type,f0,f1,dur,gain,q,pan,delay){ const t0=actx.currentTime+(delay||0), src=actx.createBufferSource(); src.buffer=SFX.noise; const fl=actx.createBiquadFilter(); fl.type=type; fl.Q.value=q||1;
+  fl.frequency.setValueAtTime(f0,t0); fl.frequency.exponentialRampToValueAtTime(Math.max(20,f1),t0+dur); const g=actx.createGain(); g.gain.setValueAtTime(0,t0); g.gain.linearRampToValueAtTime(gain,t0+dur*.25); g.gain.exponentialRampToValueAtTime(.0008,t0+dur);
+  src.connect(fl); fl.connect(g); if(pan&&actx.createStereoPanner){ const pn=actx.createStereoPanner(); pn.pan.value=pan; g.connect(pn); pn.connect(SFX.out); } else g.connect(SFX.out); src.start(t0,Math.random()); src.stop(t0+dur+.05); }
+function tone(wave,f0,f1,dur,gain){ const t0=actx.currentTime, o=actx.createOscillator(); o.type=wave; o.frequency.setValueAtTime(f0,t0); o.frequency.exponentialRampToValueAtTime(Math.max(20,f1),t0+dur);
+  const g=actx.createGain(); g.gain.setValueAtTime(gain,t0); g.gain.exponentialRampToValueAtTime(.0008,t0+dur); o.connect(g); g.connect(SFX.out); o.start(t0); o.stop(t0+dur+.05); }
+function sfxStep(R,t,f,v,onLift,moving){ if(!actx) return; sfxInit(); if(!R.passSorted){ R.pass=(R.pass||[]).sort((p,q)=>p-q); R.passSorted=true; SFX.pi=0; } const c=actx.currentTime, sp=moving?v:0, s=f*DS;
+  SFX.wind.g.gain.setTargetAtTime(Math.min(.3,(sp/55)*(sp/55)*.3),c,.15); SFX.wind.fl.frequency.setTargetAtTime(300+sp*28,c,.2);
+  SFX.rum.g.gain.setTargetAtTime(Math.min(.4,sp/45*.32),c,.12); SFX.rum.fl.frequency.setTargetAtTime(70+sp*2.2,c,.2);
+  if(!moving||!SFX.on){ SFX.pt=t; return; }
+  const j=Math.floor(s/7); if(j!==SFX.lastJ){ SFX.lastJ=j; if(sp>1.5){ const g=.17*Math.min(1,sp/14); blip('bandpass',1700,900,.04,g,3); blip('bandpass',1500,800,.04,g*.8,3,0,Math.min(.25,1.1/sp)); } }   /* a rail joint every seven metres: front wheels, then back wheels */
+  if(onLift){ const k=Math.floor(s/.55); if(k!==SFX.lastC){ SFX.lastC=k; tone('square',640+Math.random()*90,420,.035,.05); } }                                                              /* the chain dog ticking over the ratchet */
+  const a=Math.min(SFX.pt,t), b=Math.max(SFX.pt,t);
+  if(b-a<.6&&b>a){ const P=R.pass||[]; while(SFX.pi>0&&P[SFX.pi-1]>a) SFX.pi--; while(SFX.pi<P.length&&P[SFX.pi]<=a) SFX.pi++;
+    for(let q=SFX.pi;q<P.length&&P[q]<=b;q++){ if(c-SFX.lastSw>.055){ SFX.lastSw=c; SFX.pan=-SFX.pan; blip('bandpass',420,2600+sp*20,.22,.2*Math.min(1,.3+sp/30),1.1,SFX.pan*.55); } }   /* through a gate: a swoosh, left and right in turn */
+    for(const m of R.marks) if(m.at>a&&m.at<=b&&t>SFX.pt){ tone('sine',150,36,1.5,.4); blip('lowpass',2400,180,1.3,.3,.6); }                                                           /* over the edge: a falling boom and a rush of air */
+    for(const tn of R.tun) if((tn.t0>a&&tn.t0<=b)||(tn.t1>a&&tn.t1<=b)) blip('lowpass',900,150,.5,.28,.8); }                                                                         /* a thump of air at each tunnel mouth */
+  SFX.pt=t; }
+
+/* ---------------- self-drive instruments: a speed dial on the right, a map of the track around you on the left ---------------- */
+const gaugeC=$('#gauge'), mapC=$('#map'), gx=gaugeC.getContext('2d'), mx=mapC.getContext('2d');
+function drawGauge(v,th,gn){ const W=gaugeC.width, c=W/2, r=c-22, a0=Math.PI*.75, a1=Math.PI*2.25, vmax=220, kmh=Math.abs(v)*3.6, k=Math.min(1,kmh/vmax); gx.clearRect(0,0,W,W);
+  gx.lineCap='round'; gx.lineWidth=14; gx.strokeStyle='rgba(255,255,255,.1)'; gx.beginPath(); gx.arc(c,c,r,a0,a1); gx.stroke();
+  const gr=gx.createLinearGradient(0,W,W,0); gr.addColorStop(0,'#3fe0ff'); gr.addColorStop(.6,'#9a6bff'); gr.addColorStop(1,'#ff3fb4'); gx.strokeStyle=gr; gx.shadowColor='#7fd8ff'; gx.shadowBlur=18; gx.beginPath(); gx.arc(c,c,r,a0,a0+(a1-a0)*Math.max(.002,k)); gx.stroke(); gx.shadowBlur=0;
+  gx.fillStyle='rgba(255,255,255,.55)'; gx.font='600 15px ui-monospace,Menlo,monospace'; gx.textAlign='center'; gx.textBaseline='middle';
+  for(let q=0;q<=vmax;q+=20){ const a=a0+(a1-a0)*q/vmax, big=q%40===0, x0=c+Math.cos(a)*(r-13), y0=c+Math.sin(a)*(r-13), x1=c+Math.cos(a)*(r-(big?26:20)), y1=c+Math.sin(a)*(r-(big?26:20)); gx.strokeStyle='rgba(255,255,255,'+(big?.7:.3)+')'; gx.lineWidth=2; gx.beginPath(); gx.moveTo(x0,y0); gx.lineTo(x1,y1); gx.stroke(); if(big) gx.fillText(q,c+Math.cos(a)*(r-44),c+Math.sin(a)*(r-44)); }
+  gx.fillStyle='#fff'; gx.font='700 74px ui-monospace,Menlo,monospace'; gx.fillText(kmh.toFixed(0),c,c-6); gx.font='600 17px ui-monospace,Menlo,monospace'; gx.fillStyle='rgba(255,255,255,.6)'; gx.fillText(v<-.5?'km/h  REVERSE':'km/h',c,c+44);
+  /* the motor: a bar that fills as it winds up, to the right forwards, to the left backwards */
+  const bw=150, bx=c-bw/2, by=W-64; gx.fillStyle='rgba(255,255,255,.12)'; gx.fillRect(bx,by,bw,8); gx.fillStyle=th>=0?'#3fe0ff':'#ff7a4a'; gx.fillRect(c,by,bw/2*th,8); gx.fillStyle='rgba(255,255,255,.6)'; gx.font='600 14px ui-monospace,Menlo,monospace'; gx.fillText('MOTOR',c,by+24);
+  gx.fillStyle='rgba(255,255,255,.8)'; gx.fillText(gn.toFixed(1)+' g',c,c+74); }
+function drawMap(R,f){ const W=mapC.width, c=W/2, i=clamp(f|0,0,R.N-1), sc=W/420, ya=R.YAW[i], cs=Math.cos(ya), sn=Math.sin(ya), px=R.X[i], pz=R.Z[i]; mx.clearRect(0,0,W,W);
+  mx.save(); mx.beginPath(); mx.arc(c,c,c-4,0,6.283); mx.clip(); mx.fillStyle='rgba(8,10,20,.55)'; mx.fillRect(0,0,W,W);
+  /* the way you face is up; 210 m in every direction. Brighter where the track is near your own height, so what passes over and under reads as fainter */
+  const T=(k)=>{ const dx=R.X[k]-px, dz=R.Z[k]-pz; return [c+(dx*cs+dz*sn)*sc, c*1.25+(-dx*sn+dz*cs)*sc]; };
+  mx.lineWidth=5; mx.lineJoin='round'; for(let k=0;k<R.N-12;k+=12){ const dx=R.X[k]-px, dz=R.Z[k]-pz; if(dx*dx+dz*dz>300*300) continue; const p0=T(k), p1=T(k+12), dy=Math.abs(R.Y[k]-R.Y[i]), near=Math.abs(k-i)<700;
+    mx.strokeStyle=near?'rgba(120,225,255,'+(.95-.5*Math.min(1,dy/40))+')':'rgba(190,150,255,'+(.5-.3*Math.min(1,dy/40))+')'; mx.beginPath(); mx.moveTo(p0[0],p0[1]); mx.lineTo(p1[0],p1[1]); mx.stroke(); }
+  for(const m of R.marks){ const k=Math.floor(idxAt(R,m.at)), p=T(k); mx.fillStyle=m.mini?'#ffd24a':'#ff3fb4'; mx.beginPath(); mx.arc(p[0],p[1],m.mini?6:9,0,6.283); mx.fill(); }   /* drops: pink for the big ones, yellow for the small */
+  mx.fillStyle='#fff'; mx.shadowColor='#7fd8ff'; mx.shadowBlur=16; mx.beginPath(); mx.moveTo(c,c*1.25-16); mx.lineTo(c+11,c*1.25+10); mx.lineTo(c,c*1.25+4); mx.lineTo(c-11,c*1.25+10); mx.closePath(); mx.fill(); mx.restore();
+  mx.strokeStyle='rgba(255,255,255,.25)'; mx.lineWidth=3; mx.beginPath(); mx.arc(c,c,c-4,0,6.283); mx.stroke(); }
 
 /* ---------------- the rider ---------------- */
 const P=new THREE.Vector3(), D=new THREE.Vector3(), Uu=new THREE.Vector3(), Rr=new THREE.Vector3(), P2=new THREE.Vector3(), D2=new THREE.Vector3(), U2=new THREE.Vector3(), R2=new THREE.Vector3(), mB=new THREE.Matrix4(), qT=new THREE.Quaternion(), zA=new THREE.Vector3();
@@ -424,9 +474,9 @@ let camQ=null, gS=1, beatI=0, last=performance.now(), shk=0, spinV=.4, prevT=0;
 function frame(ms){ requestAnimationFrame(frame); const dt=Math.min(.05,(ms-last)/1000); last=ms; U.uTime.value+=dt;
   if(RIDE){ const R=RIDE; let t=now(), f=idxAt(R,t);
     if(free.on){ const j=clamp(free.f|0,0,R.N-2);
-      free.th+=((free.up?1:0)-free.th)*Math.min(1,dt*(free.up?.9:5));                                       // the motor winds up over a second or so, and cuts quickly
-      let a=16*free.th-G*Math.sin(R.PIT[j])-Math.sign(free.v)*(.012*G+.00016*free.v*free.v); if(free.down) a-=Math.sign(free.v)*14;
-      free.v=clamp(free.v+a*dt,-25,60); if(free.down&&Math.abs(free.v)<.3) free.v=0; free.f+=free.v*dt/DS;
+      const want=(free.up?1:0)-(free.down?1:0); free.th+=(want-free.th)*Math.min(1,dt*(want?.9:5));          // the motor winds up over a second or so, and cuts quickly. Down is the same motor backwards: it brakes, then reverses
+      const a=16*free.th-G*Math.sin(R.PIT[j])-Math.sign(free.v)*(.012*G+.00016*free.v*free.v);
+      free.v=clamp(free.v+a*dt,-45,60); free.f+=free.v*dt/DS;
       if(free.f>R.N-3){ free.f=0; free.v*=.3; camQ=null; } if(free.f<0){ free.f=0; free.v=0; }                // off the far end: back to the start. It cannot roll off the near end
       f=free.f; const j2=clamp(f|0,0,R.N-2); t=R.T[j2]+(f-j2)*(R.T[j2+1]-R.T[j2]); }
     const i=clamp(f|0,0,R.N-1), v=free.on?Math.abs(free.v):R.V[i], gn=free.on?1+(R.GN[i]-1)*Math.min(4,(v*v)/Math.max(9,R.V[i]*R.V[i])):R.GN[i];
@@ -443,13 +493,15 @@ function frame(ms){ requestAnimationFrame(frame); const dt=Math.min(.05,(ms-last
     if((playing||free.on)&&t>prevT&&t-prevT<.5) for(const b of A_.beats){ if(b.t>t) break; if(b.t>prevT){ spinV+=2.6*b.s; if(b.s>.45) U.uRip.value[ripI++%6].set(P.x,P.z,b.t); } } prevT=t;   // each beat is a push on the wheels
     spinV+=(.4-spinV)*Math.min(1,dt*.8); spinV=Math.min(spinV,7); U.uSpA.value+=spinV*dt; U.uSpB.value+=(U.uSpA.value-U.uSpB.value)*Math.min(1,dt*3.5); U.uSpC.value+=(U.uSpB.value-U.uSpC.value)*Math.min(1,dt*3.5);   // friction brings them back to a slow turn; B and C trail A, which is the delay down a series
     for(const tn of R.tun){ const k=t>tn.t0-.12&&t<tn.t1+.05?1:0; tn.mat.uniforms.uIn.value+=(k-tn.mat.uniforms.uIn.value)*Math.min(1,dt*(k?2.2:3)); }   // a tunnel's walls light up as you enter and go dark behind you
+    sfxStep(R,t,f,v,R.marks.some(m=>i>=m.lift[0]&&i<m.lift[1])&&!free.on,playing||(free.on&&v>.3));
+    { const show=free.on?'block':'none'; if(gaugeC.style.display!==show){ gaugeC.style.display=show; mapC.style.display=show; } if(free.on){ drawGauge(free.v,free.th,gS); drawMap(R,f); } }
     U.uVel.value.copy(D).multiplyScalar(v); U.uSpd.value+=(v-U.uSpd.value)*Math.min(1,dt*4); sea.position.x=P.x; sea.position.z=P.z;
     { const T=U.uTime.value, inTun=R.tun.some(tn=>t>tn.t0-1.5&&t<tn.t1+.6); frameAt(R,idxAt(R,t+1.),P2,D2,U2,R2); P2.addScaledVector(R2,9*Math.sin(T*.23)).addScaledVector(U2,3.5+4*Math.sin(T*.31));
       const far=U.uSwC.value.distanceTo(P2)>60; U.uSwC.value.lerp(P2,far?1:Math.min(1,dt*2.4)); U.uSwR.value.lerp(R2,Math.min(1,dt*3)); U.uSwU.value.lerp(U2,Math.min(1,dt*3)); U.uSwD.value.lerp(D2,Math.min(1,dt*3));
       U.uSwOn.value+=(((!inTun&&Math.sin(T*.11)>-.35)?1:0)-U.uSwOn.value)*Math.min(1,dt*1.5); }               // the flock comes and goes, and never follows you into a tunnel
     let nd=1e9, hit=0; for(const m of R.marks){ if(m.td>t) nd=Math.min(nd,m.td-t); hit=Math.max(hit,Math.exp(-Math.pow((t-m.td)*2.2,2))); } $('#drop').style.opacity=hit;
     const onLift=R.marks.some(m=>i>=m.lift[0]&&i<m.lift[1]);
-    $('#hud').textContent=`speed  ${(v*3.6).toFixed(0).padStart(3)} km/h\nforce  ${gn.toFixed(1).padStart(4)} g\nheight ${P.y.toFixed(0).padStart(4)} m\n${(()=>{ let n=''; if(R.els) for(const e of R.els){ if(e[0]<=i) n=e[1]; else break; } return 'track v'+R.ver+(n&&R.ver===2?'  '+n:''); })()}\n${free.on?'your ride: hold up to drive, down to brake':onLift?'chain lift':''}${nd<1e8&&!free.on?`\ndrop in ${nd.toFixed(1)} s`:''}`;
+    $('#hud').textContent=`speed  ${(v*3.6).toFixed(0).padStart(3)} km/h\nforce  ${gn.toFixed(1).padStart(4)} g\nheight ${P.y.toFixed(0).padStart(4)} m\n${(()=>{ let n=''; if(R.els) for(const e of R.els){ if(e[0]<=i) n=e[1]; else break; } return 'track v'+R.ver+(n&&R.ver===2?'  '+n:''); })()}\n${free.on?'your ride: up drives, down brakes and reverses':onLift?'chain lift':''}${nd<1e8&&!free.on?`\ndrop in ${nd.toFixed(1)} s`:''}`;
     if(document.activeElement!==$('#seek')) $('#seek').value=t/A_.dur; $('#tm').textContent=`${(t/60)|0}:${String((t%60)|0).padStart(2,'0')}`; }
   renderDepth(); composer.render(); }
 requestAnimationFrame(frame);
