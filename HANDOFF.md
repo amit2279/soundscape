@@ -134,6 +134,15 @@ Demo track in the main app: 2,078 m, 152 km/h, +4.9 g, three drops within 0.06 s
 Other v2 details: the lift solver brackets the chain speed (the old update oscillated when braking came first) and lowers the lift by 22% at a time if the chain flat out is still late; `R.els` lists `[sampleIndex,name]` and the readout shows the current element; `R.CUT` marks the one sample after a dive loop where yaw/pitch/roll are rewritten by half a turn, and `frameAt` does not blend angles across it (the angle unwrap skips it too). **If v2 is ported to the main app, `frameAt` and `CUT` must come with it.**
 Checked headless on the demo only: four drops within 0.01 s, no crawling outside the lifts, +4.9/−0.9 g, still frames through a dive loop look continuous. Launch and top hat were exercised only in a forced test build. Not checked: any real song, motion at full frame rate, whether new elements cross other track (nothing prevents that in v1 either).
 
+## 8d. v2 second pass after owner feedback (2026-11-14)
+
+Owner loved the v2 path and the track winding through itself (keep that). Changes, all v2 only unless noted:
+- **Lift and drop feel:** braking into the lift is gentle when there is time (`bd`, 3.4 to 11 m/s²), the chain takes the car over about 9 m instead of 3, lifts start up to 19 s before a main drop, the crest radius is at least 17 m (was 9), main drops are 81 to 87 degrees, and the fall uses 1.4 times gravity (`'fall'` mode, `GF`) so it is heavier than physics. Peak about 183 km/h on the demo.
+- **Bigger inversions:** loops enter at 34 m/s with softer g (`loop(2.5,1.6,1/11)`), new `giant loop` (launch to 43 m/s), turns and helices no tighter than 21 m radius (`TK`), corkscrews 60 to 115 m long.
+- **Lulls:** `cruise` (wide, level, speed easing down to 17 m/s) when intensity is under 85% of the song's median. After a main drop the chain is inversion, `helix` (3.8 g), inversion.
+- **Balance:** small drops get 8 gates (was 18) and block tunnels for less time; beat gate runs at least 3.8 s apart (2.6 in v1); no tunnel on a lift.
+- **Both versions:** gates and solids that would reach into any tunnel's tube are left out (`inTube`), and a tunnel may not fold back into its own tube (`tubeClear` now checks its own samples more than 36 m away along the track). This was the owner's "other track's shapes visible inside the tunnel" and probably his "black texture" patches; the second is not confirmed.
+
 ## 9. Coaster lab: full specification (state on 2026-11-14)
 
 File `coaster-lab.html`, about 300 lines, standalone. Artifact "Coaster lab", slug `c68270d2-057b-4b14-83d6-67b9296d41d3`. The owner rides it and loves it ("vertigo-inducing"); it is the benchmark. When he says so, port it into `index.html` in place of `coastPlan`/`coastStep`/`coastCam`.
