@@ -164,6 +164,10 @@ Owner loved the v2 path and the track winding through itself (keep that). Change
 
 **SoundCloud: not built.** It needs the owner to register an app at SoundCloud (client id and secret) and a small server function (Vercel) that keeps the secret, gets the token, resolves a pasted track or playlist link and proxies the audio stream so the browser may decode it (cross-origin). Check SoundCloud's API terms first.
 
+## 8g. Song length limit (2026-11-14)
+
+A one-hour mix took for ever because the whole song is decoded and analysed before the ride. Main app: `MAX_MIN=12`; `probeDur(file)` reads the length from the file header through an `<audio>` element before decoding (falls back to refusing files over 150 MB when the header gives nothing, and to a check after decoding); too long gives a toast, and in a playlist the song is skipped. Lab: refused after decoding if over 12 minutes. **Open, if long mixes matter:** analyse in chunks in a worker and build the coaster a section at a time (drops are found over the whole song today, so the coaster needs the most work; the reactive worlds only need the analysis to stay ahead of the playhead).
+
 ## 9. Coaster lab: full specification (state on 2026-11-14)
 
 File `coaster-lab.html`, about 300 lines, standalone. Artifact "Coaster lab", slug `c68270d2-057b-4b14-83d6-67b9296d41d3`. The owner rides it and loves it ("vertigo-inducing"); it is the benchmark. When he says so, port it into `index.html` in place of `coastPlan`/`coastStep`/`coastCam`.

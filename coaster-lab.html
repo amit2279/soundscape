@@ -399,7 +399,7 @@ function start(data,sr){ $('#msg').textContent='Laying out the ride…'; setTime
   buf=actx.createBuffer(1,data.length,sr); buf.copyToChannel(data,0); off=0; camQ=null; $('#msg').style.display='none'; window.__lab={report:RIDE.report,objects:RIDE.objects,seek,play,pause,ride:RIDE}; console.warn('RIDE '+JSON.stringify(RIDE.report)+' '+JSON.stringify(RIDE.objects)); actx.resume(); play(); },30); }
 $('#demo').onclick=()=>{ const d=synthDemo(); start(d.data,d.sr); };
 const onFile=async e=>{ const f=e.target.files[0]; if(!f) return; pause(); $('#msg').style.display=''; $('#msg').textContent='Reading the song…'; actx=actx||new (window.AudioContext||window.webkitAudioContext)();
-  try{ const b=await actx.decodeAudioData(await f.arrayBuffer()), n=b.length, d=new Float32Array(n); for(let c=0;c<b.numberOfChannels;c++){ const ch=b.getChannelData(c); for(let i=0;i<n;i++) d[i]+=ch[i]/b.numberOfChannels; } start(d,b.sampleRate); }catch(err){ $('#msg').textContent='That file could not be read as audio.'; } };
+  try{ const b=await actx.decodeAudioData(await f.arrayBuffer()), n=b.length; if(b.duration>720){ $('#msg').textContent='That one is longer than 12 minutes. Pick a shorter song.'; return; } const d=new Float32Array(n); for(let c=0;c<b.numberOfChannels;c++){ const ch=b.getChannelData(c); for(let i=0;i<n;i++) d[i]+=ch[i]/b.numberOfChannels; } start(d,b.sampleRate); }catch(err){ $('#msg').textContent='That file could not be read as audio.'; } };
 $('#file').onchange=onFile; $('#file2').onchange=onFile;
 $('#pp').onclick=()=>{ if(!A) return; actx.resume(); playing?pause():play(); };
 $('#seek').oninput=e=>{ if(A) seek(e.target.value*A.dur); };
