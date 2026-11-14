@@ -122,6 +122,18 @@ RenderPass → kaleidoscope pass → light rays (kaleidoscope planet only) → U
 Demo track in the main app: 2,078 m, 152 km/h, +4.9 g, three drops within 0.06 s, eight loop/corkscrew angle wraps handled, 135 gates, three tunnels.
 **Workflow from here:** keep experimenting in `coaster-lab.html`; to bring changes over, re-run the port (the script is in section history of the session; it is simple enough to rewrite: slice from `let RIDE=null;` to the rendering marker, from `const U={uVel:` to `const stars=`, from `/* speed streaks:` to `const composer=`).
 
+## 8c. Coaster track v2 (lab only, 2026-11-14)
+
+`coaster-lab.html` now has two track layouts. Button "Track v1/v2" in the bar, or key V, rebuilds the ride in place (`setVer`). `buildRide(A,ver)`; v1 is untouched and is what the main app has. v2 adds:
+1. **Lower thresholds.** Loops and dive loops no longer wait for a fast stretch; they are given the entry speed they need (`boost` to 27 / 26 m/s). Loops may repeat after 8 s (was 14).
+2. **Chains.** After every main drop `chain(tn)` runs 2 or 3 inversions back to back while at least 19 s remain before the next event.
+3. **New elements:** `loop2` (double loop), `zeroG` (zero-g roll: a weightless hill with one full roll), `overbank` (climbing turn leaned about 100 degrees), `dive` (half roll up, half loop down, leaves the way it came), `topHat` (launch to 36 m/s, 60 degree climb, weightless crest).
+4. **Launches.** `launchOnBeat` coasts to the next strong beat (s>0.45 within 3.2 s) and accelerates at 17 m/s² ('launch' mode in `step`), then a top hat or double loop. At most one per 12 s, only with 18 s clear before the next drop.
+5. **Music character.** `choose()` compares intensity and bass with their medians over the song: heavy and loud gives loops/double loops/dive loops; loud but light gives corkscrews/zero-g rolls; quiet gives overbanked turns and hills. No element twice in a row.
+6. **Small drops.** Up to 8 secondary peaks (largest 3 s rises in intensity, at least 16 s from a main drop and 18 s apart) get `liftAndDrop(td,0.45)`: a lift under half height and a shallower drop. Marked `mini:true` in `R.marks`.
+Other v2 details: the lift solver brackets the chain speed (the old update oscillated when braking came first) and lowers the lift by 22% at a time if the chain flat out is still late; `R.els` lists `[sampleIndex,name]` and the readout shows the current element; `R.CUT` marks the one sample after a dive loop where yaw/pitch/roll are rewritten by half a turn, and `frameAt` does not blend angles across it (the angle unwrap skips it too). **If v2 is ported to the main app, `frameAt` and `CUT` must come with it.**
+Checked headless on the demo only: four drops within 0.01 s, no crawling outside the lifts, +4.9/−0.9 g, still frames through a dive loop look continuous. Launch and top hat were exercised only in a forced test build. Not checked: any real song, motion at full frame rate, whether new elements cross other track (nothing prevents that in v1 either).
+
 ## 9. Coaster lab: full specification (state on 2026-11-14)
 
 File `coaster-lab.html`, about 300 lines, standalone. Artifact "Coaster lab", slug `c68270d2-057b-4b14-83d6-67b9296d41d3`. The owner rides it and loves it ("vertigo-inducing"); it is the benchmark. When he says so, port it into `index.html` in place of `coastPlan`/`coastStep`/`coastCam`.
