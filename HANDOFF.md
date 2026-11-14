@@ -233,6 +233,15 @@ The owner is reworking the top bar one step at a time. Done: every mode tab has 
 - **Effect toggles fold away where they do nothing** (`fxVis()`, called from `setWorld`, `setMode`, `setKal`): fireworks only in City and Terrain; solar system only in Planet view; crystal facets and light rays only on the kaleidoscope planet; the two kaleidoscope switches everywhere.
 - **Keys in the Coaster:** only up and down are shown.
 
+## 8p. Black hole lab (2026-11-15), a new mode in the making
+
+`blackhole-lab.html`, its own test page like the coaster lab; not in the main app yet. The owner wants it as **its own mode**, not a Planet variant.
+- **Look (owner's rules):** a black ball in empty space with **no rim, no ring, no glow of its own**; it is revealed only by the lasers. 2,600 beams (`NBEAM`), one instanced strip each, turned to face the camera, starting on the surface and pointing straight out, each with a bright point at its tip. The ball hides the far-side beams; beams aimed at the camera are dimmed 93% so the middle stays a black disc. A beam passing within 12 units of the camera fades. Additive, bloom 0.85/0.8/0.18.
+- **Sound, finer than the main app:** `analyse` makes **48 log-spaced bands** (40 Hz to 16 kHz, FFT 2048, hop 1024, about 43 readings a second), and for each band a level track and an **onset track** (positive change), each normalised by that band's own loud moments so quiet sounds count. Each beam belongs to one band (`aInf.x`) and has a firing threshold (`aInf.y`): the harder the onset, the more of that band's beams fire. `uLev` (level, eased at 10/s) gives a breathing stub; `uShot` (onset, eased out at 26/s and home at 2.6/s) gives the long shot. Low bands throw fat beams with the bass. `A.hits` (whole-spectrum jumps) fire everything a little (`uAll`) and lean the camera in.
+- **Controls:** drag to orbit, scroll to zoom, C or the button cycles six colour pairs (ember, blood, ice, acid, violet, white).
+- **The owner asked whether effects can follow the small sounds in psytrance and similar.** This per-band onset analysis is the answer and is meant to go into the main app's analysis later (it has 12 bands and whole-song beats only). Further steps discussed: pitch sweeps (a band's energy moving up or down the spectrum), and repeating-pattern detection.
+- Checked headless on the demo, stills only. Not checked: real songs, motion, frame rate with 2,600 beams on a real GPU.
+
 ## 9. Coaster lab: full specification (state on 2026-11-14)
 
 File `coaster-lab.html`, about 300 lines, standalone. Artifact "Coaster lab", slug `c68270d2-057b-4b14-83d6-67b9296d41d3`. The owner rides it and loves it ("vertigo-inducing"); it is the benchmark. When he says so, port it into `index.html` in place of `coastPlan`/`coastStep`/`coastCam`.
