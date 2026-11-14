@@ -149,6 +149,21 @@ Owner loved the v2 path and the track winding through itself (keep that). Change
 - **No riding through track (v2):** `safe(fn)` lays a piece, and if any new sample is within 4 m of track more than 44 m back (`hits`), takes it back (`snap`/`back`), adds a small sideways turn and lays it again, up to three times. Used for every element, chain and lift. Loops swing their upper half sideways (yaw 0.016/m while cos(pitch)<0.5) and the dive loop yaws while rolling, because their own exit used to pass through their own entry. `R.report.rerouted`, `.crossings`, `.crossAt` say what happened; demo: 1 rerouted, 0 left.
 - **Fireworks (both versions):** at least six bars apart (was eight).
 
+## 8f. Evening of 2026-11-14
+
+**Coaster lab**
+- **Ride it yourself.** With the song stopped (or over), the up arrow or W is the motor: `free` object, thrust eases to 16 m/s² while held and cuts when released, gravity along the track (`G*sin(pitch)`) and drag always act, down arrow or S brakes, the car can roll back. Position is `free.f` (sample index); the "song time" every effect uses is read back from the track at that position (`R.T`), so gates, tunnels and fireworks still happen where they belong. Off the far end returns to the start. No sound in this mode. Play, seek or V leaves it. Owner asked for a closed circuit later (not built).
+- **Fireworks:** events at least six bars apart; `nRun = max(3, events/4)` of them, spread evenly, are runs of two or three on consecutive beats (`R.fxRuns`).
+- **Tunnel outside:** the outer face is a skin of glowing particles that flare on the beat (in `tunMat`, `shell`), instead of near-black.
+- **Beat-in (v2):** `beatIn` = first place with four strong beats (s>0.45) inside 2.6 s. Drops earlier than 1 s before it are discarded; if the song has no drop within 8 s of it and it is later than 9 s, it becomes a main drop. In `R.report.beatIn`.
+- **Depth of field:** `renderDepth()` draws the scene again at half size with `depthMat` (distance/260 m; points, lines, streaks, sea and swarm hidden), and the last pass `dof` blurs up to 1.8 px with distance. Key B switches it off. Not measured on a real GPU; if it costs frames, remove `renderDepth()` and the pass.
+
+**Main app**
+- **Playlist:** the file input is `multiple`; `PL={q,i}`, `plAdd(files)` (ten at most, also from drag and drop), `plGo(i)`, `finish()` goes on to the next song, `,` and `.` or the arrows under the song name step through. Loading the demo clears it. Files never leave the browser.
+- Still on coaster v1. Porting v2 needs: `buildRide(A,2)`, `frameAt` with `CUT`, the `buildWorld` changes, and the bass array as `B`.
+
+**SoundCloud: not built.** It needs the owner to register an app at SoundCloud (client id and secret) and a small server function (Vercel) that keeps the secret, gets the token, resolves a pasted track or playlist link and proxies the audio stream so the browser may decode it (cross-origin). Check SoundCloud's API terms first.
+
 ## 9. Coaster lab: full specification (state on 2026-11-14)
 
 File `coaster-lab.html`, about 300 lines, standalone. Artifact "Coaster lab", slug `c68270d2-057b-4b14-83d6-67b9296d41d3`. The owner rides it and loves it ("vertigo-inducing"); it is the benchmark. When he says so, port it into `index.html` in place of `coastPlan`/`coastStep`/`coastCam`.
