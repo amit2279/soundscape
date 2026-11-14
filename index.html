@@ -442,7 +442,7 @@ h1 .hollow{display:block;color:transparent;-webkit-text-stroke:2px var(--text)}
         <button data-world="worm" aria-pressed="false" title="An endless tunnel of shifting patterns. Move the mouse to lean (T switches)">Wormhole</button>
         <button data-world="tun" aria-pressed="false" title="A winding road tunnel made of dots, with five wall patterns that change as you drive. Click the picture or press G for the next pattern (T switches)">Tunnel</button>
         <button data-world="ill" aria-pressed="false" title="Black-and-white optical illusions that pour, spin and ripple with the music. It stays on one until you click the picture or press G (T switches)">Illusions</button>
-        <button data-world="coast" aria-pressed="false" title="A roller coaster in the void, laid out from the song: lift hills on build-ups, real drops on the drops, loops and barrel rolls. Move the mouse to look around (T switches)">Coaster</button>
+        <button data-world="coast" aria-pressed="false" title="A roller coaster in the void, laid out from the song: lift hills on build-ups, real drops on the drops, loops and barrel rolls. (T switches)">Coaster</button>
         <button data-world="loom" aria-pressed="false" title="Ribbons knotted through each other, one frequency band each. Drag to look around (T switches)">Loom</button>
         <button data-world="mandala" aria-pressed="false" title="A stepped well of decorated rings, different for every song. Drag to look around, Fly looks straight down (T switches)">Mandala</button>
       </div>
@@ -2796,101 +2796,259 @@ async function loadFile(file){
 }
 
 /* ================= Coaster: a roller coaster in the void =================
-   The whole ride is laid out from the song before it plays, one sample per 1/60 s, so where you are is always exactly where the music is.
-   Build-ups are lift hills, every drop in the song is a real drop, some are followed by a loop, hard accents are barrel rolls, and the
-   track wanders left and right with the energy. Speed has weight: it builds downhill and bleeds away uphill. Beats put gates of nested
-   outlines on the track, drops put a whole tunnel of them; shards and solids float in the space around. Look around with the mouse. */
-const COAST={A:null,grp:new THREE.Group(),N:0,px:null,py:null,pz:null,yaw:null,pit:null,rol:null,vel:null,pos:new THREE.Vector3(),d:new THREE.Vector3(),u:new THREE.Vector3(),r:new THREE.Vector3(),look:new THREE.Vector3(),ly:0,lp:0,on:false};
-COAST.grp.visible=false; scene.add(COAST.grp);
-const coastRailMat=new THREE.ShaderMaterial({uniforms:U,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide,
-  vertexShader:`attribute float aT; attribute float aK; varying float vT,vK; varying vec3 vW; void main(){ vT=aT; vK=aK; vec4 w=modelMatrix*vec4(position,1.); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }`,
-  fragmentShader:`precision highp float; uniform float uTime,uCNow,uPulse; uniform vec3 uCam,uA,uB,uBands; varying float vT,vK; varying vec3 vW;
-void main(){ float dist=length(vW-uCam), dt=vT-uCNow;
-  vec3 c=mix(vec3(1.),uB,.3+.3*step(1.5,vK));
-  float run=pow(.5+.5*sin(dt*7.-uTime*5.),10.)*(.3+1.6*uBands.x);                       // light running along the rails with the bass
-  float b=(.55+.5*uPulse+run)*(vK<1.5?1.25:.7)*exp(-dist*.0035)*(.35+.65*exp(-abs(dt)*.05));
-  gl_FragColor=vec4(c*b,1.); }`});
-const coastObjMat=new THREE.ShaderMaterial({uniforms:U,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide,extensions:{derivatives:true},
-  vertexShader:`attribute vec4 aI; uniform float uTime,uCNow,uPulse; uniform float uSpec[12]; varying vec3 vW; varying float vHue,vL,vNear,vM,vVis;
-mat3 rot(vec3 ax,float a){ float c=cos(a), s=sin(a), o=1.-c; return mat3(o*ax.x*ax.x+c,o*ax.x*ax.y+ax.z*s,o*ax.z*ax.x-ax.y*s, o*ax.x*ax.y-ax.z*s,o*ax.y*ax.y+c,o*ax.y*ax.z+ax.x*s, o*ax.z*ax.x+ax.y*s,o*ax.y*ax.z-ax.x*s,o*ax.z*ax.z+c); }
-void main(){ float T=aI.x, sd=aI.z, M=aI.w; int bi=int(floor(fract(sd*7.31)*11.99)); float L=uSpec[bi]; vL=L; vHue=aI.y; vM=M;
-  float dt=T-uCNow; vNear=exp(-dt*dt*3.); vVis=smoothstep(26.,18.,abs(dt));
-  vec3 p=position;
-  if(M<.5){ float a=uTime*(sd-.5)*1.4+L*.8; p.xy=mat2(cos(a),-sin(a),sin(a),cos(a))*p.xy; p*=1.+.12*L+.25*vNear; }        // gate: spins in its own plane, swells as you go through
-  else if(M<2.5){ vec3 ax=normalize(vec3(sd-.5,fract(sd*3.7)-.5,fract(sd*9.1)-.5)+.001); p=rot(ax,uTime*(.3+fract(sd*5.3))+sd*40.)*p*(1.+.35*L); }   // shards and solids tumble
-  vec4 w=modelMatrix*instanceMatrix*vec4(p,1.); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; if(vVis<.001) gl_Position=vec4(2.,2.,2.,1.); }`,
-  fragmentShader:`precision highp float; uniform float uTime,uPulse,uNeon; uniform vec3 uCam,uA,uB,uBands; varying vec3 vW; varying float vHue,vL,vNear,vM,vVis;
-${GLSL_COMMON}
-void main(){ float dist=length(vW-uCam); vec3 c=pal(vHue+uTime*.03);
-  float b;
-  if(vM<.5) b=.55+1.6*vL+2.2*vNear+.5*uPulse;                                             // gates flash as you pass
-  else if(vM<1.5) b=.28+1.5*vL*vL;                                                         // shards
-  else if(vM<2.5){ vec3 n=normalize(cross(dFdx(vW),dFdy(vW))); float f=abs(dot(n,normalize(uCam-vW))); b=(.1+.9*pow(1.-f,2.)+.35*f)*(.4+1.6*vL); c=mix(c,pal(vHue+.4+f*.5),.5); }   // solids: glowing edges, faceted
-  else { c=mix(vec3(1.,.2,.9),uA,.3); b=.3+.8*uPulse+2.*exp(-pow((vHue)*1.,2.)); }        // ties
-  gl_FragColor=vec4(c*b*exp(-dist*.0042)*vVis,1.); }`});
-const coastTieMat=new THREE.ShaderMaterial({uniforms:U,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,
-  vertexShader:`attribute float aT; uniform float uCNow; varying float vD; varying vec3 vW; void main(){ vD=aT-uCNow; vec4 w=modelMatrix*instanceMatrix*vec4(position,1.); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; if(abs(vD)>40.) gl_Position=vec4(2.,2.,2.,1.); }`,
-  fragmentShader:`precision highp float; uniform float uTime,uPulse; uniform vec3 uCam,uA,uBands; varying float vD; varying vec3 vW;
-void main(){ float dist=length(vW-uCam); vec3 c=mix(vec3(1.,.15,.95),uA,.25);
-  float chase=pow(.5+.5*sin(vD*9.-uTime*6.),6.)*(.4+1.4*uBands.y);                         // a chase of light down the ties with the mids
-  gl_FragColor=vec4(c*(.3+.6*uPulse+chase)*exp(-dist*.006),1.); }`});
-function coastFrame(tt,pos,d,u,r){ const C=COAST, f=clamp(tt*60,0,C.N-1.001), i=f|0, k=f-i, L=(a)=>a[i]+(a[i+1]-a[i])*k;
-  const ya=L(C.yaw), pi=L(C.pit), ro=L(C.rol), sy=Math.sin(ya), cy=Math.cos(ya), sp=Math.sin(pi), cp=Math.cos(pi);
-  pos.set(L(C.px),L(C.py),L(C.pz)); d.set(sy*cp,sp,-cy*cp); u.set(-sy*sp,cp,cy*sp); r.crossVectors(d,u);
-  const cr=Math.cos(ro), sr=Math.sin(ro), ux=u.x*cr+r.x*sr, uy=u.y*cr+r.y*sr, uz=u.z*cr+r.z*sr; r.set(r.x*cr-u.x*sr,r.y*cr-u.y*sr,r.z*cr-u.z*sr); u.set(ux,uy,uz); return L(C.vel); }
-function coastPlan(){
-  const C=COAST; C.A=A; while(C.grp.children.length){ const m=C.grp.children.pop(); m.geometry.dispose(); }
-  let sd=(A.F*2654435761)>>>0; const rnd=()=>((sd=(sd*1664525+1013904223)>>>0)/4294967296);
-  const nz=[]; for(let i=0;i<4096;i++) nz.push(rnd()); const noise=(x,o)=>{ const i=Math.floor(x), f=x-i, s=f*f*(3-2*f); return nz[(i+o)&4095]*(1-s)+nz[(i+1+o)&4095]*s; };
-  const dead=(v,a)=>Math.sign(v)*Math.max(0,Math.abs(v)-a)/(1-a), sst=(a,b,x)=>{ const t=clamp((x-a)/(b-a),0,1); return t*t*(3-2*t); };
-  const at=(arr,tt)=>arr[Math.min(arr.length-1,Math.max(0,Math.floor(tt*A.fps)))];
-  const N=C.N=Math.ceil(A.dur*60)+2, h=1/60; for(const k of ['px','py','pz','yaw','pit','rol','vel']) C[k]=new Float32Array(N);
-  const drops=A.drops.filter(td=>td>8&&td<A.dur-6), loops=drops.filter((_,i)=>i%2===0).map(td=>td+3.4);
-  const rolls=[]; { let last=-99; for(const b of A.beats){ if(b.s>.7&&at(A.inten,b.t)>.5&&b.t-last>9&&!drops.some(td=>b.t>td-7&&b.t<td+8)){ rolls.push(b.t); last=b.t; } } }
-  let x=0,y=0,z=0,yaw=0,yr=0,pb=0,v=40,es=.3,bank=0;
-  for(let i=0;i<N;i++){ const t=i*h; es+=(at(A.inten,t)-es)*h*1.2;
-    let pt=dead(noise(t*.11,0)*2-1,.25)*.55*(.5+es), vt=30+78*es, yt=dead(noise(t*.16,900)*2-1,.3)*1.25*(.35+es);
-    for(const td of drops){ if(t>td-6.5&&t<=td-.45){ pt=.62*sst(td-6.5,td-4.5,t); vt=20; yt*=.25; }            // lift hill: slow, steep, almost straight
-      else if(t>td-.45&&t<td+2.1){ pt=-1.22; vt=150; yt*=.3; } else if(t>=td+2.1&&t<td+3.3){ pt=.12; } }       // the drop, then the pull-out
-    let la=0, ra=0; for(const tl of loops){ if(t>tl-.2&&t<tl+3.6){ yt=0; vt=Math.max(vt,95); } la+=2*Math.PI*sst(tl,tl+3.4,t); }   // a vertical loop: pitch turns one full circle
-    for(const tr of rolls) ra+=2*Math.PI*sst(tr,tr+1.7,t)*(Math.floor(tr*7)%2?1:-1);                         // a barrel roll on a hard accent
-    pb+=(pt-pb)*h*(pt<-1?4.2:1.5); yr+=(yt-yr)*h*1.3; yaw+=yr*h;
-    v+=(-46*Math.sin(pb)+(vt-v)*.55)*h; v=clamp(v,13,185);
-    bank+=(clamp(yr*v*.014,-1.15,1.15)-bank)*h*2.5;
-    const pit=pb+la, cp=Math.cos(pit); x+=Math.sin(yaw)*cp*v*h; y+=Math.sin(pit)*v*h; z+=-Math.cos(yaw)*cp*v*h;
-    C.px[i]=x; C.py[i]=y; C.pz[i]=z; C.yaw[i]=yaw; C.pit[i]=pit; C.rol[i]=bank+ra; C.vel[i]=v; }
-  // rails: five ribbons
-  const P=new THREE.Vector3(), D=new THREE.Vector3(), Uu=new THREE.Vector3(), R=new THREE.Vector3();
-  { const RL=[[-1.5,0,.075,0],[1.5,0,.075,1],[-.75,-.28,.035,2],[0,-.34,.035,3],[.75,-.28,.035,4]], n=N-1, pos=new Float32Array(n*5*2*3), aT=new Float32Array(n*5*2), aK=new Float32Array(n*5*2), idx=new Uint32Array((n-1)*5*6); let ii=0;
-    for(let i=0;i<n;i++){ coastFrame(i*h,P,D,Uu,R); for(let k=0;k<5;k++){ const [ox,oy,hw,id]=RL[k], o=(k*n+i)*2;
-        for(let s=0;s<2;s++){ const w=ox+(s?hw:-hw); pos[(o+s)*3]=P.x+R.x*w+Uu.x*oy; pos[(o+s)*3+1]=P.y+R.y*w+Uu.y*oy; pos[(o+s)*3+2]=P.z+R.z*w+Uu.z*oy; aT[o+s]=i*h; aK[o+s]=id; }
-        if(i<n-1){ idx[ii++]=o; idx[ii++]=o+1; idx[ii++]=o+2; idx[ii++]=o+1; idx[ii++]=o+3; idx[ii++]=o+2; } } }
-    const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3)); g.setAttribute('aT',new THREE.BufferAttribute(aT,1)); g.setAttribute('aK',new THREE.BufferAttribute(aK,1)); g.setIndex(new THREE.BufferAttribute(idx,1));
-    const m=new THREE.Mesh(g,coastRailMat); m.frustumCulled=false; C.grp.add(m); }
-  const M4=new THREE.Matrix4(), S=new THREE.Vector3(), Q=new THREE.Vector3();
-  const inst=(geo,mat,list,attr)=>{ if(!list.length) return; const m=new THREE.InstancedMesh(geo,mat,list.length), a=new Float32Array(list.length*(attr==='aT'?1:4));
-    list.forEach((e,i)=>{ m.setMatrixAt(i,e.m); if(attr==='aT') a[i]=e.t; else a.set(e.a,i*4); }); geo.setAttribute(attr,new THREE.InstancedBufferAttribute(a,attr==='aT'?1:4)); m.frustumCulled=false; C.grp.add(m); };
-  const place=(tt,ox,oy,oz,sc)=>{ coastFrame(tt,P,D,Uu,R); Q.copy(P).addScaledVector(R,ox).addScaledVector(Uu,oy).addScaledVector(D,oz); return new THREE.Matrix4().makeBasis(R,Uu,D).scale(S.set(sc,sc,sc)).setPosition(Q); };
-  // ties, one every few metres
-  { const ties=[]; let acc=0; for(let i=1;i<N-1;i++){ acc+=C.vel[i]*h; if(acc>4.2){ acc=0; ties.push({m:place(i*h,0,-.42,0,1),t:i*h}); } } inst(new THREE.BoxGeometry(3.5,.1,.42),coastTieMat,ties,'aT'); }
-  // gates on the beats, tunnels of gates on the drops
-  const G=[[],[],[],[]], addGate=(tt,shape,hue,r0,nest)=>{ for(let k=0;k<nest;k++) G[shape].push({m:place(tt,0,1.2,0,r0*(1+k*.3)),a:[tt,hue+k*.03,rnd(),0]}); };
-  { let last=-9, n=0; for(const b of A.beats){ if(b.t<2||b.t>A.dur-1.5||b.t-last<.72||b.s<.3) continue; last=b.t; if(drops.some(td=>b.t>td-.3&&b.t<td+4.6)) continue; addGate(b.t,(n++*7+((b.t/11)|0))%4,rnd(),6.5+5*b.s,b.s>.7?5:3); }
-    for(const td of drops){ const sh=(rnd()*4)|0, h0=rnd(); for(let k=0;k<34;k++) addGate(td-.2+k*.13,(sh+((k/9)|0))%4,h0+k*.022,7+1.5*Math.sin(k*.7),1); } }
-  [3,4,6,56].forEach((seg,i)=>inst(new THREE.RingGeometry(.93,1,seg,1),coastObjMat,G[i],'aI'));
-  // shards drifting in the space around the track, and faceted solids near the accents
-  { const sh=[[],[]]; for(let i=0;i<1500;i++){ const tt=rnd()*A.dur, a=rnd()*6.283, rad=13+rnd()*rnd()*95; const m=place(tt,Math.cos(a)*rad,Math.sin(a)*rad,(rnd()-.5)*30,1.5+rnd()*rnd()*9); sh[i&1].push({m,a:[tt,rnd(),rnd(),1]}); }
-    inst(new THREE.CircleGeometry(1,3),coastObjMat,sh[0],'aI'); inst(new THREE.CircleGeometry(1,4),coastObjMat,sh[1],'aI');
-    const so=[[],[],[]]; let last=-9; for(const b of A.beats){ if(b.s<.5||b.t-last<1.4) continue; last=b.t; for(let k=0;k<2;k++){ const a=rnd()*6.283, rad=11+rnd()*26; so[(rnd()*3)|0].push({m:place(b.t+rnd()*.6,Math.cos(a)*rad,Math.sin(a)*rad,0,2.5+rnd()*5.5),a:[b.t,rnd(),rnd(),2]}); } }
-    inst(new THREE.IcosahedronGeometry(1,0),coastObjMat,so[0],'aI'); inst(new THREE.OctahedronGeometry(1,0),coastObjMat,so[1],'aI'); inst(new THREE.TorusKnotGeometry(.7,.22,48,5).toNonIndexed(),coastObjMat,so[2],'aI'); }
-}
-function coastStep(dt,t,on){ const C=COAST; C.on=on; C.grp.visible=on; if(!on) return; if(C.A!==A) coastPlan();
-  U.uCNow.value=t; const v=coastFrame(t,C.pos,C.d,C.u,C.r);
-  C.ly+=(ptrX*1.9-C.ly)*Math.min(1,dt*3.5); C.lp+=((ptrY-.42)*1.5-C.lp)*Math.min(1,dt*3.5);   // look around: eased, up to about 110 degrees each side
-  const cy=Math.cos(C.ly), sy=Math.sin(C.ly), cp=Math.cos(C.lp), sp=Math.sin(C.lp);
-  C.look.copy(C.d).multiplyScalar(cy*cp).addScaledVector(C.r,sy*cp).addScaledVector(C.u,sp);
-  fovOver=76+24*Math.min(1,v/170); }
-function coastCam(){ const C=COAST; camera.position.copy(C.pos).addScaledVector(C.u,1.55); camera.up.copy(C.u); lookAt.copy(camera.position).add(C.look); camera.lookAt(lookAt); U.uCam.value.copy(camera.position); }
+   Ported from coaster-lab.html (see HANDOFF.md, section 9). The track is laid out in space from the song with real physics: speed comes
+   only from height, curves are sized by g-force, each chain lift is timed so the crest falls on the song's drop. Everything lives inside
+   one closure with its own uniforms; it shares only the scene, the camera, the song analysis and the theme's two colours with the rest. */
+const COAST={on:false};
+const COASTER=((MU,scene,camera)=>{
+const G=14, DS=0.4;   /* gravity is stronger than real on purpose, so the drops bite */
+const world=new THREE.Group(); world.visible=false; scene.add(world);
+let RIDE=null;
+function buildRide(A){
+  let sd=1234567; const rnd=()=>((sd=(sd*1664525+1013904223)>>>0)/4294967296);
+  const T={X:[],Y:[],Z:[],YAW:[],PIT:[],ROL:[],V:[],T:[],GN:[]}, marks=[];
+  let x=0,y=0,z=0,yaw=0,pit=0,rolB=0,rolX=0,v=3,t=0,kpS=0,kyS=0, vc=8;
+  const at=(arr,tt)=>arr[clamp(Math.floor(tt*A.fps),0,A.F-1)];
+  function step(kp,ky,mode){ kpS+=(kp-kpS)*Math.min(1,DS/4.5); kyS+=(ky-kyS)*Math.min(1,DS/7);            // curvature changes over a few metres: no jerk
+    const gl=v*v*kyS/G; rolB+=(Math.atan(gl)*.95-rolB)*Math.min(1,DS/8);                                 // bank so the push goes down through the seat
+    pit+=kpS*DS; yaw+=kyS*DS; const cp=Math.cos(pit); x+=Math.sin(yaw)*cp*DS; y+=Math.sin(pit)*DS; z-=Math.cos(yaw)*cp*DS;
+    if(mode==='chain') v+=(vc-v)*Math.min(1,DS/3);
+    else if(mode==='brake') v=Math.sqrt(Math.max(vc*vc,v*v-2*7*DS));
+    else if(mode==='boost') v=Math.sqrt(v*v+2*9*DS);
+    else v=Math.sqrt(Math.max(6.25,v*v+2*(-G*Math.sin(pit)-(.012*G+.00016*v*v))*DS));                    // energy: height becomes speed, drag takes a little
+    t+=DS/v; const gn=(Math.cos(pit)+v*v*kpS/G)*Math.cos(rolB)+gl*Math.sin(rolB);
+    T.X.push(x);T.Y.push(y);T.Z.push(z);T.YAW.push(yaw);T.PIT.push(pit);T.ROL.push(rolB+rolX);T.V.push(v);T.T.push(t);T.GN.push(gn); }
+  const kFor=(Gt,dir,kmax)=>{ let k=(Gt-Math.cos(pit))*G/(v*v); k=dir>0?Math.max(k,1/70):Math.min(k,-1/70); return clamp(k,-kmax,kmax); };
+  function toPitch(target,Gt,mode,fixedK){ const dir=Math.sign(target-pit); let n=0; while((target-pit)*dir>0&&n++<6000) step(fixedK?dir*fixedK:kFor(Gt,dir,1/9),0,mode); }
+  function hold(p,len,mode,ky){ for(let s=0;s<len;s+=DS) step((p-pit)*.07,ky||0,mode); }
+  function hill(th){ toPitch(th,3.5); toPitch(-th,.02); toPitch(0,3.6); hold(0,4); }                      // pull up, float over the top, pull out
+  function turn(ang,gl,sg,p){ const y0=yaw; let n=0; while(Math.abs(yaw-y0)<ang&&n++<6000) step(((p||0)-pit)*.07,sg*Math.min(gl*G/(v*v),1/13)); hold(0,10); }
+  function loop(){ const p0=pit; let n=0; while(pit<p0+6.283-.04&&n++<6000){ const Gt=2.9+1.8*Math.cos(pit); step(clamp(Math.max((Gt-Math.cos(pit))*G/(v*v),1/45),0,1/7),.005); } pit-=6.283; kyS=0; hold(0,8); }   // tighter at the top, where it is slow: a teardrop
+  function corkscrew(){ const L=clamp(v*2.3,38,85), dir=rnd()<.5?1:-1; for(let s=0;s<L;s+=DS){ const u=s/L; rolX=dir*6.283*u*u*(3-2*u); step((0-pit)*.07,0); } rolX=0; hold(0,6); }
+  function boost(vt){ let n=0; while(v<vt&&n++<3000) step((0-pit)*.07,0,'boost'); }
+  function liftAndDrop(td){ const avail=td-t, H=clamp((avail-4)*6.5,26,92), steep=1.28+.15*rnd(), yBase=y-rnd()*10;
+    const save=()=>({x,y,z,yaw,pit,rolB,rolX,v,t,kpS,kyS,n:T.X.length}), load=s=>{ ({x,y,z,yaw,pit,rolB,rolX,v,t,kpS,kyS}=s); for(const k in T) T[k].length=s.n; };
+    const s0=save(); vc=clamp(H/.574/Math.max(4,avail-3),3,16); let i0=0,i1=0;
+    for(let it=0;it<5;it++){ load(s0); toPitch(0,2.5); const tb0=t; let n=0; while(v>vc+.4&&n++<3000) step((0-pit)*.07,0,'brake'); if(v<vc-.5) boost(vc);
+      const tA=t; i0=T.X.length; const yTop=y+H; toPitch(.61,0,'chain',1/20); n=0; while(y<yTop-3&&n++<6000) step((.61-pit)*.07,0,'chain'); i1=T.X.length;
+      toPitch(-.52,.12); const err=t-td, Tc=t-tA; if(Math.abs(err)<.03) break; vc=clamp(vc*Tc/Math.max(1,Tc-err),2.5,17); }   // solve the chain speed so the crest falls on the drop
+    marks.push({lift:[i0,i1],td,at:t});
+    toPitch(-steep,.1); let n=0; while(n++<4000){ const vb=Math.sqrt(v*v+2*G*Math.max(0,y-yBase)), R=vb*vb/(3.5*G); if(y-yBase<=R*(1-Math.cos(steep))) break; step((-steep-pit)*.07,0); }
+    toPitch(0,4); hold(0,5); }
+  let sg=1, lastLoop=-99, lastHill=false;
+  function pick(){ const e=at(A.inten,t), r=rnd(); if(v<11) boost(21);
+    if(v>27&&e>.5&&t-lastLoop>14&&r<.4){ lastLoop=t; loop(); }
+    else if(e>.55&&v>19&&r<.55) corkscrew();
+    else if(!lastHill&&r<.8){ hill(Math.min(.82,.22+v/62)); lastHill=true; return; }
+    else { sg=-sg; rnd()<.25&&v>20?turn(6.283*1.25,2.6+1.2*e,sg,-.1):turn(1.3+2.2*rnd(),2+1.7*e,sg); }
+    lastHill=false; }
+  hold(0,8); const drops=A.drops.filter(d=>d>7);
+  for(const td of drops){ let n=0; while(td-t>15&&n++<200) pick(); liftAndDrop(td); }
+  { let n=0; while(t<A.dur-2&&n++<400) pick(); }
+  // A loop ends with pitch 2π further on, and a corkscrew with roll 2π further on. The generator resets those to zero, which is the same direction
+  // but a jump in the stored number; anything that blends between two samples across that jump would swing through a full turn. So make them continuous.
+  let jumps=0; for(const k of ['PIT','ROL','YAW']){ const a=T[k]; let o=0; for(let i=1;i<a.length;i++){ const d=a[i]+o-a[i-1]; if(d>3.1416){ o-=6.283185307; jumps++; } else if(d<-3.1416){ o+=6.283185307; jumps++; } a[i]+=o; } }
+  const N=T.X.length, R={N,marks,A}; for(const k in T) R[k]=Float32Array.from(T[k]);
+  R.report={jumpsFixed:jumps,metres:Math.round(N*DS),vmax:Math.max(...T.V)*3.6|0,gmax:+Math.max(...T.GN).toFixed(2),gmin:+Math.min(...T.GN).toFixed(2),drops:marks.map(m=>({song:+m.td.toFixed(2),ride:+m.at.toFixed(2)}))};
+  return R; }
+function idxAt(R,tt){ let lo=0, hi=R.N-1; while(lo<hi){ const m=(lo+hi)>>1; if(R.T[m]<tt) lo=m+1; else hi=m; } const i=Math.max(1,lo), k=clamp((tt-R.T[i-1])/Math.max(1e-6,R.T[i]-R.T[i-1]),0,1); return i-1+k; }
+function frameAt(R,f,pos,d,u,r){ f=clamp(f,0,R.N-1.001); const i=f|0, k=f-i, L=a=>a[i]+(a[i+1]-a[i])*k, ya=L(R.YAW), pi=L(R.PIT), ro=L(R.ROL), sy=Math.sin(ya), cy=Math.cos(ya), sp=Math.sin(pi), cp=Math.cos(pi);
+  pos.set(L(R.X),L(R.Y),L(R.Z)); d.set(sy*cp,sp,-cy*cp); u.set(-sy*sp,cp,cy*sp); r.crossVectors(d,u);
+  const cr=Math.cos(ro), sr=Math.sin(ro), ux=u.x*cr+r.x*sr, uy=u.y*cr+r.y*sr, uz=u.z*cr+r.z*sr; r.set(r.x*cr-u.x*sr,r.y*cr-u.y*sr,r.z*cr-u.z*sr); u.set(ux,uy,uz); }
+
+const U={uVel:{value:new THREE.Vector3()},uSpd:{value:0},uSeaY:{value:0},uRip:{value:[0,1,2,3,4,5].map(()=>new THREE.Vector3(0,0,-99))},uSwC:{value:new THREE.Vector3()},uSwR:{value:new THREE.Vector3(1,0,0)},uSwU:{value:new THREE.Vector3(0,1,0)},uSwD:{value:new THREE.Vector3(0,0,1)},uSwOn:{value:0},uPx:{value:600},uSpA:{value:0},uSpB:{value:0},uSpC:{value:0},uTime:{value:0},uCam:{value:new THREE.Vector3()},uBass:{value:0},uBeat:{value:0},uInt:{value:0},uNow:{value:0}};
+const PAL='vec3 pal(float t){ return .5+.5*cos(6.28318*(t+vec3(0.,.33,.67))); }';
+function trackMat(col,em,run,neon,hue){ return new THREE.ShaderMaterial({uniforms:Object.assign({uCol:{value:new THREE.Color(col)},uEm:{value:em},uRun:{value:run||0},uNe:{value:neon||0},uHue:{value:hue||0}},U),
+  vertexShader:`varying vec3 vW,vN; void main(){ vec4 w=vec4(position,1.); vec3 n=normal;
+#ifdef USE_INSTANCING
+  w=instanceMatrix*w; n=mat3(instanceMatrix)*n;
+#endif
+  w=modelMatrix*w; vW=w.xyz; vN=n; gl_Position=projectionMatrix*viewMatrix*w; }`,
+  fragmentShader:`precision highp float; uniform vec3 uCol,uCam,uA,uB; uniform float uEm,uRun,uNe,uHue,uTime,uBass,uBeat; varying vec3 vW,vN;
+${PAL}
+void main(){ vec3 n=normalize(vN), V=normalize(uCam-vW); float dist=length(uCam-vW), dif=max(dot(n,normalize(vec3(.3,.85,.4))),0.), rim=pow(1.-abs(dot(n,V)),2.5);
+  float run=uRun*pow(.5+.5*sin(dist*.22-uTime*7.),8.)*(.4+1.6*uBass);                                      // light running away along the rails with the bass
+  vec3 base=mix(uCol,mix(pal(dist*.011-uTime*.12),vec3(1.),.35),uNe); base=mix(base,mix(uA,uB,.5+.5*sin(uTime*.3)),uHue);   // the connectors drift slowly through the colours, all together                                      // neon lines: colour flows along the track
+  vec3 c=base*(.1+.5*dif+.7*rim)*(1.-uNe)+base*uEm*mix(1.+.5*uBeat+run,.5+1.5*uBeat+.6*uBass+run,step(.01,uNe));   // the neon lines breathe with the beat
+  gl_FragColor=vec4(c*exp(-dist*.0055),1.); }`}); }
+const objMat=new THREE.ShaderMaterial({uniforms:U,extensions:{derivatives:true},
+  vertexShader:`attribute vec4 aI; uniform float uTime,uNow,uBeat,uBass,uSpA,uSpB,uSpC; varying vec3 vW; varying float vHue,vNear,vM;
+mat3 rot(vec3 a,float g){ float c=cos(g), s=sin(g), o=1.-c; return mat3(o*a.x*a.x+c,o*a.x*a.y+a.z*s,o*a.z*a.x-a.y*s, o*a.x*a.y-a.z*s,o*a.y*a.y+c,o*a.y*a.z+a.x*s, o*a.z*a.x+a.y*s,o*a.y*a.z-a.x*s,o*a.z*a.z+c); }
+void main(){ float dt=aI.x-uNow, sd=aI.z; vHue=aI.y; vM=aI.w; vNear=exp(-dt*dt*4.); vec3 p=position;
+  if(vM<.5){ float k=floor(sd), gs=fract(sd), lag=k/9.;                                                  // gates are wheels: always turning, pushed faster by each beat, and each one in a series hears the push a little later
+    float a=(lag<.5?mix(uSpA,uSpB,lag*2.):mix(uSpB,uSpC,lag*2.-1.))*(gs<.5?1.:-1.)+gs*6.283+k*.35;
+    p.xy=mat2(cos(a),-sin(a),sin(a),cos(a))*p.xy; p.xy*=1.+.07*sin(uTime*1.6-k*.5)+.16*vNear; }      // a gate turns slowly in its own plane
+  else p=rot(normalize(vec3(sd-.5,fract(sd*3.7)-.5,fract(sd*9.1)-.5)+.001),uTime*(.2+.5*fract(sd*5.3))+sd*40.)*p*(1.+.22*uBass);   // a solid tumbles and breathes with the bass
+  vec4 w=modelMatrix*instanceMatrix*vec4(p,1.); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; if(abs(dt)>30.) gl_Position=vec4(2.,2.,2.,1.); }`,
+  fragmentShader:`precision highp float; uniform vec3 uCam; uniform float uTime,uBeat,uBass; varying vec3 vW; varying float vHue,vNear,vM;
+${PAL}
+void main(){ vec3 n=normalize(cross(dFdx(vW),dFdy(vW))), V=normalize(uCam-vW); float dist=length(uCam-vW), f=abs(dot(n,V)), dif=max(dot(n,normalize(vec3(.3,.85,.4))),0.);
+  vec3 c=pal(vHue+uTime*.02), c2=pal(vHue+.35);
+  vec3 col=c*(.12+.5*dif)+mix(c,c2,.5)*pow(1.-f,2.)*1.3+c*(vM<.5?(.22+.8*vNear+1.5*uBeat+.5*uBass)*smoothstep(1.,7.,dist)*.8+.05:(.12+.9*uBass+.6*uBeat));   // a gate dims as it reaches your face, so it does not flood the picture  // lit faces, glowing edges; gates flare as you pass through
+  gl_FragColor=vec4(col*exp(-dist*.005),1.); }`});
+const ADD={transparent:true,depthWrite:false,blending:THREE.AdditiveBlending};
+function tunMat(st){ return new THREE.ShaderMaterial({side:THREE.DoubleSide,transparent:true,uniforms:Object.assign({uSt:{value:st},uIn:{value:0}},U),   // fully opaque: the wall hides the track and the other tunnels beyond it
+  vertexShader:`attribute vec2 aUV; attribute float aE; attribute vec3 aN; varying vec2 vUV; varying float vE; varying vec3 vW,vN; void main(){ vUV=aUV; vE=aE; vN=aN; vW=position; gl_Position=projectionMatrix*viewMatrix*vec4(position,1.); }`,
+  fragmentShader:`precision highp float; uniform float uSt,uIn,uTime,uBeat,uBass; uniform vec3 uCam; varying vec2 vUV; varying float vE; varying vec3 vW,vN;
+${PAL}
+float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+void main(){ float u=vUV.x, z=vUV.y, dist=length(vW-uCam); vec3 c;
+  if(uSt<.5){ vec2 g=vec2((u+uTime*.012)*26.,z/1.5); g.y+=hash(vec2(mod(floor(g.x),26.),1.))*7.; vec2 id=floor(g), f=fract(g)-.5; id.x=mod(id.x,26.); float h=hash(id), r=.08+.3*h*h, d=length(f);      // glowing motes, scattered
+    c=pal(h*3.+uTime*.05)*step(.45,hash(id+3.))*((1.-smoothstep(r*.6,r,d))+exp(-d*d/(r*r*2.))*(.3+3.2*uBeat)*smoothstep(.5,.24,d)); }   // the glow dies away in a circle well inside its cell, so no square edge can show
+  else if(uSt<1.5){ float k=fract(u*5.+z*.06-uTime*.15), w=.42+.2*uBass; c=pal(z*.012+u-uTime*.1)*step(k,w); }                                              // spiral bands
+  else if(uSt<2.5){ float a=u*6.28318, n=sin(a*3.+sin(z*.25+uTime*.5)*2.)+sin(z*.3+sin(a*2.-uTime*.4)*2.), k=fract(n*1.5+uTime*.3); c=pal(n*.2+z*.006-uTime*.05)*smoothstep(0.,.08,k)*smoothstep(.6,.5,k); }   // liquid contours
+  else { vec2 g=vec2(u*90.,z/.45); g.y+=hash(vec2(floor(g.x),2.))*5.; vec2 id=floor(g), f=fract(g)-.5; float h=hash(id), r=.12+.3*h;                         // a dust of fine particles
+    c=pal(h*5.+z*.004-uTime*.06)*step(.6,hash(id+9.))*(1.-smoothstep(r*.5,r,length(f)))*(.5+.5*sin(uTime*3.+h*60.)+3.*uBeat*step(.5,h)); }
+  vec3 lit=c*(.35+1.8*uBeat+.9*uBass)*smoothstep(0.,.05,vE)*smoothstep(1.,.95,vE)*exp(-dist*.006);
+  vec3 shell=vec3(.006,.005,.014)+pal(z*.01)*.022*step(.93,fract(z/5.));                                   // from outside: a dark tube with faint hoops, nothing given away
+  float inner=step(dot(vN,uCam-vW),0.);                                                                    // are we looking at the inside of the wall?
+  vec3 col=mix(shell,(lit+vec3(.004,.003,.008))*(.6+.4*uIn),inner);                                        // the projection always runs on the inside; it comes up to full strength as you ride in
+  float al=smoothstep(0.,.11,vE)*smoothstep(1.,.89,vE); if(al<.02) discard; gl_FragColor=vec4(col,al); }`}); }   // solid along its length; only the first and last metres dissolve, so the mouth has a soft edge   // dark wall lets 30% of what is behind it through; where the projection is bright the wall is solid colour
+const PT_FRAG=`precision highp float; varying vec3 vC; void main(){ float d=length(gl_PointCoord-.5); if(d>.5) discard; gl_FragColor=vec4(vC*(smoothstep(.5,.15,d)+.8*smoothstep(.2,0.,d)),1.); }`;
+const fieldMat=new THREE.ShaderMaterial(Object.assign({uniforms:U,
+  vertexShader:`attribute float aS; uniform float uTime,uBeat,uBass,uPx; varying vec3 vC;
+${PAL}
+void main(){ vec4 mv=modelViewMatrix*vec4(position,1.); gl_Position=projectionMatrix*mv; float d=-mv.z, tw=.5+.5*sin(uTime*3.+aS*90.);
+  gl_PointSize=clamp(uPx*(.05+.3*aS*aS*aS)*(1.+.6*uBeat)/max(d,.3),1.,70.); vC=pal(aS*4.+uTime*.06)*(.25+.5*tw+1.4*uBeat*step(.5,fract(aS*7.))+.5*uBass)*exp(-d*.012)*smoothstep(.3,2.,d); }`,fragmentShader:PT_FRAG},ADD));
+const fireMat=new THREE.ShaderMaterial(Object.assign({uniforms:U,
+  vertexShader:`attribute vec3 aDir; attribute vec2 aT; attribute float aH; uniform float uNow,uPx; varying vec3 vC;
+${PAL}
+void main(){ float age=uNow-aT.x-aT.y, L=4.6; vec3 p=position+aDir*(1.-exp(-age*2.1))-vec3(0.,1.,0.)*age*age*.55;            // fast out, slowing, then drooping
+  vec4 mv=modelViewMatrix*vec4(p,1.); gl_Position=projectionMatrix*mv; float d=-mv.z, k=clamp(1.-age/L,0.,1.), head=1.-aT.y*12.;
+  gl_PointSize=clamp(uPx*(.07+.16*head)*k/max(d,.3),1.,60.);
+  vC=mix(pal(aH),vec3(1.,.95,.8),exp(-age*5.))*(.4+1.6*head)*k*(.7+.3*sin(age*40.+aH*50.))*exp(-d*.006)*smoothstep(.3,1.5,d);
+  if(age<0.||age>L) gl_Position=vec4(2.,2.,2.,1.); }`,fragmentShader:PT_FRAG},ADD));
+function sweep(R,offs,every,radial){ const rings=Math.floor((R.N-1)/every), nv=rings*radial*offs.length, pos=new Float32Array(nv*3), nor=new Float32Array(nv*3), idx=new Uint32Array((rings-1)*radial*6*offs.length);
+  const P=new THREE.Vector3(), D=new THREE.Vector3(), Uu=new THREE.Vector3(), Rr=new THREE.Vector3(); let ii=0;
+  offs.forEach(([ox,oy,rad],k)=>{ const base=k*rings*radial; for(let j=0;j<rings;j++){ frameAt(R,j*every,P,D,Uu,Rr); for(let a=0;a<radial;a++){ const an=a/radial*6.283, cx=Math.cos(an), sy=Math.sin(an), o=(base+j*radial+a)*3;
+        const nx=Rr.x*cx+Uu.x*sy, ny=Rr.y*cx+Uu.y*sy, nz=Rr.z*cx+Uu.z*sy; nor[o]=nx; nor[o+1]=ny; nor[o+2]=nz;
+        pos[o]=P.x+Rr.x*ox+Uu.x*oy+nx*rad; pos[o+1]=P.y+Rr.y*ox+Uu.y*oy+ny*rad; pos[o+2]=P.z+Rr.z*ox+Uu.z*oy+nz*rad;
+        if(j<rings-1){ const p0=base+j*radial+a, p1=base+j*radial+(a+1)%radial, q0=p0+radial, q1=p1+radial; idx[ii++]=p0; idx[ii++]=q0; idx[ii++]=p1; idx[ii++]=p1; idx[ii++]=q0; idx[ii++]=q1; } } } });
+  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3)); g.setAttribute('normal',new THREE.BufferAttribute(nor,3)); g.setIndex(new THREE.BufferAttribute(idx,1)); return g; }
+function buildWorld(R){ while(world.children.length){ const m=world.children.pop(); m.geometry.dispose(); }
+  { let mn=1e9; for(let i=0;i<R.N;i++) mn=Math.min(mn,R.Y[i]); sea.position.y=mn-8; }   // deep enough that no tunnel can dip into it
+  const add=m=>{ m.frustumCulled=false; world.add(m); return m; };
+  add(new THREE.Mesh(sweep(R,[[-.62,0,.085],[.62,0,.085]],2,6),trackMat(0x12262e,.05,0)));               // two running rails: dark bodies
+  add(new THREE.Mesh(sweep(R,[[-.2,-.52,.125],[.2,-.52,.125]],3,7),trackMat(0x1c1038,.06,0)));                               // two spines underneath
+  add(new THREE.Mesh(sweep(R,[[-.69,.062,.019],[-.55,.062,.019],[.55,.062,.019],[.69,.062,.019],[-.26,-.41,.016],[-.14,-.41,.016],[.14,-.41,.016],[.26,-.41,.016]],2,5),trackMat(0xd8f6ff,1.15,1,.55)));   // neon lines running along both rails and the spine
+  const P=new THREE.Vector3(), D=new THREE.Vector3(), Uu=new THREE.Vector3(), Rr=new THREE.Vector3(), B=new THREE.Matrix4(), M=new THREE.Matrix4(), S=new THREE.Vector3(), Q=new THREE.Quaternion(), E=new THREE.Euler();
+  // the connector: a yoke that hangs from one rail, wraps under the spine and comes up to the other rail, drawn as an open frame
+  const YK=[], local=[]; for(let q=0;q<=14;q++){ const a=q/14*Math.PI; YK.push([-.62*Math.cos(a),-.1-.74*Math.pow(Math.sin(a),.8)]); }   // one smooth curve from under one rail, round beneath both spines, up to the other rail
+  for(let k=0;k<YK.length-1;k++){ const a=YK[k], b=YK[k+1], dx=b[0]-a[0], dy=b[1]-a[1]; local.push(new THREE.Matrix4().compose(new THREE.Vector3((a[0]+b[0])/2,(a[1]+b[1])/2,0),new THREE.Quaternion().setFromEuler(E.set(0,0,Math.atan2(dy,dx))),new THREE.Vector3(Math.hypot(dx,dy)+.012,.045,.1))); }
+  const nt=Math.floor((R.N-1)/6), ties=add(new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),trackMat(0xff2fd0,.75,0,0,1),nt*local.length));   // one every 2.4 m
+  for(let j=0;j<nt;j++){ frameAt(R,j*6,P,D,Uu,Rr); B.makeBasis(Rr,Uu,D).setPosition(P); for(let k=0;k<local.length;k++) ties.setMatrixAt(j*local.length+k,M.multiplyMatrices(B,local[k])); }
+  // what you ride through and past: only on the big moments, and all of it solid
+  let sd=99; const rnd=()=>((sd=(sd*1664525+1013904223)>>>0)/4294967296), A=R.A;
+  const place=(tt,ox,oy,sc,dz)=>{ frameAt(R,idxAt(R,tt),P,D,Uu,Rr); return new THREE.Matrix4().makeBasis(Rr,Uu,D).scale(S.set(sc,sc,sc*(dz||1))).setPosition(P.clone().addScaledVector(Rr,ox).addScaledVector(Uu,oy)); };
+  const gates=[[],[],[],[],[]], solids=[[],[],[],[]], TUNLEN=8;
+  // A tunnel is only built where its tube stays well clear of every other part of the track (14 m: its own 6.5 m, another tunnel's 6.5 m, and a margin).
+  // Otherwise a dark wall would cut across the rails somewhere else on the ride, or two tunnels would run into each other.
+  const tubeClear=ts=>{ const i0=Math.floor(idxAt(R,ts)), i1=Math.floor(idxAt(R,ts+TUNLEN)); for(let j=i0;j<=i1;j+=6){ const x=R.X[j], y=R.Y[j], z=R.Z[j]; for(let k=0;k<R.N;k+=8){ if(k>i0-90&&k<i1+90) continue; const dx=R.X[k]-x, dy=R.Y[k]-y, dz=R.Z[k]-z; if(dx*dx+dy*dy+dz*dz<196) return false; } } return true; };
+  const stretches=[]; { let last=-99; for(let tt=6;tt<A.dur-10;tt+=1){ if(tt-last<12||R.marks.some(m=>tt>m.td-13&&tt<m.td+5)||!tubeClear(tt)) continue; stretches.push(tt); last=tt; } }
+
+  const series=(t0,n,gap,shape,hue,r0)=>{ const ph=rnd()*.98; for(let k=0;k<n;k++){ const tt=t0+k*gap; gates[shape].push({m:place(tt,0,.7,r0*(1+.035*k),4),a:[tt,hue+k*.045,k+ph,0]}); } };   // a run of gates, each one a beat behind the one before it
+  for(const m of R.marks) series(m.td+.2,18,.17,((m.td*3)|0)%5,(m.td*.13)%1,3.3);                        // ten down each drop
+  { const strong=A.beats.filter(b=>b.s>.3); let last=-9;
+    for(const b of strong){ if(b.t-last<2.6||b.t<3||R.marks.some(m=>b.t>m.td-6.5&&b.t<m.td+3.6)||stretches.some(ts=>b.t>ts-1.2&&b.t<ts+TUNLEN+1.2)) continue;   /* either a tunnel or shapes, never both */ last=b.t; series(b.t,9,.1,(rnd()*5)|0,rnd(),3+.8*rnd()); } }
+  const clear=(m,need)=>{ const e=m.elements; for(let j=0;j<R.N;j+=8){ const dx=R.X[j]-e[12], dy=R.Y[j]-e[13], dz=R.Z[j]-e[14]; if(dx*dx+dy*dy+dz*dz<need*need) return false; } return true; };   // nothing may sit on or close to any part of the track
+  for(let tt=4;tt<A.dur-2;tt+=4.5+rnd()*4){ if(stretches.some(ts=>tt>ts-1.5&&tt<ts+TUNLEN+1.5)) continue;   /* nothing floats where a tunnel is */ for(let tr=0;tr<6;tr++){ const a=rnd()*6.283, rad=8+rnd()*17, sc=2.2+rnd()*4.5, m=place(tt,Math.cos(a)*rad,Math.sin(a)*rad,sc); if(clear(m,sc+4.5)){ solids[(rnd()*4)|0].push({m,a:[tt,rnd(),rnd(),1]}); break; } } }
+  const inst=(geo,list)=>{ if(!list.length) return; const m=add(new THREE.InstancedMesh(geo,objMat,list.length)), a=new Float32Array(list.length*4); list.forEach((e,i)=>{ m.setMatrixAt(i,e.m); a.set(e.a,i*4); }); geo.setAttribute('aI',new THREE.InstancedBufferAttribute(a,4)); };
+  [3,4,5,6,40].forEach((seg,i)=>inst(new THREE.TorusGeometry(1,.055,6,seg),gates[i]));                     // each is stretched along the track, so it reads as a deep frame, not a hoop                     // gates are tubes bent into a triangle, square, hexagon or ring
+  [new THREE.IcosahedronGeometry(1,0),new THREE.OctahedronGeometry(1,0),new THREE.DodecahedronGeometry(1,0),new THREE.TorusKnotGeometry(.7,.24,60,6)].forEach((g,i)=>inst(g,solids[i]));
+  // ---- long tunnels and particle fields: stretches of track between the drops, alternating ----
+  const tunT=[], fieldPos=[], fieldS=[]; R.tun=[];
+  stretches.forEach((ts,k)=>{ const i0=Math.floor(idxAt(R,ts)), i1=Math.floor(idxAt(R,ts+TUNLEN));
+    { tunT.push(ts); const every=3, rings=Math.floor((i1-i0)/every), radial=28, nv=rings*(radial+1), pos=new Float32Array(nv*3), nrm=new Float32Array(nv*3), uv=new Float32Array(nv*2), ee=new Float32Array(nv), idx=new Uint32Array((rings-1)*radial*6); let ii=0;
+      for(let j=0;j<rings;j++){ frameAt(R,i0+j*every,P,D,Uu,Rr); P.addScaledVector(Uu,.6);
+        { const ro=R.ROL[i0+j*every], c=Math.cos(ro), sn=Math.sin(ro), ux=Uu.x*c-Rr.x*sn, uy=Uu.y*c-Rr.y*sn, uz=Uu.z*c-Rr.z*sn; Rr.set(Rr.x*c+Uu.x*sn,Rr.y*c+Uu.y*sn,Rr.z*c+Uu.z*sn); Uu.set(ux,uy,uz); }   // take the track's bank and roll out of the wall: when the train banks or corkscrews, the pattern turns round you
+        for(let a=0;a<=radial;a++){ const an=a/radial*6.283, cx=Math.cos(an)*6.5, sy=Math.sin(an)*6.5, o=j*(radial+1)+a;
+          pos[o*3]=P.x+Rr.x*cx+Uu.x*sy; pos[o*3+1]=P.y+Rr.y*cx+Uu.y*sy; pos[o*3+2]=P.z+Rr.z*cx+Uu.z*sy; nrm[o*3]=(Rr.x*cx+Uu.x*sy)/6.5; nrm[o*3+1]=(Rr.y*cx+Uu.y*sy)/6.5; nrm[o*3+2]=(Rr.z*cx+Uu.z*sy)/6.5; uv[o*2]=a/radial; uv[o*2+1]=j*every*DS; ee[o]=j/(rings-1);
+          if(j<rings-1&&a<radial){ const q=o+radial+1; idx[ii++]=o; idx[ii++]=q; idx[ii++]=o+1; idx[ii++]=o+1; idx[ii++]=q; idx[ii++]=q+1; } } }
+      const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3)); g.setAttribute('aUV',new THREE.BufferAttribute(uv,2)); g.setAttribute('aN',new THREE.BufferAttribute(nrm,3)); g.setAttribute('aE',new THREE.BufferAttribute(ee,1)); g.setIndex(new THREE.BufferAttribute(idx,1));
+      const mat=tunMat(k%4); add(new THREE.Mesh(g,mat)); R.tun.push({t0:ts,t1:ts+TUNLEN,mat}); }
+  });
+  if(fieldS.length){ const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(Float32Array.from(fieldPos),3)); g.setAttribute('aS',new THREE.BufferAttribute(Float32Array.from(fieldS),1)); add(new THREE.Points(g,fieldMat)); }
+  // ---- chrysanthemum fireworks: each bursts on a strong beat, a little way ahead on the track, so you fly through the open flower ----
+  const bT=[], fc=[], fd=[], ft=[], fh=[];
+  const burst=(tb,scale,side)=>{ bT.push(tb); frameAt(R,idxAt(R,tb+1.3),P,D,Uu,Rr); const lat=side*(4+rnd()*5), up=7+rnd()*4, cx=P.x+Rr.x*lat+Uu.x*up, cy=P.y+Rr.y*lat+Uu.y*up, cz=P.z+Rr.z*lat+Uu.z*up, hue=rnd();   // close: just above the track and a little to one side of where the train will be shortly, so you ride under the open flower
+    for(let r=0;r<190;r++){ const c=rnd()*2-1, a=rnd()*6.283, sn=Math.sqrt(1-c*c), inner=r%4===0, sp=scale*(inner?.42:.85+.3*rnd());
+      for(let l=0;l<4;l++){ fc.push(cx,cy,cz); fd.push(sn*Math.cos(a)*sp,c*sp,sn*Math.sin(a)*sp); ft.push(tb,l*.05); fh.push(inner?hue+.5:hue+(rnd()-.5)*.08); } } };   // every ray is four points, each a moment behind the last: a trail
+  const FIREWORKS=true;
+  if(FIREWORKS){ const dts=[]; for(let i=1;i<A.beats.length;i++){ const d=A.beats[i].t-A.beats[i-1].t; if(d>.28&&d<.8) dts.push(d); } dts.sort((a,b)=>a-b);
+    const spb=dts.length?dts[dts.length>>1]:.5, gap=spb*32; let last=-gap*.6, n=0, sd2=1;                 // at least eight bars between events
+    for(const b of A.beats){ if(b.s<.45||b.t<4||b.t-last<gap||b.t>A.dur-5||stretches.some(ts=>b.t+3.5>ts&&b.t<ts+TUNLEN+.5)) continue; last=b.t;   /* never fired where a tunnel would hide it: it waits for the next strong beat in the open */ sd2=-sd2;
+      if(++n%3===0) for(let k=0;k<3;k++) burst(b.t+k*spb,9+2*k,k%2?-sd2:sd2);                             // now and then, three in a row on three beats, on alternate sides
+      else burst(b.t,10+4*b.s,sd2); } }
+  if(ft.length){ const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(Float32Array.from(fc),3)); g.setAttribute('aDir',new THREE.BufferAttribute(Float32Array.from(fd),3)); g.setAttribute('aT',new THREE.BufferAttribute(Float32Array.from(ft),2)); g.setAttribute('aH',new THREE.BufferAttribute(Float32Array.from(fh),1)); add(new THREE.Points(g,fireMat)); }
+  R.fx={tunnels:tunT,bursts:bT.sort((a,b)=>a-b),fieldPoints:fieldS.length};
+  R.objects={gates:gates.reduce((s,g)=>s+g.length,0),solids:solids.reduce((s,g)=>s+g.length,0)}; }
+/* speed streaks: fine lines fixed in space around you, drawn out along your direction of travel; they appear as you pick up speed */
+const streaks=(()=>{ const n=420, p=new Float32Array(n*6), e=new Float32Array(n*2); let sd=11; const rnd=()=>((sd=(sd*1664525+1013904223)>>>0)/4294967296);
+  for(let i=0;i<n;i++){ const x=rnd(),y=rnd(),z=rnd(); p.set([x,y,z,x,y,z],i*6); e[i*2+1]=1; }
+  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(p,3)); g.setAttribute('aEnd',new THREE.BufferAttribute(e,1));
+  const m=new THREE.LineSegments(g,new THREE.ShaderMaterial(Object.assign({uniforms:U,
+    vertexShader:`attribute float aEnd; uniform vec3 uCam,uVel; uniform float uSpd; varying float vA;
+void main(){ vec3 rel=mod(position*40.-uCam+20.,40.)-20.; float r=length(rel); vec3 w=uCam+rel+normalize(uVel+vec3(1e-4))*aEnd*clamp((uSpd-14.)*.16,0.,5.5);
+  vA=(1.-aEnd)*smoothstep(16.,38.,uSpd)*smoothstep(20.,12.,r)*smoothstep(1.2,4.,r); gl_Position=projectionMatrix*viewMatrix*vec4(w,1.); }`,
+    fragmentShader:`precision highp float; varying float vA; void main(){ gl_FragColor=vec4(vec3(.75,.9,1.)*vA*.9,1.); }`},ADD))); m.frustumCulled=false; scene.add(m); return m; })();
+/* the swarm: a flock of lights that flies with you, weaving from side to side and over the track, drawing together on every beat */
+const swarm=(()=>{ const n=2600, p=new Float32Array(n*3), a=new Float32Array(n*4); let sd=21; const rnd=()=>((sd=(sd*1664525+1013904223)>>>0)/4294967296); for(let i=0;i<n*4;i++) a[i]=rnd();
+  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(p,3)); g.setAttribute('aS',new THREE.BufferAttribute(a,4));
+  const m=new THREE.Points(g,new THREE.ShaderMaterial(Object.assign({uniforms:U,
+    vertexShader:`attribute vec4 aS; uniform vec3 uSwC,uSwR,uSwU,uSwD; uniform float uTime,uBeat,uBass,uSwOn,uPx; varying vec3 vC;
+${PAL}
+void main(){ float T=uTime; vec3 l=vec3(sin(T*(.5+aS.x)+aS.y*40.)*5.+sin(T*.9+aS.z*30.)*2.,sin(T*(.6+aS.y)+aS.z*40.)*2.5+cos(T*1.1+aS.x*20.),sin(T*(.4+aS.z)+aS.x*40.)*9.+sin(T*.7+aS.y*25.)*3.);
+  l*=(1.-.45*uBeat)*(.55+.8*aS.w);                                                                          // every beat pulls the flock tight, then it relaxes
+  vec4 mv=viewMatrix*vec4(uSwC+uSwR*l.x+uSwU*l.y+uSwD*l.z,1.); gl_Position=projectionMatrix*mv; float d=-mv.z;
+  gl_PointSize=clamp(uPx*(.035+.07*aS.w*aS.w)/max(d,.3),1.,40.); vC=mix(pal(.5+aS.w*.25+T*.03),vec3(1.),.25)*(.45+1.6*uBeat+.5*uBass)*uSwOn*exp(-d*.012)*smoothstep(.4,2.,d); }`,fragmentShader:PT_FRAG},ADD)));
+  m.frustumCulled=false; m.visible=false;   /* SWARM switched off: the owner said it was not working. Set visible=true to bring it back. */
+  scene.add(m); return m; })();
+/* the sea: a black ocean far below the lowest point of the ride. Plankton glitter in it; every strong beat drops a ring of light under the train that spreads away */
+const sea=(()=>{ const m=new THREE.Mesh(new THREE.PlaneGeometry(5000,5000).rotateX(-Math.PI/2),new THREE.ShaderMaterial({uniforms:U,
+    vertexShader:`varying vec3 vW; void main(){ vec4 w=modelMatrix*vec4(position,1.); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }`,
+    fragmentShader:`precision highp float; uniform vec3 uCam; uniform vec3 uRip[6]; uniform float uNow,uTime,uBass,uBeat; varying vec3 vW;
+${PAL}
+float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+void main(){ vec2 p=vW.xz; float d=length(vW-uCam), ring=0.;
+  for(int i=0;i<6;i++){ float age=uNow-uRip[i].z; if(age>0.&&age<7.){ float r=length(p-uRip[i].xy); ring+=exp(-pow((r-age*26.)/(2.+age),2.))*exp(-age*.55); } }
+  float wake=exp(-length(p-uCam.xz)*.035)*exp(-(uCam.y-vW.y)*.03);                                        // the water under you glows more the lower you fly
+  vec2 q=p+vec2(sin(p.y*.07+uTime*.4),cos(p.x*.06-uTime*.3))*1.5, id=floor(q/1.1); float h=hash(id), sp=step(.965,h)*(1.-smoothstep(.1,.42,length(fract(q/1.1)-.5)))*(.4+.6*sin(uTime*2.+h*50.));
+  float swell=.5+.5*sin(p.x*.05+uTime*.5)*sin(p.y*.045-uTime*.35);
+  vec3 c=vec3(0.,.012,.02)*swell+mix(vec3(.05,.9,.8),pal(.55+ring*.2),.35)*(sp*(.18+1.4*wake+.5*uBeat)+wake*.02);   /* the spreading rings were removed: seen from the track they read as blurred green circles */
+  gl_FragColor=vec4(c*exp(-d*.0035),1.); }`})); m.frustumCulled=false; scene.add(m); return m; })();
+let ripI=0;
+
+U.uA=MU.uA; U.uB=MU.uB;   /* the connectors take the current theme's colours */
+const P=new THREE.Vector3(), D=new THREE.Vector3(), Uu=new THREE.Vector3(), Rr=new THREE.Vector3(), P2=new THREE.Vector3(), D2=new THREE.Vector3(), U2=new THREE.Vector3(), R2=new THREE.Vector3(), mB=new THREE.Matrix4(), qT=new THREE.Quaternion(), zA=new THREE.Vector3(), camP=new THREE.Vector3();
+let camQ=null, gS=1, beatI=0, shk=0, spinV=.4, prevT=0, curA=null;
+streaks.visible=sea.visible=false;
+function step(dt,t,on,playing,pxH){
+  world.visible=streaks.visible=sea.visible=on; if(!on) return 0;
+  if(curA!==A){ curA=A; const dr=Array.from(A.drops||[]).filter(x=>x>7&&x<A.dur-8);
+    RIDE=buildRide({fps:A.fps,F:A.F,dur:A.dur,inten:A.inten,B:A.bass,beats:A.beats,drops:dr.length?dr:[A.dur*.33]}); buildWorld(RIDE); camQ=null; }
+  U.uTime.value+=dt; U.uPx.value=pxH;
+  const R=RIDE, f=idxAt(R,t), i=clamp(f|0,0,R.N-1), v=R.V[i], gn=R.GN[i];
+  if(Math.abs(t-prevT)>.6) camQ=null;                                                                    /* a seek: no head lag across the jump */
+  frameAt(R,f,P,D,Uu,Rr); frameAt(R,f+clamp(v*.35,3,14)/DS,P2,D2,U2,R2);
+  zA.copy(D).multiplyScalar(-.62).addScaledVector(D2,-.38).addScaledVector(Uu,.13).normalize(); R2.crossVectors(Uu,zA).normalize(); U2.crossVectors(zA,R2);
+  qT.setFromRotationMatrix(mB.makeBasis(R2,U2,zA)); if(!camQ) camQ=qT.clone(); else camQ.slerp(qT,1-Math.exp(-dt*9));
+  gS+=(gn-gS)*Math.min(1,dt*5); shk+=dt*(18+v);
+  const k=(v/40)*(v/40)*.022, sx=Math.sin(shk*1.7)*k, sy=Math.sin(shk*2.3+1)*k;
+  camP.copy(P).addScaledVector(Uu,.6-clamp(gS-1,-1.2,3.2)*.04+sy).addScaledVector(Rr,sx);
+  U.uCam.value.copy(camP); U.uNow.value=t;
+  const A_=R.A, fr=clamp(Math.floor(t*A_.fps),0,A_.F-1); U.uBass.value+=(A_.B[fr]-U.uBass.value)*Math.min(1,dt*10); U.uInt.value=A_.inten[fr];
+  while(beatI<A_.beats.length&&A_.beats[beatI].t<t-1) beatI++; if(beatI>0&&A_.beats[beatI-1].t>t) beatI=0; let bp=0; for(let b=beatI;b<A_.beats.length&&A_.beats[b].t<=t;b++) bp=Math.max(bp,A_.beats[b].s*Math.exp(-(t-A_.beats[b].t)*7)); U.uBeat.value=playing?bp:0;
+  if(playing&&t>prevT&&t-prevT<.5) for(let b=beatI;b<A_.beats.length;b++){ const bt=A_.beats[b]; if(bt.t>t) break; if(bt.t>prevT){ spinV+=2.6*bt.s; if(bt.s>.45) U.uRip.value[ripI++%6].set(P.x,P.z,bt.t); } } prevT=t;
+  spinV+=(.4-spinV)*Math.min(1,dt*.8); spinV=Math.min(spinV,7); U.uSpA.value+=spinV*dt; U.uSpB.value+=(U.uSpA.value-U.uSpB.value)*Math.min(1,dt*3.5); U.uSpC.value+=(U.uSpB.value-U.uSpC.value)*Math.min(1,dt*3.5);
+  for(const tn of R.tun){ const kk=t>tn.t0-.12&&t<tn.t1+.05?1:0; tn.mat.uniforms.uIn.value+=(kk-tn.mat.uniforms.uIn.value)*Math.min(1,dt*(kk?2.2:3)); }
+  U.uVel.value.copy(D).multiplyScalar(v); U.uSpd.value+=(v-U.uSpd.value)*Math.min(1,dt*4); sea.position.x=P.x; sea.position.z=P.z;
+  return v; }
+function cam(){ if(!camQ) return; camera.position.copy(camP); camera.quaternion.copy(camQ); }
+return {step,cam,ride:()=>RIDE};
+})(U,scene,camera);
+function coastStep(dt,t,on){ COAST.on=on; const nr=on?.1:1; if(camera.near!==nr){ camera.near=nr; camera.updateProjectionMatrix(); }   /* the rider sits 0.6 m above the rails, so the near plane must be close */
+  const v=COASTER.step(dt,t,on,playing,renderer.domElement.height); if(on) fovOver=56+10*Math.min(1,v/50); }
+function coastCam(){ COASTER.cam(); U.uCam.value.copy(camera.position); }
 
 /* ================= frame loop ================= */
 let tunV=24, tunDv=0, tunDt=0, tunDir=1, tunBeat=0;
