@@ -64,7 +64,7 @@ const renderer=new THREE.WebGLRenderer({antialias:true}); document.body.prepend(
 const scene=new THREE.Scene(), camera=new THREE.PerspectiveCamera(58,1,.5,4000);
 const PALS=[['red',[1,.1,.04],[.97,.1,.27]],['ember',[1,.5,.05],[1,.24,.03]],['ice',[.2,.85,1],[.06,.45,1]],['acid',[.75,1,.08],[.25,1,.1]],['violet',[.95,.2,.85],[.6,.1,1]],['white',[1,.95,.9],[.9,.92,1]],['inverse',[1,1,1],[1,1,1]],['random',[1,.1,.04],[.97,.1,.27]]];   /* A: the colour where a beam leaves the surface. B: the colour it settles into further out */    let palI=0;
 const hole=new THREE.Group(); scene.add(hole);   /* the beams and their source points turn together, slowly, so the hole is seen to rotate */
-const U={uNl:{value:.3},uRand:{value:0},uSmoke:{value:new Float32Array(NB)},uRest:{value:1},uLev:{value:new Float32Array(NB)},uShot:{value:new Float32Array(NB)},uTime:{value:0},uAll:{value:0},uBass:{value:0},uA:{value:new THREE.Vector3(...PALS[0][1])},uB:{value:new THREE.Vector3(...PALS[0][2])},uCam:{value:new THREE.Vector3()},uPx:{value:1}};
+const U={uNl:{value:.45},uRand:{value:0},uSmoke:{value:new Float32Array(NB)},uRest:{value:1},uLev:{value:new Float32Array(NB)},uShot:{value:new Float32Array(NB)},uTime:{value:0},uAll:{value:0},uBass:{value:0},uA:{value:new THREE.Vector3(...PALS[0][1])},uB:{value:new THREE.Vector3(...PALS[0][2])},uCam:{value:new THREE.Vector3()},uPx:{value:1}};
 /* the hole itself: a plain black ball. It only hides what is behind it */
 const ball=new THREE.Mesh(new THREE.SphereGeometry(R*.985,64,48),new THREE.MeshBasicMaterial({color:0x000000})); scene.add(ball);
 /* the beams: one flat strip each, turned to face the camera, starting on the surface and pointing straight out. All drawn in one batch */
@@ -159,7 +159,7 @@ $('#pp').onclick=()=>{ if(!A) return; actx.resume(); playing?pause():play(); };
 $('#seek').oninput=e=>{ if(A) seek(e.target.value*A.dur); };
 $('#glow').oninput=e=>{ bloom.strength=+e.target.value; $('#glowV').textContent=(+e.target.value).toFixed(2); };
 function nextCol(){ palI=(palI+1)%PALS.length; $('#col').textContent='Colour: '+PALS[palI][0]; } $('#col').onclick=nextCol;
-let nlT=.3; function togNl(){ nlT=nlT<.5?1:.3; $('#nl').textContent='Needles: '+(nlT<.5?'short':'long'); } $('#nl').onclick=togNl;
+let nlT=.45; function togNl(){ nlT=nlT<.5?1:.45; $('#nl').textContent='Needles: '+(nlT<.5?'short':'long'); } $('#nl').onclick=togNl;
 function togStars(){ stars.visible=!stars.visible; $('#st').textContent='Stars: '+(stars.visible?'on':'off'); } $('#st').onclick=togStars;
 addEventListener('keydown',e=>{ if(e.code==='KeyN') togNl(); if(e.code==='KeyS') togStars(); if(e.code==='KeyC') nextCol(); if(e.code==='Space'&&A){ e.preventDefault(); playing?pause():play(); } });
 
