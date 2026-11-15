@@ -511,3 +511,9 @@ The live site is now served from `dist/`, not the repo root. **Readable source i
 - On load, if a slug is present: `setWorld(slug)` pre-selects it; if no song yet (`!buffer`), a modal `#modePrompt` ("You arrived at <Mode>") appears with Upload a song / Play a demo track / close. Built entirely in JS at the end of the IIFE (element + injected <style>). Upload -> `pick()`; demo -> `loadDemo(true)`; both ride into the pre-selected world.
 - Verified headless (`test/slug.py`, `?m=coaster`): world=coast on load, popup shows "Coaster", demo rides into coaster, hash becomes #coaster, no console errors.
 Live links to try: soundscape.zone/coaster, /blackhole, /city, /terrain, /wormhole, /tunnel, /loom.
+
+### 8z19. PENDING (user, for next session) — coaster drop feel
+Two items the user raised 16 Nov, to do next time (NOT yet started):
+1. **Drop fires too early.** The train's big fall now lands noticeably BEFORE the song's actual drop. The user says the earlier version was perfect "except for a few of them". Suspect the "crest earlier so the fall syncs with the drop" tuning (this session) over-corrected, or drop-detection/lead-time drifted. Action: find where the coaster schedules the drop/crest relative to `A.drops` (COASTER closure, `coastStep`, `liftAndDrop`), compare the lead offset against the earlier-good version in git history, and pull the crest back so the fall bottoms out ON the drop, not before. Keep the per-drop ones that were already good.
+2. **Stronger drop.** Increase gravity and speed specifically at the drop (the fall should accelerate harder and reach higher speed at each detected drop), without making the whole ride faster.
+Both live in the coaster module of index.html (and coaster-lab.html for testing). Test in coaster-lab first.
