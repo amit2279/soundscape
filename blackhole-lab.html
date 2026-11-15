@@ -13,7 +13,7 @@ button:hover,label.b:hover{background:rgba(255,255,255,.2)}
 </style></head><body>
 <div id="hud"></div>
 <div id="msg">Black hole lab<br><br><button id="demo">Play the demo track</button> <label class="b">Upload a song<input id="file" type="file" accept="audio/*" hidden></label></div>
-<div id="bar"><button id="pp">Play</button><button id="col" title="Next colour (C)">Colour: red</button><button id="st" title="Stars behind the black hole on or off (S)">Stars: on</button><label class="b" style="display:flex;align-items:center;gap:6px;cursor:default">Glow <input id="glow" type="range" min="0" max="3" step="0.05" value="1.35" style="width:110px"><span id="glowV">1.35</span></label><input id="seek" type="range" min="0" max="1" step="0.001" value="0"><span id="tm">0:00</span><label class="b">Song<input id="file2" type="file" accept="audio/*" hidden></label></div>
+<div id="bar"><button id="pp">Play</button><button id="col" title="Next colour (C)">Colour: red</button><button id="st" title="Stars behind the black hole on or off (S)">Stars: on</button><button id="nl" title="Length of the needles when no music plays (N)">Needles: short</button><label class="b" style="display:flex;align-items:center;gap:6px;cursor:default">Glow <input id="glow" type="range" min="0" max="3" step="0.05" value="1.35" style="width:110px"><span id="glowV">1.35</span></label><input id="seek" type="range" min="0" max="1" step="0.001" value="0"><span id="tm">0:00</span><label class="b">Song<input id="file2" type="file" accept="audio/*" hidden></label></div>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/shaders/CopyShader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
@@ -64,7 +64,7 @@ const renderer=new THREE.WebGLRenderer({antialias:true}); document.body.prepend(
 const scene=new THREE.Scene(), camera=new THREE.PerspectiveCamera(58,1,.5,4000);
 const PALS=[['red',[1,.1,.04],[.97,.1,.27]],['ember',[1,.5,.05],[1,.24,.03]],['ice',[.2,.85,1],[.06,.45,1]],['acid',[.75,1,.08],[.25,1,.1]],['violet',[.95,.2,.85],[.6,.1,1]],['white',[1,.95,.9],[.9,.92,1]],['inverse',[1,1,1],[1,1,1]],['random',[1,.1,.04],[.97,.1,.27]]];   /* A: the colour where a beam leaves the surface. B: the colour it settles into further out */    let palI=0;
 const hole=new THREE.Group(); scene.add(hole);   /* the beams and their source points turn together, slowly, so the hole is seen to rotate */
-const U={uRand:{value:0},uSmoke:{value:new Float32Array(NB)},uRest:{value:1},uLev:{value:new Float32Array(NB)},uShot:{value:new Float32Array(NB)},uTime:{value:0},uAll:{value:0},uBass:{value:0},uA:{value:new THREE.Vector3(...PALS[0][1])},uB:{value:new THREE.Vector3(...PALS[0][2])},uCam:{value:new THREE.Vector3()},uPx:{value:1}};
+const U={uNl:{value:.3},uRand:{value:0},uSmoke:{value:new Float32Array(NB)},uRest:{value:1},uLev:{value:new Float32Array(NB)},uShot:{value:new Float32Array(NB)},uTime:{value:0},uAll:{value:0},uBass:{value:0},uA:{value:new THREE.Vector3(...PALS[0][1])},uB:{value:new THREE.Vector3(...PALS[0][2])},uCam:{value:new THREE.Vector3()},uPx:{value:1}};
 /* the hole itself: a plain black ball. It only hides what is behind it */
 const ball=new THREE.Mesh(new THREE.SphereGeometry(R*.985,64,48),new THREE.MeshBasicMaterial({color:0x000000})); scene.add(ball);
 /* the beams: one flat strip each, turned to face the camera, starting on the surface and pointing straight out. All drawn in one batch */
@@ -74,13 +74,13 @@ const beams=(()=>{ const g=new THREE.InstancedBufferGeometry(); g.setAttribute('
     const l=Math.hypot(dir[i*3],dir[i*3+1],dir[i*3+2]); dir[i*3]/=l; dir[i*3+1]/=l; dir[i*3+2]/=l; inf[i*4]=Math.floor(rnd()*NB); inf[i*4+1]=rnd(); inf[i*4+2]=rnd(); inf[i*4+3]=rnd(); }   /* band, how easily it fires, its reach, its hue */
   g.setAttribute('aDir',new THREE.InstancedBufferAttribute(dir,3)); g.setAttribute('aInf',new THREE.InstancedBufferAttribute(inf,4)); g.instanceCount=NBEAM;
   const m=new THREE.Mesh(g,new THREE.ShaderMaterial({uniforms:U,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide,
-    vertexShader:`uniform float uLev[${NB}],uShot[${NB}]; uniform float uTime,uAll,uBass,uRest; uniform vec3 uCam; attribute vec3 aDir; attribute vec4 aInf; varying vec2 vQ; varying float vLen,vW,vHue,vGlow;
+    vertexShader:`uniform float uLev[${NB}],uShot[${NB}]; uniform float uTime,uAll,uBass,uRest,uNl; uniform vec3 uCam; attribute vec3 aDir; attribute vec4 aInf; varying vec2 vQ; varying float vLen,vW,vHue,vGlow;
 void main(){ int b=int(aInf.x+.5); float lv=uLev[b], sh=uShot[b], low=1.-smoothstep(4.,14.,aInf.x);
   float fire=smoothstep(.6+aInf.y*3.,.6+aInf.y*3.+.2,sh+uAll*.5);   /* few beams answer a soft sound, hundreds a hard one; never all of them, so each beam stays a line you can follow */                          // the harder the sound hits, the more of its beams answer
   float idle=.6+1.8*lv*(.25+.75*aInf.z);                                                 // a short stub that breathes with the band's level
   float len=${R.toFixed(1)}*(idle*.3+fire*(1.6+6.5*aInf.z)*(.55+.45*min(sh,1.))+uAll*1.5*aInf.z); // and a long shot when it fires
   /* at rest (no music) every beam stays as a very faint, very thin needle of its own length, slowly breathing: the hole is all black and bristles with them */
-  float br=.7+.3*sin(uTime*.35+aInf.w*40.), needle=uRest*(.15+1.25*aInf.z*aInf.z)*br; len+=${R.toFixed(1)}*needle;
+  float br=.7+.3*sin(uTime*.35+aInf.w*40.), needle=uRest*(.15+1.25*aInf.z*aInf.z)*br; len+=${R.toFixed(1)}*needle; len*=mix(1.,uNl,uRest);   /* uNl: the needles' length at rest, as a share of the first version (0.3 = short, 1 = long) */
   float w=(.022+.02*aInf.w+.16*low*uBass*aInf.z*fire+.02*fire);                   // low bands throw the fat beams
   vec3 p0=aDir*${R.toFixed(1)}, p=p0+aDir*len*position.y, side=normalize(cross(aDir,uCam-p)); float wq=max(w*22.,1.3);   /* room for the soft haze each beam carries, in its own colour */
   p+=side*position.x*wq; vQ=vec2(position.x*wq,(1.-position.y)*len); vLen=len; vW=w; vHue=aInf.w; vGlow=(.012+.03*lv*aInf.z+.55*fire+uRest*.05*(.35+.65*aInf.z)*br)*smoothstep(.3,5.,length(uCam-p));   /* beams aimed straight at you go dark, so the middle stays a black disc: that is the hole. And a beam passing right by the camera fades, so it cannot flood the picture */   /* a beam passing right by the camera fades, so it cannot flood the picture */
@@ -159,8 +159,9 @@ $('#pp').onclick=()=>{ if(!A) return; actx.resume(); playing?pause():play(); };
 $('#seek').oninput=e=>{ if(A) seek(e.target.value*A.dur); };
 $('#glow').oninput=e=>{ bloom.strength=+e.target.value; $('#glowV').textContent=(+e.target.value).toFixed(2); };
 function nextCol(){ palI=(palI+1)%PALS.length; $('#col').textContent='Colour: '+PALS[palI][0]; } $('#col').onclick=nextCol;
+let nlT=.3; function togNl(){ nlT=nlT<.5?1:.3; $('#nl').textContent='Needles: '+(nlT<.5?'short':'long'); } $('#nl').onclick=togNl;
 function togStars(){ stars.visible=!stars.visible; $('#st').textContent='Stars: '+(stars.visible?'on':'off'); } $('#st').onclick=togStars;
-addEventListener('keydown',e=>{ if(e.code==='KeyS') togStars(); if(e.code==='KeyC') nextCol(); if(e.code==='Space'&&A){ e.preventDefault(); playing?pause():play(); } });
+addEventListener('keydown',e=>{ if(e.code==='KeyN') togNl(); if(e.code==='KeyS') togStars(); if(e.code==='KeyC') nextCol(); if(e.code==='Space'&&A){ e.preventDefault(); playing?pause():play(); } });
 
 /* ---------------- camera: a slow orbit; drag to turn it, scroll to move in and out. Everything eased ---------------- */
 const orb={az:.6,el:.25,d:62,azT:.6,elT:.25,dT:62,drag:false,x:0,y:0,idle:0};
@@ -191,6 +192,7 @@ function frame(ms){ requestAnimationFrame(frame); const dt=Math.min(.05,(ms-last
   const ce=Math.cos(orb.el); camera.position.set(Math.sin(orb.az)*ce*orb.d,Math.sin(orb.el)*orb.d,Math.cos(orb.az)*ce*orb.d); camera.lookAt(0,0,0);
   /* the hole swells on the beat and only on the beat: a kick sets the target, the size eases up to it and settles straight back */
   pulse+=(pulseT-pulse)*Math.min(1,dt*(pulseT>pulse?22:6)); pulseT*=Math.exp(-dt*9); { const sc=1+.1*pulse; hole.scale.setScalar(sc); ball.scale.setScalar(sc); }
+  U.uNl.value+=(nlT-U.uNl.value)*Math.min(1,dt*2.5);
   U.uRand.value+=((PALS[palI][0]==='random'?1:0)-U.uRand.value)*Math.min(1,dt*3); fin.uniforms.uInv.value+=((PALS[palI][0]==='inverse'?1:0)-fin.uniforms.uInv.value)*Math.min(1,dt*3);
   stars.rotation.y-=dt*.004; hole.rotation.y-=dt*.05;   /* the view circles the hole at 0.07, which makes the stars drift one way; the hole now turns the same way as that drift, a little faster than the stars, never against them */ hole.rotation.x=.25*Math.sin(U.uTime.value*.05); hole.updateMatrixWorld(); U.uCam.value.copy(camera.position).applyMatrix4(invM.copy(hole.matrixWorld).invert());   /* the shaders work in the hole's own turning frame */
   U.uRest.value+=((playing?0:1)-U.uRest.value)*Math.min(1,dt*1.5);

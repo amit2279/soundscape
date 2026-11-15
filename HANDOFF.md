@@ -283,7 +283,7 @@ Colour button entry `inverse` (after white, before random): the scene is drawn i
 
 ## 8w. Black hole lab: rest state is now needles (2026-11-15)
 
-The owner noticed the faint idle stubs of the beams when paused and asked for those as the rest look. With `uRest` at 1 every beam is a very faint, thin needle (length `R*(0.15+1.25*z²)`, glow `0.05*(0.35+0.65*z)`, both breathing slowly), so the hole is fully black inside a soft corona of needles. The twinkling points of 8s are switched off by a `0.*` factor in the points shader (`tw`); change it to `1.` to have both.
+The owner noticed the faint idle stubs of the beams when paused and asked for those as the rest look. With `uRest` at 1 every beam is a very faint, thin needle (length `R*(0.15+1.25*z²)`, glow `0.05*(0.35+0.65*z)`, both breathing slowly), so the hole is fully black inside a soft corona of needles. The twinkling points of 8s are switched off by a `0.*` factor in the points shader (`tw`); change it to `1.` to have both. The owner then asked for the needles at 30% of that length: `uNl` (0.3 short, 1 long), switched by the "Needles" button or key N so he can compare; short is the default. He was tempted to keep the long ones, so the choice is still open. Randomising them like the old points was mentioned and set aside.
 
 ## 9. Coaster lab: full specification (state on 2026-11-14)
 
