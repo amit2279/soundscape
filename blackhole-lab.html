@@ -62,7 +62,7 @@ function analyse(data,sr){ const N=2048, hop=1024, F=Math.max(1,Math.floor((data
 /* ---------------- rendering ---------------- */
 const renderer=new THREE.WebGLRenderer({antialias:true}); document.body.prepend(renderer.domElement);
 const scene=new THREE.Scene(), camera=new THREE.PerspectiveCamera(58,1,.5,4000);
-const PALS=[['red',[1,.1,.04],[.97,.1,.27]],['ember',[1,.5,.05],[1,.24,.03]],['ice',[.2,.85,1],[.06,.45,1]],['acid',[.75,1,.08],[.25,1,.1]],['violet',[.95,.2,.85],[.6,.1,1]],['white',[1,.95,.9],[.9,.92,1]],['random',[1,.1,.04],[.97,.1,.27]]];   /* A: the colour where a beam leaves the surface. B: the colour it settles into further out */    let palI=0;
+const PALS=[['red',[1,.1,.04],[.97,.1,.27]],['ember',[1,.5,.05],[1,.24,.03]],['ice',[.2,.85,1],[.06,.45,1]],['acid',[.75,1,.08],[.25,1,.1]],['violet',[.95,.2,.85],[.6,.1,1]],['white',[1,.95,.9],[.9,.92,1]],['inverse',[1,1,1],[1,1,1]],['random',[1,.1,.04],[.97,.1,.27]]];   /* A: the colour where a beam leaves the surface. B: the colour it settles into further out */    let palI=0;
 const hole=new THREE.Group(); scene.add(hole);   /* the beams and their source points turn together, slowly, so the hole is seen to rotate */
 const U={uRand:{value:0},uSmoke:{value:new Float32Array(NB)},uRest:{value:1},uLev:{value:new Float32Array(NB)},uShot:{value:new Float32Array(NB)},uTime:{value:0},uAll:{value:0},uBass:{value:0},uA:{value:new THREE.Vector3(...PALS[0][1])},uB:{value:new THREE.Vector3(...PALS[0][2])},uCam:{value:new THREE.Vector3()},uPx:{value:1}};
 /* the hole itself: a plain black ball. It only hides what is behind it */
@@ -136,8 +136,9 @@ const stars=(()=>{ const n=3500, pos=new Float32Array(n*3), sd=new Float32Array(
   m.frustumCulled=false; scene.add(m); return m; })();
 const composer=new THREE.EffectComposer(renderer); composer.addPass(new THREE.RenderPass(scene,camera)); const bloom=new THREE.UnrealBloomPass(new THREE.Vector2(1,1),1.35,1.,.05)   /* a rich, wide glow */; composer.addPass(bloom);
 /* however much light piles up, it keeps its colour: a pixel brighter than full is scaled back as a whole, so red stays red and never clips to white */
-composer.addPass(new THREE.ShaderPass({uniforms:{tDiffuse:{value:null}},vertexShader:'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }',
-  fragmentShader:'precision highp float; uniform sampler2D tDiffuse; varying vec2 vUv; void main(){ vec3 c=texture2D(tDiffuse,vUv).rgb; float m=max(c.r,max(c.g,c.b)); gl_FragColor=vec4(c/max(1.,m),1.); }'}));
+/* the same pass makes the inverse mode: the picture is drawn in white on black and turned over, so space is white and the lasers, their glow and the stars are black */
+const fin=new THREE.ShaderPass({uniforms:{tDiffuse:{value:null},uInv:{value:0}},vertexShader:'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }',
+  fragmentShader:'precision highp float; uniform sampler2D tDiffuse; uniform float uInv; varying vec2 vUv; void main(){ vec3 c=texture2D(tDiffuse,vUv).rgb; float m=max(c.r,max(c.g,c.b)); c/=max(1.,m); gl_FragColor=vec4(mix(c,vec3(1.-min(1.,m)),uInv),1.); }'}); composer.addPass(fin);
 function resize(){ const w=innerWidth,h=innerHeight, pr=Math.min(1.5,devicePixelRatio||1); renderer.setPixelRatio(pr); renderer.setSize(w,h,false); composer.setSize(w*pr,h*pr); camera.aspect=w/h; camera.updateProjectionMatrix(); U.uPx.value=h*pr; } addEventListener('resize',resize); resize();
 
 /* ---------------- transport ---------------- */
@@ -188,7 +189,7 @@ function frame(ms){ requestAnimationFrame(frame); const dt=Math.min(.05,(ms-last
   const ce=Math.cos(orb.el); camera.position.set(Math.sin(orb.az)*ce*orb.d,Math.sin(orb.el)*orb.d,Math.cos(orb.az)*ce*orb.d); camera.lookAt(0,0,0);
   /* the hole swells on the beat and only on the beat: a kick sets the target, the size eases up to it and settles straight back */
   pulse+=(pulseT-pulse)*Math.min(1,dt*(pulseT>pulse?22:6)); pulseT*=Math.exp(-dt*9); { const sc=1+.1*pulse; hole.scale.setScalar(sc); ball.scale.setScalar(sc); }
-  U.uRand.value+=((PALS[palI][0]==='random'?1:0)-U.uRand.value)*Math.min(1,dt*3);
+  U.uRand.value+=((PALS[palI][0]==='random'?1:0)-U.uRand.value)*Math.min(1,dt*3); fin.uniforms.uInv.value+=((PALS[palI][0]==='inverse'?1:0)-fin.uniforms.uInv.value)*Math.min(1,dt*3);
   stars.rotation.y-=dt*.004; hole.rotation.y-=dt*.05;   /* the view circles the hole at 0.07, which makes the stars drift one way; the hole now turns the same way as that drift, a little faster than the stars, never against them */ hole.rotation.x=.25*Math.sin(U.uTime.value*.05); hole.updateMatrixWorld(); U.uCam.value.copy(camera.position).applyMatrix4(invM.copy(hole.matrixWorld).invert());   /* the shaders work in the hole's own turning frame */
   U.uRest.value+=((playing?0:1)-U.uRest.value)*Math.min(1,dt*1.5);
   composer.render(); }
