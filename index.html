@@ -392,6 +392,15 @@ h1 .hollow{display:block;color:transparent;-webkit-text-stroke:2px var(--text)}
 /* one size for everything in the top bar: 13 px semi-bold text, 16 px icons, the same as the round tool buttons; the effect column's icons match */
 #worldSeg button,#planetSeg button,.vmt-rainbow-btn{font-size:13px;font-weight:600}.wi,.wi.globe,.vmt-rainbow-btn svg{width:16px;height:16px}.wi.globe{stroke-width:1.5}.pc span svg{width:16px;height:16px}
 #planetSeg button{color:#fff}#planetSeg button:hover{color:#fff;background:rgba(255,255,255,.12)}#planetSeg button[aria-pressed="true"]{color:#0b0618}   /* white, so it reads as a live button and not a disabled one */
+/* the views pill, above the music bar */
+#camSeg{position:absolute;left:50%;bottom:106px;transform:translateX(-50%);z-index:5;pointer-events:auto;white-space:nowrap}
+#camSeg button{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600}
+#camSeg.gone{transform:translate(-50%,30px) scale(.9)}
+#app.nohud #camSeg{opacity:0;pointer-events:none;transform:translate(-50%,70px)}
+#app[data-state="landing"] #camSeg,#app[data-state="loading"] #camSeg{display:none}
+#app .keypad{bottom:186px}
+#sign{display:none!important}   /* the district signs ("Now entering ...") are switched off */
+#app[data-state="landing"] .legend{display:none}
 /* the simplified top bar */
 .morewrap{position:relative;display:inline-flex}
 .moremenu{position:absolute;right:0;top:calc(100% + 8px);display:flex;flex-direction:column;gap:2px;padding:6px;border-radius:16px;min-width:214px;z-index:30;pointer-events:auto}
@@ -399,7 +408,8 @@ h1 .hollow{display:block;color:transparent;-webkit-text-stroke:2px var(--text)}
 .moremenu .tbtn{width:auto;height:38px;padding:0 12px;justify-content:flex-start;gap:10px;border-radius:10px;background:none;border:0;box-shadow:none;font-size:13px;font-weight:600;white-space:nowrap}
 .moremenu .tbtn:hover{background:rgba(255,255,255,.14)}.moremenu .tbtn span{display:inline}
 #btnLoad span{display:none}#btnLoad{width:40px;padding:0;justify-content:center}
-.fxstack #nitroWrap{max-width:none;align-self:center;box-sizing:border-box;width:44px;height:44px;padding:3px;align-items:center;justify-content:center;flex:none}.fxstack #nitroTxt{display:none}.fxstack .vmt-rainbow-btn{box-sizing:border-box;width:38px;height:38px;min-width:0;padding:0;justify-content:center;flex:none}   /* the ring is a 44 px circle and the button a 38 px circle centred in it */
+.fxstack{align-items:center}.fxstack label{display:flex;justify-content:center;margin-left:0;margin-right:0}   /* every circle in the column shares one centre line */
+.fxstack #nitroWrap{max-width:none;align-self:center;margin-left:0;margin-right:0;box-sizing:border-box;width:44px;height:44px;padding:3px;align-items:center;justify-content:center;flex:none}.fxstack #nitroTxt{display:none}.fxstack .vmt-rainbow-btn{box-sizing:border-box;width:38px;height:38px;min-width:0;padding:0;justify-content:center;flex:none}   /* the ring is a 44 px circle and the button a 38 px circle centred in it */
 .fxstack #nitroWrap.gone{max-width:none;max-height:0;margin:0 0 -8px;transform:scale(.6);opacity:0;pointer-events:none;overflow:hidden}
 #holeSeg button{color:#fff;font-size:13px;font-weight:600}#holeSeg button:hover{color:#fff;background:rgba(255,255,255,.12)}
 #planetSeg,#nitroWrap,#holeSeg{max-width:260px;transition:opacity .3s ease,transform .5s cubic-bezier(.2,1.3,.4,1),max-width .45s ease,margin .45s ease}
@@ -2885,6 +2895,10 @@ async function loadFile(file){
    controls, keyboard shortcuts and hide. Planet sits with the camera views in the bottom bar. Amplify heads the effects column on the right. */
 { const tools=document.querySelector('.tools'), fx=document.querySelector('.fxstack'), cam=$('#camSeg'), pb=$('#btnPlanet'), nw=$('#nitroWrap');
   if(cam&&pb){ cam.append(pb); const ps=$('#planetSeg'); if(ps) ps.remove(); }
+  if(cam){ /* the views leave the music bar: their own pill floats above it, centred, each with an icon */
+    const VI={cruise:'<path d="M12 3l7 17-7-4-7 4z"/>', surf:'<path d="M21 3L3 10.500l7 2.500 2.500 7zM10 13L21 3"/>', skyline:'<path d="M3 8V5h3M21 8V5h-3M3 16v3h3M21 16v3h-3M7 16v-4h3v4M10 16V9h4v7M14 16v-3h3v3"/>'};
+    cam.querySelectorAll('button[data-mode]').forEach(b=>{ const k=b.dataset.mode; if(VI[k]&&!b.querySelector('svg')) b.innerHTML='<svg class="wi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+VI[k]+'</svg><span>'+b.textContent+'</span>'; });
+    cam.classList.add('plate'); $('#app').append(cam); }
   if(fx&&nw) fx.prepend(nw);
   if(tools){ const wrap=document.createElement('span'); wrap.className='morewrap'; const mb=document.createElement('button'); mb.className='tbtn icon plate'; mb.id='btnMore'; mb.title='More'; mb.setAttribute('aria-label','More'); mb.setAttribute('aria-expanded','false');
     mb.innerHTML='<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.900"/><circle cx="12" cy="12" r="1.900"/><circle cx="19" cy="12" r="1.900"/></svg>';
