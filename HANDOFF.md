@@ -351,6 +351,7 @@ The owner parked the Bloom lab ("I wasn't able to explain what I want; skip it")
 - You face one projector at `E`. **Fans:** 16 instanced flat sheets from `E`, each a row of 5 to 14 separate beams, sweeping (sums of slow sines), each tied to one of the 48 bands: it lights only when its sound is present, and spreads wider with level. **Cone:** one open cone towards the viewer (a tunnel of light), half-angle breathing with the bass.
 - **Smoke is drawn on the light:** `smoke(worldPos,t)` (domain-warped 5-octave value noise in room coordinates) multiplies the sheets, so wisps stay put while beams sweep through them. Additive, no depth test; light within about 30 units of the camera fades; a last pass keeps hue when light piles up.
 - Scenes (button or S): mix (both at about half), fans, tunnel. Colours (button or C): club (blue, pink, green), violet, red, green, rainbow, white. At rest only a faint cone of haze. Drag to look (limited), scroll to walk in and out.
+- After the owner turned the camera and found one side of the room empty: 34 fans aimed all the way round the projector, the cone's axis eases towards the camera (`uAx`), and the sideways drag is no longer limited.
 - First tries were blown out to white; the levels above are after three reductions. Stills only; `half` is a reserved word in GLSL ES (it broke the cone shader once).
 
 ## 8zz. Phase 2 ideas, analysed only, nothing built (2026-11-15)
