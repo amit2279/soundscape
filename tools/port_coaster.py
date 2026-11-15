@@ -71,8 +71,8 @@ function cam(){ if(!camQ) return; camera.position.copy(camP); camera.quaternion.
 return {step,cam,ride:()=>RIDE,bio:()=>U.uBio.value,driving:()=>free.on};
 })(U,scene,camera);
 function coastStep(dt,t,on){ COAST.on=on; const nr=on?.1:1; if(camera.near!==nr){ camera.near=nr; camera.updateProjectionMatrix(); }   /* the rider sits 0.6 m above the rails, so the near plane must be close */
-  const drive=((keys.arrowup||keys.w)?1:0)-((keys.arrowdown||keys.s)?1:0);
-  const v=COASTER.step(dt,t,on,playing,renderer.domElement.height,drive,app.dataset.state==='ended'||t>=dur-.1);
+  const over=app.dataset.state==='ended'||t>=dur-.1, drive=over?((keys.arrowup||keys.w)?1:0)-((keys.arrowdown||keys.s)?1:0):0;   /* you drive it yourself only once the song is over */
+  const v=COASTER.step(dt,t,on,playing,renderer.domElement.height,drive,over);
   if(on){ fovOver=56+10*Math.min(1,v/50); if(bloom){ const b=COASTER.bio(); bloom.strength=(.8+.35*b)*CT.glow; bloom.radius=.82+.08*b; bloom.threshold=.34-.18*b; } }   /* the coaster's own soft wide glow, opened right up in a blue moment */
   else if(bloom&&bloom.threshold!==.86){ bloom.radius=.55; bloom.threshold=.86; } }
 function coastCam(){ COASTER.cam(); U.uCam.value.copy(camera.position); }
