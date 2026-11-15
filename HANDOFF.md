@@ -465,3 +465,7 @@ User saw straight lines cutting across the lasers. Cause: each fan sheet and the
 
 ### 8z10. Laser field lab: smoke no longer pulses
 User rule: smoke must flow freely and organically; music may drive only colour and brightness. The cone's opening angle was driven by bass and beat, which dragged its wall through the noise field and made the smoke itself jump. Now the angle only drifts slowly on time (`ha=.26+.1*sin(uTime*.21)+.04*sin(uTime*.13+1.7)`); `vI` still follows bass/beat. Smoke clock `uTime` was already steady. Not tested headlessly (motion cannot be judged from stills).
+
+
+### 8z11. Laser field lab: sphere source toggle
+User asked for a black-hole-like version inside the laser lab, behind a toggle. Button `#srcB` (key B) switches `sphT`; `U.uSph` eases 0→1. In sphere mode a black ball (`ball`, radius 15, writes depth) grows in place of the projector, each fan starts at its own spot on the surface (`p=uE+c*(RS*uSph)+d*uv.y*190.`), fans get a hot spot where they leave the surface, the cone starts at the surface, the lamp point shrinks away. Fans, cone and lamp now use `depthTest:true` so the ball hides what is behind it. Checked in headless stills (mix and fans scenes, front view); motion and other angles not checked.
