@@ -285,6 +285,15 @@ Colour button entry `inverse` (after white, before random): the scene is drawn i
 
 The owner noticed the faint idle stubs of the beams when paused and asked for those as the rest look. With `uRest` at 1 every beam is a very faint, thin needle (length `R*(0.15+1.25*z²)`, glow `0.05*(0.35+0.65*z)`, both breathing slowly), so the hole is fully black inside a soft corona of needles. The twinkling points of 8s are switched off by a `0.*` factor in the points shader (`tw`); change it to `1.` to have both. The owner then asked for the needles at 30% of that length: `uNl` (0.675 short, after he twice asked for half as much again; 1 long), switched by the "Needles" button or key N so he can compare; short is the default. He was tempted to keep the long ones, so the choice is still open. Randomising them like the old points was mentioned and set aside.
 
+## 8x. Black hole merged into the main app and deployed (2026-11-15)
+
+- New mode `hole` ("Black hole" tab, between Coaster and Loom). `tools/port_blackhole.py blackhole-lab.html index.html` regenerates the module (`BHOLE` closure, `holeStep`, `holeCam`) from the lab; **change the lab and re-run, do not hand-edit the copy.**
+- **Sound:** the 48-band analysis is separate from the app's own; it is computed from the decoded `buffer` about 80 ms after the mode is first opened for a song (a second or two; the resting hole shows meanwhile).
+- **Wiring:** `holeOn` joins `aby` (hides the city) and `uVoid`; the app's sky dome is hidden while the hole is on (its space is plain black with its own stars); `hfPass` (hue-keeping and inverse) is added to the composer on first use and enabled only in this mode; bloom is 1.35 x theme glow, radius 1, threshold 0.05 while on; the Black out pass is forced off. Needs Quality 3 or higher for glow and inverse.
+- **Controls:** drag and scroll on the canvas (only while the mode is on); a "Lasers: <colour>" pill `#holeSeg` in the top bar and key C cycle the eight palettes; the app's colour swatches, Planet, Amplify, camera switch and driving keys are hidden in this mode. Stars are always on and needles are 0.675 (the lab's two buttons were not ported, nor its glow slider).
+- Checked headless on the demo: playing, paused, inverse, and switching to City and Coaster afterwards. In the main app the inverse look comes out heavier (more black) than in the lab.
+- Deployed to Vercel from `main` the same morning.
+
 ## 9. Coaster lab: full specification (state on 2026-11-14)
 
 File `coaster-lab.html`, about 300 lines, standalone. Artifact "Coaster lab", slug `c68270d2-057b-4b14-83d6-67b9296d41d3`. The owner rides it and loves it ("vertigo-inducing"); it is the benchmark. When he says so, port it into `index.html` in place of `coastPlan`/`coastStep`/`coastCam`.
