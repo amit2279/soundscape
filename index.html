@@ -3956,7 +3956,7 @@ applyTheme(); resize();
 /* ---------- URL mode slugs: soundscape.zone/coaster opens a mode; the address bar follows the mode you switch to, so any view is a shareable link ---------- */
 const SLUG2W={city:'city',terrain:'terrain',wormhole:'worm',tunnel:'tun',coaster:'coast',blackhole:'hole',loom:'loom'},
       W2SLUG={city:'city',terrain:'terrain',worm:'wormhole',tun:'tunnel',coast:'coaster',hole:'blackhole',loom:'loom'},
-      SLUGLABEL={city:'City',terrain:'Terrain',worm:'Wormhole',tun:'Tunnel',coast:'Coaster',hole:'Black hole',loom:'Loom'},
+      SLUGLABEL={city:'City',terrain:'Terrain',worm:'Wormhole',tun:'Tunnel',coast:'Roller coaster',hole:'Black hole',loom:'Loom'},
       urlIsPath=location.hostname==='soundscape.zone'||location.hostname==='www.soundscape.zone'||/\.vercel\.app$/i.test(location.hostname);
 function syncURL(w){ const s=W2SLUG[w]; if(!s) return; try{ history.replaceState(null,'',urlIsPath?'/'+s:'#'+s); }catch(e){} }
 function readMode(){ let s=(location.pathname.split('/').filter(Boolean).pop()||'').toLowerCase(); if(SLUG2W[s]) return SLUG2W[s];
