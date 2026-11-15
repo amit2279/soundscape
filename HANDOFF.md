@@ -269,7 +269,9 @@ With no music playing (`uRest` eases to 1), source points light up at random and
 - **Smoke:** 3,200 soft noisy puffs (`THREE.Points`), each tied to one beam, drifting slowly out along it, spreading and thinning. `uSmoke[band]` follows `uShot` up at 2.4/s and down at 0.3/s, so the amount follows how hard the lasers fired and then hangs and decays. A puff shows only if its beam has been firing (`had`) and is about six times brighter while that beam is firing now (`lit`): the laser lights its own smoke. Same colour as the beam. Additive, so it is glowing haze; dark smoke cannot show on black.
 - **Beat pulse:** a kick (strongest onset in the six lowest bands above 0.62, at most one per 0.18 s) sets `pulseT`; the hole's scale eases up to 1.1 and straight back. No scaling between beats.
 - **Random colours:** last entry of the colour button; `uRand` eases to 1 and every beam, source point and puff takes its own hue (`h2rgb(aInf.w)`). Many hues piled up add to white, so this mode runs at half strength with coloured sources.
-- Checked on stills. Not checked in motion: the smoke's drift, the pulse's feel.
+- **Smoke stays at the surface** (owner: the surface is hot where the lasers leave it): puffs rise only to 1.44 radii, are smaller, and are dimmed 75% on the face turned to the camera so the centre of the hole stays dark. A stronger first try turned the whole disc red and was rejected by the builder before publishing.
+- **Drag feels heavy:** half the turn per pixel (0.0025 and 0.002 rad/px), and the camera follows at 2.67/s instead of 4/s, so it takes half as long again to settle.
+- Checked on stills. Not checked in motion: the smoke's drift, the pulse's feel, the drag.
 
 ## 9. Coaster lab: full specification (state on 2026-11-14)
 

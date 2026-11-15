@@ -115,10 +115,10 @@ void main(){ int b=int(aInf.x+.5); float sm=uSmoke[b], sh=uShot[b];
   float had=smoothstep(.5+aInf.y*2.6,.5+aInf.y*2.6+.35,sm*1.25+uAll*.3);                // this beam has been firing lately: it has smoke
   float lit=smoothstep(.6+aInf.y*3.,.6+aInf.y*3.+.2,sh+uAll*.5);                        // and it is firing right now: the smoke along it glows
   float life=fract(aS.x+uTime*(.018+.02*aS.y));                                         // each puff drifts slowly outwards, spreads and thins
-  vec3 d=position, t1=normalize(cross(d,vec3(.3,1.,.2))), t2=cross(d,t1); float ang=aS.z*6.283+uTime*.05*(aS.y-.5), spread=life*(1.2+3.*aS.y);
-  vec3 p=d*${R.toFixed(1)}*(1.04+life*2.4)+(t1*cos(ang)+t2*sin(ang))*spread;
-  vA=had*sm*(.05+.3*lit)*smoothstep(0.,.12,life)*(1.-life)*smoothstep(1.,7.,length(uCam-p)); vHue=aInf.w; vSeed=aS.z;
-  float size=(2.2+7.*life)*(.7+.6*aS.y); gl_PointSize=vA<.002?0.:min(uPx*.5,size*uPx*.9/length(uCam-p)); gl_Position=vA<.002?vec4(2.,2.,2.,1.):projectionMatrix*modelViewMatrix*vec4(p,1.); }`,
+  vec3 d=position, t1=normalize(cross(d,vec3(.3,1.,.2))), t2=cross(d,t1); float ang=aS.z*6.283+uTime*.05*(aS.y-.5), spread=life*(.5+1.3*aS.y);
+  vec3 p=d*${R.toFixed(1)}*(1.02+life*.42)+(t1*cos(ang)+t2*sin(ang))*spread;   /* it stays close to the surface, which is hot where the lasers leave it: it rises under half a radius and thins */
+  vA=had*sm*(.03+.17*lit)*(1.-.75*max(0.,dot(d,normalize(uCam))))*smoothstep(0.,.12,life)*(1.-life)*smoothstep(1.,7.,length(uCam-p)); vHue=aInf.w; vSeed=aS.z;
+  float size=(1.5+3.6*life)*(.7+.6*aS.y); gl_PointSize=vA<.002?0.:min(uPx*.5,size*uPx*.9/length(uCam-p)); gl_Position=vA<.002?vec4(2.,2.,2.,1.):projectionMatrix*modelViewMatrix*vec4(p,1.); }`,
     fragmentShader:`precision highp float; uniform vec3 uA,uB; uniform float uRand,uTime; varying float vA,vHue,vSeed;
 `+`vec3 h2rgb(float h){ return clamp(abs(fract(h+vec3(0.,.6667,.3333))*6.-3.)-1.,0.,1.); }
 float n2(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.-2.*f); float a=fract(sin(dot(i,vec2(127.1,311.7)))*43758.5), b=fract(sin(dot(i+vec2(1.,0.),vec2(127.1,311.7)))*43758.5), c=fract(sin(dot(i+vec2(0.,1.),vec2(127.1,311.7)))*43758.5), d=fract(sin(dot(i+vec2(1.,1.),vec2(127.1,311.7)))*43758.5); return mix(mix(a,b,f.x),mix(c,d,f.x),f.y); }
@@ -153,7 +153,7 @@ addEventListener('keydown',e=>{ if(e.code==='KeyC') nextCol(); if(e.code==='Spac
 /* ---------------- camera: a slow orbit; drag to turn it, scroll to move in and out. Everything eased ---------------- */
 const orb={az:.6,el:.25,d:62,azT:.6,elT:.25,dT:62,drag:false,x:0,y:0,idle:0};
 renderer.domElement.addEventListener('pointerdown',e=>{ orb.drag=true; orb.x=e.clientX; orb.y=e.clientY; renderer.domElement.setPointerCapture(e.pointerId); });
-renderer.domElement.addEventListener('pointermove',e=>{ if(!orb.drag) return; orb.azT-=(e.clientX-orb.x)*.005; orb.elT=clamp(orb.elT+(e.clientY-orb.y)*.004,-1.35,1.35); orb.x=e.clientX; orb.y=e.clientY; orb.idle=0; });
+renderer.domElement.addEventListener('pointermove',e=>{ if(!orb.drag) return; orb.azT-=(e.clientX-orb.x)*.0025; orb.elT=clamp(orb.elT+(e.clientY-orb.y)*.002,-1.35,1.35);   /* half the turn per pixel: it feels heavy */ orb.x=e.clientX; orb.y=e.clientY; orb.idle=0; });
 addEventListener('pointerup',()=>orb.drag=false);
 renderer.domElement.addEventListener('wheel',e=>{ e.preventDefault(); orb.dT=clamp(orb.dT*Math.exp(e.deltaY*.001),16,220); },{passive:false});
 
@@ -175,7 +175,7 @@ function frame(ms){ requestAnimationFrame(frame); const dt=Math.min(.05,(ms-last
     if(document.activeElement!==$('#seek')) $('#seek').value=t/A.dur; $('#tm').textContent=`${(t/60)|0}:${String((t%60)|0).padStart(2,'0')}`; }
   U.uA.value.lerp(new THREE.Vector3(...PALS[palI][1]),Math.min(1,dt*3)); U.uB.value.lerp(new THREE.Vector3(...PALS[palI][2]),Math.min(1,dt*3));
   orb.idle+=dt; if(!orb.drag&&orb.idle>1.5) orb.azT+=dt*.07;
-  orb.az+=(orb.azT-orb.az)*Math.min(1,dt*4); orb.el+=(orb.elT-orb.el)*Math.min(1,dt*4); orb.d+=(orb.dT*(1-.12*push)-orb.d)*Math.min(1,dt*3);
+  orb.az+=(orb.azT-orb.az)*Math.min(1,dt*2.67); orb.el+=(orb.elT-orb.el)*Math.min(1,dt*2.67);   /* and it takes half as long again to come to rest (was 4) */ orb.d+=(orb.dT*(1-.12*push)-orb.d)*Math.min(1,dt*3);
   const ce=Math.cos(orb.el); camera.position.set(Math.sin(orb.az)*ce*orb.d,Math.sin(orb.el)*orb.d,Math.cos(orb.az)*ce*orb.d); camera.lookAt(0,0,0);
   /* the hole swells on the beat and only on the beat: a kick sets the target, the size eases up to it and settles straight back */
   pulse+=(pulseT-pulse)*Math.min(1,dt*(pulseT>pulse?22:6)); pulseT*=Math.exp(-dt*9); { const sc=1+.1*pulse; hole.scale.setScalar(sc); ball.scale.setScalar(sc); }
