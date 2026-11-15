@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Laser field lab</title>
+<style>
+html,body{margin:0;height:100%;background:#000;color:#e8ecf5;font:13px/1.4 ui-monospace,Menlo,Consolas,monospace;overflow:hidden}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block;cursor:grab}
+#bar{position:fixed;left:12px;right:12px;bottom:12px;display:flex;gap:10px;align-items:center;z-index:2;background:rgba(10,12,20,.6);border:1px solid rgba(255,255,255,.14);border-radius:14px;padding:8px 12px;backdrop-filter:blur(8px)}
+button,label.b{font:inherit;color:#fff;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:9px;padding:6px 12px;cursor:pointer;white-space:nowrap}
+button:hover,label.b:hover{background:rgba(255,255,255,.2)}
+#seek{flex:1;min-width:60px}
+#hud{position:fixed;left:14px;top:12px;z-index:2;text-shadow:0 1px 3px #000;white-space:pre;pointer-events:none;opacity:.7}
+#msg{position:fixed;left:50%;top:45%;transform:translate(-50%,-50%);z-index:3;text-align:center;font-size:15px;max-width:80vw}
+</style></head><body>
+<div id="hud"></div>
+<div id="msg">Laser field lab<br><br><button id="demo">Play the demo track</button> <label class="b">Upload a song<input id="file" type="file" accept="audio/*" hidden></label></div>
+<div id="bar"><button id="pp">Play</button><button id="sc" title="Next scene (S)">Scene: mix</button><button id="col" title="Next colour (C)">Colour: club</button><input id="seek" type="range" min="0" max="1" step="0.001" value="0"><span id="tm">0:00</span><label class="b">Song<input id="file2" type="file" accept="audio/*" hidden></label></div>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/shaders/CopyShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+<script>
+/* Laser field lab: a test bench for a possible Soundscape mode.
+   You stand in the dark facing one laser projector. It throws flat fans of beams that sweep the room, and a cone of light that you stand inside
+   (a tunnel of light). There is haze in the air, and a laser only lights the slice of haze it passes through, so the smoke is drawn on the
+   sheets of light themselves: curling wisps show wherever a fan or the cone cuts through them. Each fan follows its own slice of the sound
+   (48 bands); all sweeps, spreads and brightness are eased. Drag to look around, scroll to move in and out. */
+const $=s=>document.querySelector(s), clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const NB=48, NFAN=16;
+
+/* ---------------- audio: demo synth and the fine analysis ---------------- */
+function synthDemo(){ const sr=22050, bpm=126, beat=60/bpm, bar=beat*4, dur=bar*50, n=Math.floor(sr*dur), d=new Float32Array(n); let sd=7; const rnd=()=>((sd=(sd*1664525+1013904223)>>>0)/4294967296)*2-1;
+  const sect=t=>{ const b=t/bar; return b<4?0:b<8?1:b<24?2:b<28?0:b<32?1:b<48?2:0; };   // 0 quiet, 1 build, 2 full
+  for(let i=0;i<n;i++){ const t=i/sr, s=sect(t), bt=t%beat, b8=t%(beat/2), bb=(t/bar)%4; let v=0;
+    v+=.10*Math.sin(6.283*110*t)*(.6+.4*Math.sin(t*.7))+.07*Math.sin(6.283*164.8*t);                         // pad
+    if(s===2){ v+=.95*Math.sin(6.283*(45*bt+ (75/28)*(1-Math.exp(-bt*28))))*Math.exp(-bt*7);                  // kick
+      const ob=(t+beat/2)%beat; v+=.33*(2*((55*t)%1)-1)*Math.exp(-ob*5)*(ob<beat*.45?1:0); }                 // off-beat bass
+    if(s>=1){ const hb=(t+beat/4)%(beat/2); v+=.16*rnd()*Math.exp(-hb*60); }                                  // hats
+    if(s===1){ const p=(t/bar)%4/4; const rb=t%(beat/(p>.5?4:2)); v+=(.1+.35*p)*rnd()*Math.exp(-rb*30)+.12*p*p*rnd(); }   // snare roll and riser
+    d[i]=v*.7; }
+  return {data:d,sr,dur}; }
+
+function fft(re,im){ const n=re.length; for(let i=1,j=0;i<n;i++){ let bit=n>>1; for(;j&bit;bit>>=1) j^=bit; j^=bit; if(i<j){ let t=re[i]; re[i]=re[j]; re[j]=t; t=im[i]; im[i]=im[j]; im[j]=t; } }
+  for(let len=2;len<=n;len<<=1){ const ang=-2*Math.PI/len, wr=Math.cos(ang), wi=Math.sin(ang); for(let i=0;i<n;i+=len){ let cr=1, ci=0; for(let k=0;k<len/2;k++){ const a=i+k, b=a+len/2, xr=re[b]*cr-im[b]*ci, xi=re[b]*ci+im[b]*cr; re[b]=re[a]-xr; im[b]=im[a]-xi; re[a]+=xr; im[a]+=xi; const t=cr*wr-ci*wi; ci=cr*wi+ci*wr; cr=t; } } } }
+/* 48 bands spaced by ear (logarithmically) from 40 Hz to 16 kHz, about 43 readings a second. For each band: its level, and its onsets
+   (how sharply it rose), each scaled by that band's own loud moments, so a quiet hi-hat counts as much as a loud kick */
+function analyse(data,sr){ const N=2048, hop=1024, F=Math.max(1,Math.floor((data.length-N)/hop)), fps=sr/hop, lev=new Float32Array(F*NB), on=new Float32Array(F*NB), win=new Float32Array(N), re=new Float32Array(N), im=new Float32Array(N);
+  for(let i=0;i<N;i++) win[i]=.5-.5*Math.cos(2*Math.PI*i/(N-1));
+  const edge=[]; for(let b=0;b<=NB;b++) edge.push(Math.min(N/2-1,Math.max(1,Math.round(40*Math.pow(16000/40,b/NB)/sr*N))));
+  for(let f=0;f<F;f++){ const o=f*hop; for(let i=0;i<N;i++){ re[i]=data[o+i]*win[i]; im[i]=0; } fft(re,im);
+    for(let b=0;b<NB;b++){ let s=0, c=0; for(let k=edge[b];k<=Math.max(edge[b],edge[b+1]-1);k++){ s+=Math.sqrt(re[k]*re[k]+im[k]*im[k]); c++; } lev[f*NB+b]=Math.log(1+s/c*6); } }
+  const tmp=new Float32Array(F); let loud=new Float32Array(F);
+  for(let b=0;b<NB;b++){ for(let f=0;f<F;f++) tmp[f]=lev[f*NB+b]; const srt=Float32Array.from(tmp).sort(), hi=srt[Math.floor(F*.97)]||1e-6; for(let f=0;f<F;f++) lev[f*NB+b]=Math.min(1.3,tmp[f]/Math.max(hi,1e-6));
+    for(let f=1;f<F;f++) tmp[f]=Math.max(0,lev[f*NB+b]-lev[(f-1)*NB+b]); tmp[0]=0; const s2=Float32Array.from(tmp).sort(), h2=s2[Math.floor(F*.985)]||1e-6; for(let f=0;f<F;f++) on[f*NB+b]=Math.min(1.5,tmp[f]/Math.max(h2,1e-6)); }
+  for(let f=0;f<F;f++){ let s=0; for(let b=0;b<NB;b++) s+=lev[f*NB+b]; loud[f]=s/NB; }
+  /* big moments: where the whole spectrum jumps at once */
+  const hits=[]; let last=-9; for(let f=2;f<F;f++){ let s=0; for(let b=0;b<NB;b++) s+=on[f*NB+b]; s/=NB; if(s>.42&&f/fps-last>.9){ hits.push({t:f/fps,s:Math.min(1,s)}); last=f/fps; } }
+  return {fps,F,dur:data.length/sr,lev,on,loud,hits}; }
+
+
+/* ---------------- rendering ---------------- */
+const renderer=new THREE.WebGLRenderer({antialias:true}); document.body.prepend(renderer.domElement);
+const scene=new THREE.Scene(), camera=new THREE.PerspectiveCamera(62,1,.5,2000);
+const PALS=[['club',[.15,.35,1],[1,.1,.75],[.2,1,.35]],['violet',[.75,.15,1],[1,.2,.7],[.5,.2,1]],['red',[1,.05,.08],[1,.12,.2],[1,.05,.08]],['green',[.15,1,.3],[.6,1,.2],[.15,1,.3]],['rainbow',[1,.1,.1],[.2,1,.2],[.2,.3,1]],['white',[1,1,1],[.85,.9,1],[1,1,1]]]; let palI=0;
+const E=new THREE.Vector3(0,7,-70);
+const U={uLev:{value:new Float32Array(NB)},uShot:{value:new Float32Array(NB)},uTime:{value:0},uAll:{value:0},uBass:{value:0},uBeat:{value:0},uFan:{value:1},uCone:{value:1},uA:{value:new THREE.Vector3(...PALS[0][1])},uB:{value:new THREE.Vector3(...PALS[0][2])},uC:{value:new THREE.Vector3(...PALS[0][3])},uE:{value:E},uPx:{value:1}};
+const NOISE=`float h3(vec3 p){ return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453); }
+float n3(vec3 p){ vec3 i=floor(p), f=fract(p); f=f*f*(3.-2.*f); return mix(mix(mix(h3(i),h3(i+vec3(1,0,0)),f.x),mix(h3(i+vec3(0,1,0)),h3(i+vec3(1,1,0)),f.x),f.y),mix(mix(h3(i+vec3(0,0,1)),h3(i+vec3(1,0,1)),f.x),mix(h3(i+vec3(0,1,1)),h3(i+vec3(1,1,1)),f.x),f.y),f.z); }
+float fbm(vec3 p){ float a=.5, s=0.; for(int i=0;i<5;i++){ s+=a*n3(p); p=p*2.03+vec3(7.1,3.3,5.7); a*=.5; } return s; }
+/* haze: slow rolling smoke, warped so it curls. Sampled where the light is, in room coordinates, so wisps hold their place as a beam sweeps through them */
+float smoke(vec3 w,float t){ vec3 q=w*.045+vec3(0.,-t*.03,t*.02); q+=1.6*vec3(fbm(q+vec3(0.,t*.04,0.)),fbm(q+vec3(5.2,1.3,-t*.03)),fbm(q+vec3(-3.1,7.7,2.)))-.8; float f=fbm(q); return smoothstep(.28,.78,f)*1.5+.1; }`;
+let sd=3; const rnd=()=>((sd=(sd*1664525+1013904223)>>>0)/4294967296);
+/* the fans: each is one flat sheet spreading from the projector, made of a row of separate beams with haze between them */
+const fans=(()=>{ const g=new THREE.InstancedBufferGeometry(), base=new THREE.PlaneGeometry(2,1,24,6); g.setAttribute('position',base.getAttribute('position')); g.setAttribute('uv',base.getAttribute('uv')); g.setIndex(base.getIndex());
+  const a=new Float32Array(NFAN*4), b=new Float32Array(NFAN*4);
+  for(let i=0;i<NFAN;i++){ a[i*4]=(rnd()-.5)*1.5; a[i*4+1]=(rnd()-.5)*.7; a[i*4+2]=rnd()*3.14; a[i*4+3]=.25+.5*rnd(); b[i*4]=Math.floor(rnd()*NB); b[i*4+1]=rnd(); b[i*4+2]=.15+.4*rnd(); b[i*4+3]=5+Math.floor(rnd()*10); }   /* yaw, pitch, roll, spread | band, hue, speed, beams */
+  g.setAttribute('aA',new THREE.InstancedBufferAttribute(a,4)); g.setAttribute('aB',new THREE.InstancedBufferAttribute(b,4)); g.instanceCount=NFAN;
+  const m=new THREE.Mesh(g,new THREE.ShaderMaterial({uniforms:U,transparent:true,depthWrite:false,depthTest:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide,
+    vertexShader:`uniform float uLev[${NB}],uShot[${NB}]; uniform float uTime,uAll,uBass,uFan; uniform vec3 uE; attribute vec4 aA,aB; varying vec3 vW; varying float vU,vV,vI,vHue,vN;
+void main(){ int bi=int(aB.x+.5); float lv=uLev[bi], sh=uShot[bi], t=uTime*aB.z, ph=aB.y*6.283;
+  float yaw=aA.x+.55*sin(t*.7+ph)+.25*sin(t*.31+ph*2.), pitch=aA.y+.3*sin(t*.5+ph*1.7), roll=aA.z+t*.35+.6*sin(t*.23+ph);
+  float spread=aA.w*(.45+.75*lv+.35*sh+.3*uAll);
+  vec3 c=vec3(sin(yaw)*cos(pitch),sin(pitch),cos(yaw)*cos(pitch)), hz=normalize(cross(vec3(0.,1.,0.),c)), up=cross(c,hz), s=cos(roll)*hz+sin(roll)*up;
+  float ang=position.x*spread; vec3 d=c*cos(ang)+s*sin(ang); vec3 p=uE+d*uv.y*190.;
+  vW=p; vU=position.x; vV=uv.y; vHue=aB.y; vN=aB.w; vI=uFan*(.02+.11*lv+.42*sh+.15*uAll)*smoothstep(.25,.6,lv*.7+sh+uAll*.5+aB.y*.25);   /* a fan lights when its own sound is present; several are dark at any moment */
+  gl_Position=projectionMatrix*viewMatrix*vec4(p,1.); }`,
+    fragmentShader:`precision highp float; uniform float uTime; uniform vec3 uA,uB,uC; varying vec3 vW; varying float vU,vV,vI,vHue,vN;
+${NOISE}
+void main(){ if(vI<.004) discard; float x=(vU*.5+.5)*vN, k=abs(fract(x)-.5)*2.;
+  float beam=exp(-k*k*38.)+.35*exp(-k*k*5.);                                              // a row of separate beams, each with a soft skirt
+  float sm=smoke(vW,uTime), edge=smoothstep(1.,.86,abs(vU));
+  float fade=(.35+.65*exp(-vV*2.2))*smoothstep(0.,.03,vV);                                // strongest near the projector
+  vec3 col=vHue<.34?uA:(vHue<.67?uB:uC);
+  float near=smoothstep(4.,40.,length(vW-cameraPosition));                                // a sheet passing through your head fades instead of flooding the view
+  gl_FragColor=vec4(col*vI*edge*fade*near*(beam*(.5+.6*sm)+.1*sm),1.); }`}));
+  m.frustumCulled=false; scene.add(m); return m; })();
+/* the cone: a tunnel of light opening from the projector towards you, with the haze swirling on its wall */
+const cone=(()=>{ const m=new THREE.Mesh(new THREE.PlaneGeometry(2,1,96,24),new THREE.ShaderMaterial({uniforms:U,transparent:true,depthWrite:false,depthTest:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide,
+    vertexShader:`uniform float uTime,uBass,uBeat,uAll,uCone; uniform vec3 uE; varying vec3 vW; varying float vU,vV,vI;
+void main(){ float th=position.x*3.14159, ha=.2+.1*sin(uTime*.21)+.16*uBass+.08*uBeat;    // the cone breathes with the bass
+  vec3 ax=normalize(vec3(.12*sin(uTime*.17),-.06+.05*sin(uTime*.13),1.)), e1=normalize(cross(vec3(0.,1.,0.),ax)), e2=cross(ax,e1);
+  vec3 d=ax*cos(ha)+(cos(th)*e1+sin(th)*e2)*sin(ha); vec3 p=uE+d*uv.y*200.; vW=p; vU=position.x; vV=uv.y; vI=uCone*(.1+.5*uBass+.5*uBeat+.4*uAll);
+  gl_Position=projectionMatrix*viewMatrix*vec4(p,1.); }`,
+    fragmentShader:`precision highp float; uniform float uTime; uniform vec3 uA,uB; varying vec3 vW; varying float vU,vV,vI;
+${NOISE}
+void main(){ float sm=smoke(vW*1.3,uTime*1.4), ring=.5+.5*sin(vV*60.-uTime*1.5);
+  float fade=(.3+.7*exp(-vV*1.6))*smoothstep(0.,.04,vV);
+  vec3 col=mix(uA,uB,.5+.5*sin(vU*3.14159+uTime*.2));
+  float near=smoothstep(3.,30.,length(vW-cameraPosition));
+  gl_FragColor=vec4(col*vI*fade*near*(.04+.5*sm*sm+.02*ring),1.); }`}));
+  m.frustumCulled=false; scene.add(m); return m; })();
+/* the projector itself: a small hot point */
+const lamp=(()=>{ const g=new THREE.BufferGeometry(); g.setAttribute("position",new THREE.BufferAttribute(new Float32Array([E.x,E.y,E.z]),3));
+  const m=new THREE.Points(g,new THREE.ShaderMaterial({uniforms:U,transparent:true,depthWrite:false,depthTest:false,blending:THREE.AdditiveBlending,vertexShader:`uniform float uPx,uBass,uBeat,uAll; varying float vB; void main(){ vB=.6+.9*uBass+uBeat+uAll; vec4 mv=modelViewMatrix*vec4(position,1.); gl_PointSize=uPx*(.05+.04*uBeat)*60./-mv.z; gl_Position=projectionMatrix*mv; }`,
+    fragmentShader:`precision highp float; uniform vec3 uA,uB; varying float vB; void main(){ vec2 q=(gl_PointCoord-.5)*2.; float d2=dot(q,q); if(d2>1.) discard; gl_FragColor=vec4((mix(uA,uB,.5)*exp(-d2*5.)*.9+vec3(1.)*exp(-d2*40.))*vB,1.); }`})); m.frustumCulled=false; scene.add(m); return m; })();
+const composer=new THREE.EffectComposer(renderer); composer.addPass(new THREE.RenderPass(scene,camera)); const bloom=new THREE.UnrealBloomPass(new THREE.Vector2(1,1),.75,.8,.25); composer.addPass(bloom);
+/* however much light piles up it keeps its colour */
+composer.addPass(new THREE.ShaderPass({uniforms:{tDiffuse:{value:null}},vertexShader:'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }',fragmentShader:'precision highp float; uniform sampler2D tDiffuse; varying vec2 vUv; void main(){ vec3 c=texture2D(tDiffuse,vUv).rgb; float m=max(c.r,max(c.g,c.b)); gl_FragColor=vec4(c/max(1.,m),1.); }'}));
+function resize(){ const w=innerWidth,h=innerHeight, pr=Math.min(1.5,devicePixelRatio||1); renderer.setPixelRatio(pr); renderer.setSize(w,h,false); composer.setSize(w*pr,h*pr); camera.aspect=w/h; camera.updateProjectionMatrix(); U.uPx.value=h*pr; } addEventListener('resize',resize); resize();
+
+/* ---------------- transport ---------------- */
+let actx=null, buf=null, src=null, t0=0, off=0, playing=false, A=null;
+const now=()=>playing?clamp(actx.currentTime-t0,0,A.dur):off;
+function play(){ if(!buf||playing) return; src=actx.createBufferSource(); src.buffer=buf; src.connect(actx.destination); src.start(0,off); t0=actx.currentTime-off; playing=true; $('#pp').textContent='Pause'; src.onended=()=>{ if(playing&&now()>=A.dur-.05){ playing=false; off=0; $('#pp').textContent='Play'; } }; }
+function pause(){ if(!playing) return; off=now(); playing=false; src.onended=null; try{ src.stop(); }catch(e){} $('#pp').textContent='Play'; }
+function seek(t){ const was=playing; pause(); off=clamp(t,0,A.dur-.05); if(was) play(); }
+function start(data,sr){ $('#msg').textContent='Listening to the song…'; setTimeout(()=>{ A=analyse(data,sr); actx=actx||new (window.AudioContext||window.webkitAudioContext)(); buf=actx.createBuffer(1,data.length,sr); buf.copyToChannel(data,0); off=0; $('#msg').style.display='none';
+  window.__lab={A,seek,play,pause}; console.warn('LASER '+JSON.stringify({dur:+A.dur.toFixed(1),fps:+A.fps.toFixed(1),frames:A.F,bigHits:A.hits.length})); actx.resume(); play(); },30); }
+$('#demo').onclick=()=>{ const d=synthDemo(); start(d.data,d.sr); };
+const onFile=async e=>{ const f=e.target.files[0]; if(!f) return; pause(); $('#msg').style.display=''; $('#msg').textContent='Reading the song…'; actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+  try{ const b=await actx.decodeAudioData(await f.arrayBuffer()), n=b.length; if(b.duration>720){ $('#msg').textContent='That one is longer than 12 minutes. Pick a shorter song.'; return; } const d=new Float32Array(n); for(let c=0;c<b.numberOfChannels;c++){ const ch=b.getChannelData(c); for(let i=0;i<n;i++) d[i]+=ch[i]/b.numberOfChannels; } start(d,b.sampleRate); }catch(err){ $('#msg').textContent='That file could not be read as audio.'; } };
+$('#file').onchange=onFile; $('#file2').onchange=onFile;
+$('#pp').onclick=()=>{ if(!A) return; actx.resume(); playing?pause():play(); };
+$('#seek').oninput=e=>{ if(A) seek(e.target.value*A.dur); };
+const SCN=['mix','fans','tunnel']; let scI=0; function nextSc(){ scI=(scI+1)%3; $('#sc').textContent='Scene: '+SCN[scI]; } $('#sc').onclick=nextSc;
+function nextCol(){ palI=(palI+1)%PALS.length; $('#col').textContent='Colour: '+PALS[palI][0]; } $('#col').onclick=nextCol;
+addEventListener('keydown',e=>{ if(e.code==='KeyC') nextCol(); if(e.code==='KeyS') nextSc(); if(e.code==='Space'&&A){ e.preventDefault(); playing?pause():play(); } });
+
+/* ---------------- camera: you stand in the room facing the projector. Drag to look around (heavy, slow to settle), scroll to walk in and out ---------------- */
+const orb={az:0,el:.02,d:92,azT:0,elT:.02,dT:92,drag:false,x:0,y:0};
+renderer.domElement.addEventListener('pointerdown',e=>{ orb.drag=true; orb.x=e.clientX; orb.y=e.clientY; renderer.domElement.setPointerCapture(e.pointerId); });
+renderer.domElement.addEventListener('pointermove',e=>{ if(!orb.drag) return; orb.azT=clamp(orb.azT-(e.clientX-orb.x)*.0025,-1.2,1.2); orb.elT=clamp(orb.elT+(e.clientY-orb.y)*.002,-.5,.7); orb.x=e.clientX; orb.y=e.clientY; });
+addEventListener('pointerup',()=>orb.drag=false);
+renderer.domElement.addEventListener('wheel',e=>{ e.preventDefault(); orb.dT=clamp(orb.dT*Math.exp(e.deltaY*.001),30,170); },{passive:false});
+
+/* ---------------- frame ---------------- */
+const lev=U.uLev.value, shot=U.uShot.value, cA=new THREE.Vector3(), cB=new THREE.Vector3(), cC=new THREE.Vector3(); let last=performance.now(), hitI=0, prevT=0, allT=0, beatT=0, lastKick=-9;
+function frame(ms){ requestAnimationFrame(frame); const dt=Math.min(.05,(ms-last)/1000); last=ms; U.uTime.value+=dt; let bass=0, kick=0; const live=!!A&&playing;
+  if(A){ const t=now(), fr=clamp(t*A.fps,0,A.F-1), f0=fr|0, f1=Math.min(A.F-1,f0+1), k=fr-f0;
+    for(let b=0;b<NB;b++){ const L=live?A.lev[f0*NB+b]*(1-k)+A.lev[f1*NB+b]*k:0, O=live?Math.max(A.on[f0*NB+b],A.on[f1*NB+b]):0;
+      lev[b]+=(L-lev[b])*Math.min(1,dt*7); shot[b]+=(O-shot[b])*Math.min(1,dt*(O>shot[b]?20:2.4)); if(b<6&&live) kick=Math.max(kick,O); if(b<8) bass+=lev[b]/8; }
+    if(kick>.62&&t-lastKick>.18){ lastKick=t; beatT=1; } if(t<lastKick) lastKick=t-1;
+    if(Math.abs(t-prevT)>.5) hitI=0; while(hitI<A.hits.length&&A.hits[hitI].t<prevT) hitI++;
+    if(live) while(hitI<A.hits.length&&A.hits[hitI].t<=t){ allT=Math.max(allT,A.hits[hitI].s); hitI++; } prevT=t;
+    if(document.activeElement!==$('#seek')) $('#seek').value=t/A.dur; $('#tm').textContent=`${(t/60)|0}:${String((t%60)|0).padStart(2,'0')}`; }
+  U.uBass.value+=(bass-U.uBass.value)*Math.min(1,dt*6); allT*=Math.exp(-dt*2.2); U.uAll.value+=(allT-U.uAll.value)*Math.min(1,dt*12);
+  U.uBeat.value+=(beatT-U.uBeat.value)*Math.min(1,dt*(beatT>U.uBeat.value?20:5)); beatT*=Math.exp(-dt*8);
+  /* at rest (no music) the fans go dark and a faint cone of haze stays, so the room is never empty */
+  const s=SCN[scI], fanT=!live||s==='tunnel'?0:(s==='mix'?.5:1), coneT=!live?.35:(s==='fans'?0:(s==='mix'?.4:1));   /* in the mix both are turned down, so together they do not flood the room */
+  U.uFan.value+=(fanT-U.uFan.value)*Math.min(1,dt*2); U.uCone.value+=(coneT-U.uCone.value)*Math.min(1,dt*1.5);
+  U.uA.value.lerp(cA.set(...PALS[palI][1]),Math.min(1,dt*3)); U.uB.value.lerp(cB.set(...PALS[palI][2]),Math.min(1,dt*3)); U.uC.value.lerp(cC.set(...PALS[palI][3]),Math.min(1,dt*3));
+  orb.az+=(orb.azT-orb.az)*Math.min(1,dt*2.67); orb.el+=(orb.elT-orb.el)*Math.min(1,dt*2.67); orb.d+=(orb.dT-orb.d)*Math.min(1,dt*3);
+  const ce=Math.cos(orb.el); camera.position.set(E.x+Math.sin(orb.az)*ce*orb.d,E.y-6+Math.sin(orb.el)*orb.d,E.z+Math.cos(orb.az)*ce*orb.d); camera.lookAt(E.x,E.y-1,E.z);
+  composer.render(); }
+requestAnimationFrame(frame);
+</script></body></html>

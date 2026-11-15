@@ -345,6 +345,14 @@ The owner reversed section 8j: **the bioluminescent blue is reserved for the ins
 - Petals are opaque and mirror left to right; lit "panes" are switched on by the 48-band analysis (same `analyse` as the Black hole lab). Heart ball, stars, heavy drag, scroll zoom, six colour sets (button or C).
 - Not done: showing the live world on the petals (the flat diamond kaleidoscope does; here the panes are procedural), the faceted-crystal variant from the owner's second reference, the rest state (currently dim). Stills only.
 
+## 8z8. Laser field lab (2026-11-15 night): phase 2, idea 1
+
+The owner parked the Bloom lab ("I wasn't able to explain what I want; skip it") and chose to try the phase 2 ideas one at a time, starting here. `laser-lab.html`, artifact "Laser field lab"; not in the main app.
+- You face one projector at `E`. **Fans:** 16 instanced flat sheets from `E`, each a row of 5 to 14 separate beams, sweeping (sums of slow sines), each tied to one of the 48 bands: it lights only when its sound is present, and spreads wider with level. **Cone:** one open cone towards the viewer (a tunnel of light), half-angle breathing with the bass.
+- **Smoke is drawn on the light:** `smoke(worldPos,t)` (domain-warped 5-octave value noise in room coordinates) multiplies the sheets, so wisps stay put while beams sweep through them. Additive, no depth test; light within about 30 units of the camera fades; a last pass keeps hue when light piles up.
+- Scenes (button or S): mix (both at about half), fans, tunnel. Colours (button or C): club (blue, pink, green), violet, red, green, rainbow, white. At rest only a faint cone of haze. Drag to look (limited), scroll to walk in and out.
+- First tries were blown out to white; the levels above are after three reductions. Stills only; `half` is a reserved word in GLSL ES (it broke the cone shader once).
+
 ## 8zz. Phase 2 ideas, analysed only, nothing built (2026-11-15)
 
 The owner sent references and asked for analysis to keep for later. Suggested order: 1, 2, 3, 4.
