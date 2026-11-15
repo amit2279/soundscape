@@ -477,3 +477,7 @@ First sphere version started a whole fan from one surface point (`uE+c*RS`), so 
 
 ### 8z13. Laser lab sphere: slow auto-rotation
 `U.uSpin` accumulates `dt*.09*uSph` (about 70 s a turn) and is added to every fan's yaw, so the whole set of beams turns with the ball. The ball is plain black, so the turn is only visible through the beams. Not tested (motion).
+
+
+### 8z14. Plasma globe lab (new, phase 2 extra idea from the user)
+File `plasma-lab.html` (built from the laser lab's audio scaffold; same 48-band `analyse`, same transport and `window.__lab`). A glass ball (`R=30`) with a core point; `NT=22` main filaments, each with 2 forks and 5 hairs (176 instanced ribbons, `SEG=72`, billboarded in the vertex shader, function `at(u)` gives the path). Mains: `dir*R*s` plus two-axis value-noise wriggle with an envelope that is zero at core and glass. Forks/hairs share the parent's path from `s0` and bend away, forced onto the glass at their end. `tipDir()` in JS mirrors the shader so `uTip[22]` puts a glow on the glass under each main. Music drives brightness, thickness, colour only (`uLive` eases between idle glow and music); wriggle and `uSpin` run on a steady clock (user rule: organic motion never pulses). Palettes aurora/green/neon/violet/ice/white (key C). Checked: one headless still at 0:48. Known: an occasional fork shows as a straight line; hairs look dotted at small size. Not checked: motion, idle state, other palettes.

@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Plasma globe lab</title>
+<style>
+html,body{margin:0;height:100%;background:#000;color:#e8ecf5;font:13px/1.4 ui-monospace,Menlo,Consolas,monospace;overflow:hidden}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block;cursor:grab}
+#bar{position:fixed;left:12px;right:12px;bottom:12px;display:flex;gap:10px;align-items:center;z-index:2;background:rgba(10,12,20,.6);border:1px solid rgba(255,255,255,.14);border-radius:14px;padding:8px 12px;backdrop-filter:blur(8px)}
+button,label.b{font:inherit;color:#fff;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:9px;padding:6px 12px;cursor:pointer;white-space:nowrap}
+button:hover,label.b:hover{background:rgba(255,255,255,.2)}
+#seek{flex:1;min-width:60px}
+#msg{position:fixed;left:50%;top:45%;transform:translate(-50%,-50%);z-index:3;text-align:center;font-size:15px;max-width:80vw}
+</style></head><body>
+<div id="msg">Plasma globe lab<br><br><button id="demo">Play the demo track</button> <label class="b">Upload a song<input id="file" type="file" accept="audio/*" hidden></label></div>
+<div id="bar"><button id="pp">Play</button><button id="col" title="Next colour (C)">Colour: aurora</button><input id="seek" type="range" min="0" max="1" step="0.001" value="0"><span id="tm">0:00</span><label class="b">Song<input id="file2" type="file" accept="audio/*" hidden></label></div>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/shaders/CopyShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+<script>
+/* Plasma globe lab: a test bench for a possible Soundscape mode.
+   A glass ball with a glowing core. Filaments of plasma reach from the core to the glass, wriggling, and fork on the way; fine hairs split off
+   near the glass. Where a filament touches the glass, the glass glows. Each filament follows its own slice of the sound (48 bands): the music
+   drives brightness, thickness and colour only. The wriggling itself runs on a steady clock, so it stays free-flowing. Drag to turn, scroll to zoom. */
+const $=s=>document.querySelector(s), clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const NB=48, NFAN=34;
+
+/* ---------------- audio: demo synth and the fine analysis ---------------- */
+function synthDemo(){ const sr=22050, bpm=126, beat=60/bpm, bar=beat*4, dur=bar*50, n=Math.floor(sr*dur), d=new Float32Array(n); let sd=7; const rnd=()=>((sd=(sd*1664525+1013904223)>>>0)/4294967296)*2-1;
+  const sect=t=>{ const b=t/bar; return b<4?0:b<8?1:b<24?2:b<28?0:b<32?1:b<48?2:0; };   // 0 quiet, 1 build, 2 full
+  for(let i=0;i<n;i++){ const t=i/sr, s=sect(t), bt=t%beat, b8=t%(beat/2), bb=(t/bar)%4; let v=0;
+    v+=.10*Math.sin(6.283*110*t)*(.6+.4*Math.sin(t*.7))+.07*Math.sin(6.283*164.8*t);                         // pad
+    if(s===2){ v+=.95*Math.sin(6.283*(45*bt+ (75/28)*(1-Math.exp(-bt*28))))*Math.exp(-bt*7);                  // kick
+      const ob=(t+beat/2)%beat; v+=.33*(2*((55*t)%1)-1)*Math.exp(-ob*5)*(ob<beat*.45?1:0); }                 // off-beat bass
+    if(s>=1){ const hb=(t+beat/4)%(beat/2); v+=.16*rnd()*Math.exp(-hb*60); }                                  // hats
+    if(s===1){ const p=(t/bar)%4/4; const rb=t%(beat/(p>.5?4:2)); v+=(.1+.35*p)*rnd()*Math.exp(-rb*30)+.12*p*p*rnd(); }   // snare roll and riser
+    d[i]=v*.7; }
+  return {data:d,sr,dur}; }
+
+function fft(re,im){ const n=re.length; for(let i=1,j=0;i<n;i++){ let bit=n>>1; for(;j&bit;bit>>=1) j^=bit; j^=bit; if(i<j){ let t=re[i]; re[i]=re[j]; re[j]=t; t=im[i]; im[i]=im[j]; im[j]=t; } }
+  for(let len=2;len<=n;len<<=1){ const ang=-2*Math.PI/len, wr=Math.cos(ang), wi=Math.sin(ang); for(let i=0;i<n;i+=len){ let cr=1, ci=0; for(let k=0;k<len/2;k++){ const a=i+k, b=a+len/2, xr=re[b]*cr-im[b]*ci, xi=re[b]*ci+im[b]*cr; re[b]=re[a]-xr; im[b]=im[a]-xi; re[a]+=xr; im[a]+=xi; const t=cr*wr-ci*wi; ci=cr*wi+ci*wr; cr=t; } } } }
+/* 48 bands spaced by ear (logarithmically) from 40 Hz to 16 kHz, about 43 readings a second. For each band: its level, and its onsets
+   (how sharply it rose), each scaled by that band's own loud moments, so a quiet hi-hat counts as much as a loud kick */
+function analyse(data,sr){ const N=2048, hop=1024, F=Math.max(1,Math.floor((data.length-N)/hop)), fps=sr/hop, lev=new Float32Array(F*NB), on=new Float32Array(F*NB), win=new Float32Array(N), re=new Float32Array(N), im=new Float32Array(N);
+  for(let i=0;i<N;i++) win[i]=.5-.5*Math.cos(2*Math.PI*i/(N-1));
+  const edge=[]; for(let b=0;b<=NB;b++) edge.push(Math.min(N/2-1,Math.max(1,Math.round(40*Math.pow(16000/40,b/NB)/sr*N))));
+  for(let f=0;f<F;f++){ const o=f*hop; for(let i=0;i<N;i++){ re[i]=data[o+i]*win[i]; im[i]=0; } fft(re,im);
+    for(let b=0;b<NB;b++){ let s=0, c=0; for(let k=edge[b];k<=Math.max(edge[b],edge[b+1]-1);k++){ s+=Math.sqrt(re[k]*re[k]+im[k]*im[k]); c++; } lev[f*NB+b]=Math.log(1+s/c*6); } }
+  const tmp=new Float32Array(F); let loud=new Float32Array(F);
+  for(let b=0;b<NB;b++){ for(let f=0;f<F;f++) tmp[f]=lev[f*NB+b]; const srt=Float32Array.from(tmp).sort(), hi=srt[Math.floor(F*.97)]||1e-6; for(let f=0;f<F;f++) lev[f*NB+b]=Math.min(1.3,tmp[f]/Math.max(hi,1e-6));
+    for(let f=1;f<F;f++) tmp[f]=Math.max(0,lev[f*NB+b]-lev[(f-1)*NB+b]); tmp[0]=0; const s2=Float32Array.from(tmp).sort(), h2=s2[Math.floor(F*.985)]||1e-6; for(let f=0;f<F;f++) on[f*NB+b]=Math.min(1.5,tmp[f]/Math.max(h2,1e-6)); }
+  for(let f=0;f<F;f++){ let s=0; for(let b=0;b<NB;b++) s+=lev[f*NB+b]; loud[f]=s/NB; }
+  /* big moments: where the whole spectrum jumps at once */
+  const hits=[]; let last=-9; for(let f=2;f<F;f++){ let s=0; for(let b=0;b<NB;b++) s+=on[f*NB+b]; s/=NB; if(s>.42&&f/fps-last>.9){ hits.push({t:f/fps,s:Math.min(1,s)}); last=f/fps; } }
+  return {fps,F,dur:data.length/sr,lev,on,loud,hits}; }
+
+
+const NOISE=`float h3(vec3 p){ return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453); }
+float n3(vec3 p){ vec3 i=floor(p), f=fract(p); f=f*f*(3.-2.*f); return mix(mix(mix(h3(i),h3(i+vec3(1,0,0)),f.x),mix(h3(i+vec3(0,1,0)),h3(i+vec3(1,1,0)),f.x),f.y),mix(mix(h3(i+vec3(0,0,1)),h3(i+vec3(1,0,1)),f.x),mix(h3(i+vec3(0,1,1)),h3(i+vec3(1,1,1)),f.x),f.y),f.z); }
+float fbm(vec3 p){ float a=.5, s=0.; for(int i=0;i<5;i++){ s+=a*n3(p); p=p*2.03+vec3(7.1,3.3,5.7); a*=.5; } return s; }
+/* haze: slow rolling smoke, warped so it curls. Sampled where the light is, in room coordinates, so wisps hold their place as a beam sweeps through them */
+float smoke(vec3 w,float t){ vec3 q=w*.045+vec3(0.,-t*.03,t*.02); q+=1.6*vec3(fbm(q+vec3(0.,t*.04,0.)),fbm(q+vec3(5.2,1.3,-t*.03)),fbm(q+vec3(-3.1,7.7,2.)))-.8; float f=fbm(q); return smoothstep(.28,.78,f)*1.5+.1; }`;
+
+/* ---------------- rendering ---------------- */
+const renderer=new THREE.WebGLRenderer({antialias:true}); document.body.prepend(renderer.domElement);
+const scene=new THREE.Scene(), camera=new THREE.PerspectiveCamera(50,1,.5,2000);
+const PALS=[['aurora',[1,.32,.05],[.55,1,.15],[.05,1,.55]],['green',[.1,1,.25],[.45,1,.3],[.1,1,.55]],['neon',[1,.1,.6],[1,.9,.1],[.1,.5,1]],['violet',[.6,.2,1],[1,.3,.8],[.3,.4,1]],['ice',[.3,.7,1],[.7,.9,1],[.2,.4,1]],['white',[1,1,1],[.85,.9,1],[1,1,1]]]; let palI=0;
+const NT=22, R=30, SEG=72;
+const tips=[], tipH=new Float32Array(NT); for(let i=0;i<NT;i++) tips.push(new THREE.Vector4(0,1,0,0));
+const U={uLev:{value:new Float32Array(NB)},uShot:{value:new Float32Array(NB)},uTime:{value:0},uAll:{value:0},uBass:{value:0},uBeat:{value:0},uLive:{value:0},uSpin:{value:0},uPx:{value:1},
+  uA:{value:new THREE.Vector3(...PALS[0][1])},uB:{value:new THREE.Vector3(...PALS[0][2])},uC:{value:new THREE.Vector3(...PALS[0][3])},uTip:{value:tips},uTipH:{value:tipH}};
+let sd=11; const rnd=()=>((sd=(sd*1664525+1013904223)>>>0)/4294967296);
+/* where each main filament touches the glass. The same formula runs here and in the shader, so the glow on the glass sits under the filament */
+const MAIN=[]; for(let i=0;i<NT;i++){ const y=1-2*(i+.5)/NT; MAIN.push({yaw:i*2.39996+rnd()*.5,pit:Math.asin(y)*.9,ph:rnd()*6.283,sp:.5+.6*rnd(),band:Math.floor((i+rnd())/NT*NB*.999),hue:rnd(),seed:rnd()*50}); }
+function tipDir(m,t,spin,out){ const tt=t*m.sp, yaw=m.yaw+spin+.6*Math.sin(tt*.31+m.ph)+.3*Math.sin(tt*.73+m.ph*2.3), pit=m.pit+.35*Math.sin(tt*.43+m.ph*1.7)+.15*Math.sin(tt*.91+m.ph*.7), cp=Math.cos(pit); out.x=Math.sin(yaw)*cp; out.y=Math.sin(pit); out.z=Math.cos(yaw)*cp; }
+
+/* the filaments: one ribbon each, always turned to face you. Mains run core to glass; forks leave a main part-way; hairs split off near the glass */
+const fil=(()=>{ const inst=[]; for(let i=0;i<NT;i++){ const m=MAIN[i];
+    inst.push({m,s0:0,amt:0,fa:0,w:1,seed:m.seed});
+    for(let k=0;k<2;k++) inst.push({m,s0:.3+.35*rnd(),amt:.45+.5*rnd(),fa:rnd()*6.283,w:.6,seed:m.seed+7+k*13});
+    for(let k=0;k<5;k++) inst.push({m,s0:.78+.16*rnd(),amt:.14+.22*rnd(),fa:rnd()*6.283,w:.28,seed:m.seed+31+k*5}); }
+  const N=inst.length, a=new Float32Array(N*4), b=new Float32Array(N*4), c=new Float32Array(N*4);
+  inst.forEach((o,i)=>{ a.set([o.seed,o.m.band,o.s0,o.amt],i*4); b.set([o.fa,o.m.hue,o.w,0],i*4); c.set([o.m.yaw,o.m.pit,o.m.ph,o.m.sp],i*4); });
+  const g=new THREE.InstancedBufferGeometry(), base=new THREE.PlaneGeometry(1,2,SEG,1); g.setAttribute('position',base.getAttribute('position')); g.setIndex(base.getIndex());
+  g.setAttribute('aA',new THREE.InstancedBufferAttribute(a,4)); g.setAttribute('aB',new THREE.InstancedBufferAttribute(b,4)); g.setAttribute('aC',new THREE.InstancedBufferAttribute(c,4)); g.instanceCount=N;
+  const m=new THREE.Mesh(g,new THREE.ShaderMaterial({uniforms:U,transparent:true,depthWrite:false,depthTest:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide,
+    vertexShader:`const float R=${R}.; uniform float uLev[${NB}],uShot[${NB}]; uniform float uTime,uAll,uSpin,uLive; attribute vec4 aA,aB,aC; varying float vV,vI,vHue,vS,vY,vK;
+float h1(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+float n1(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.-2.*f); return mix(mix(h1(i),h1(i+vec2(1.,0.)),f.x),mix(h1(i+vec2(0.,1.)),h1(i+vec2(1.,1.)),f.x),f.y); }
+vec3 at(float u){ float t=uTime, tt=t*aC.w;
+  float yaw=aC.x+uSpin+.6*sin(tt*.31+aC.z)+.3*sin(tt*.73+aC.z*2.3), pit=aC.y+.35*sin(tt*.43+aC.z*1.7)+.15*sin(tt*.91+aC.z*.7);
+  vec3 dir=vec3(sin(yaw)*cos(pit),sin(pit),cos(yaw)*cos(pit)), e1=normalize(cross(dir,vec3(.31,1.,.17))), e2=cross(dir,e1);
+  float s0=aA.z, s=s0+u*(1.-s0), sm=aC.x*7.3;                                            /* the wriggle belongs to the main, so a fork follows its parent exactly until it leaves */
+  float env=pow(max(0.,sin(3.14159*s)),.7)*smoothstep(0.,.18,s);
+  float a=(n1(vec2(s*3.+sm,t*.33))-.5)+.45*(n1(vec2(s*8.+sm*1.7,t*.55+3.))-.5), b=(n1(vec2(s*3.+sm+40.,t*.33+9.))-.5)+.45*(n1(vec2(s*8.+sm*2.3+11.,t*.55))-.5);
+  vec3 p=dir*R*s+(e1*a+e2*b)*env*R*.8;
+  if(s0>0.){ float k=u, fa=aB.x+.4*sin(t*.2+aA.x); vec3 fd=e1*cos(fa)+e2*sin(fa), f2=cross(dir,fd);
+    p+=fd*R*aA.w*pow(k,1.5)+(fd*(n1(vec2(k*5.+aA.x*3.,t*.5))-.5)+f2*(n1(vec2(k*5.+aA.x*5.+20.,t*.5))-.5))*R*.3*aA.w*sin(3.14159*k);
+    float l=length(p); p*=mix(1.,R/l,smoothstep(.45,1.,k)); }                               /* a fork always ends on the glass */
+  float l=length(p); return p*min(1.,R*.998/l); }
+void main(){ float u=position.x+.5; vec3 P=at(u), Q=at(min(1.,u+.012)), O=at(max(0.,u-.012)); vec3 tn=normalize(Q-O+vec3(1e-5)), vw=normalize(cameraPosition-P), sd=normalize(cross(tn,vw));
+  int bi=int(aA.y+.5); float lv=uLev[bi], sh=uShot[bi], s=aA.z+u*(1.-aA.z);
+  float music=(.06+.75*lv+1.1*sh+.5*uAll)*smoothstep(.2,.55,lv*.8+sh+uAll*.5+aB.y*.2);
+  vI=mix(.3+.12*sin(uTime*.7+aA.x),music,uLive)*(aB.z<.5?.75:1.);                         /* with no music the globe idles softly */
+  float w=aB.z*(.55+.5*lv*uLive+.4*sh*uLive)*mix(1.5,.75,s)*.95;
+  vV=position.y; vHue=aB.y; vS=s; vK=u; vY=P.y/R;
+  gl_Position=projectionMatrix*viewMatrix*vec4(P+sd*position.y*w,1.); }`,
+    fragmentShader:`precision highp float; uniform float uTime; uniform vec3 uA,uB,uC; varying float vV,vI,vHue,vS,vY,vK;
+void main(){ float core=exp(-vV*vV*70.), skirt=exp(-vV*vV*7.);
+  vec3 col=mix(mix(uA,uB,smoothstep(.2,.8,vHue)),uC,smoothstep(-.7,.9,vY)*.65);
+  float along=.55+.45*exp(-vS*5.)+.7*smoothstep(.9,1.,vS);                                 /* hot at the core and again where it lands on the glass */
+  float ends=smoothstep(0.,.03,vK);
+  gl_FragColor=vec4((mix(col,vec3(1.),.6)*core*1.3+col*skirt*.4)*vI*along*ends,1.); }`}));
+  m.frustumCulled=false; scene.add(m); return m; })();
+
+/* the glass: a faint rim, slow smoke drifting on it, and a glow wherever a filament lands */
+const glass=(()=>{ const m=new THREE.Mesh(new THREE.SphereGeometry(R*1.03,96,64),new THREE.ShaderMaterial({uniforms:U,transparent:true,depthWrite:false,depthTest:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide,
+    vertexShader:`varying vec3 vN,vW; void main(){ vN=normalize(position); vW=position; gl_Position=projectionMatrix*viewMatrix*vec4(position,1.); }`,
+    fragmentShader:`precision highp float; uniform float uTime,uAll,uBeat; uniform vec3 uA,uB,uC; uniform vec4 uTip[${NT}]; uniform float uTipH[${NT}]; varying vec3 vN,vW;
+${NOISE}
+void main(){ vec3 n=normalize(vN), v=normalize(cameraPosition-vW); float fr=pow(1.-abs(dot(n,v)),2.6);
+  vec3 g=vec3(0.); for(int i=0;i<${NT};i++){ float d=1.-dot(n,uTip[i].xyz); vec3 c=mix(uA,uB,smoothstep(.2,.8,uTipH[i])); g+=uTip[i].w*(mix(c,vec3(1.),.5)*exp(-d*520.)*1.2+c*exp(-d*40.)*.22+c*exp(-d*7.)*.03); }
+  vec3 tint=mix(mix(uA,uB,.5),uC,smoothstep(-.7,.9,n.y)*.65);
+  float sm=smoke(vW*.7,uTime*1.3);
+  gl_FragColor=vec4(g+tint*(fr*(.1+.1*uAll+.05*uBeat)+sm*sm*.012*(1.+fr*3.))+vec3(.5,.6,.7)*pow(fr,3.)*.12,1.); }`}));
+  m.frustumCulled=false; scene.add(m); return m; })();
+
+/* the core: a small hot ball of light */
+const core=(()=>{ const g=new THREE.BufferGeometry(); g.setAttribute("position",new THREE.BufferAttribute(new Float32Array([0,0,0]),3));
+  const m=new THREE.Points(g,new THREE.ShaderMaterial({uniforms:U,transparent:true,depthWrite:false,depthTest:false,blending:THREE.AdditiveBlending,vertexShader:`uniform float uPx,uBass,uBeat,uAll; varying float vB; void main(){ vB=.55+.8*uBass+.6*uBeat+.6*uAll; vec4 mv=modelViewMatrix*vec4(position,1.); gl_PointSize=uPx*.34*60./-mv.z; gl_Position=projectionMatrix*mv; }`,
+    fragmentShader:`precision highp float; uniform vec3 uA,uB; varying float vB; void main(){ vec2 q=(gl_PointCoord-.5)*2.; float d2=dot(q,q); if(d2>1.) discard; gl_FragColor=vec4((mix(uA,uB,.5)*(exp(-d2*6.)*.5+exp(-d2*28.)*.8)+vec3(1.)*exp(-d2*160.))*vB*(1.-d2),1.); }`})); m.frustumCulled=false; scene.add(m); return m; })();
+const composer=new THREE.EffectComposer(renderer); composer.addPass(new THREE.RenderPass(scene,camera)); const bloom=new THREE.UnrealBloomPass(new THREE.Vector2(1,1),.8,.7,.2); composer.addPass(bloom);
+/* however much light piles up it keeps its colour */
+composer.addPass(new THREE.ShaderPass({uniforms:{tDiffuse:{value:null}},vertexShader:'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }',fragmentShader:'precision highp float; uniform sampler2D tDiffuse; varying vec2 vUv; void main(){ vec3 c=texture2D(tDiffuse,vUv).rgb; float m=max(c.r,max(c.g,c.b)); gl_FragColor=vec4(c/max(1.,m),1.); }'}));
+function resize(){ const w=innerWidth,h=innerHeight, pr=Math.min(1.5,devicePixelRatio||1); renderer.setPixelRatio(pr); renderer.setSize(w,h,false); composer.setSize(w*pr,h*pr); camera.aspect=w/h; camera.updateProjectionMatrix(); U.uPx.value=h*pr; } addEventListener('resize',resize); resize();
+
+/* ---------------- transport ---------------- */
+let actx=null, buf=null, src=null, t0=0, off=0, playing=false, A=null;
+const now=()=>playing?clamp(actx.currentTime-t0,0,A.dur):off;
+function play(){ if(!buf||playing) return; src=actx.createBufferSource(); src.buffer=buf; src.connect(actx.destination); src.start(0,off); t0=actx.currentTime-off; playing=true; $('#pp').textContent='Pause'; src.onended=()=>{ if(playing&&now()>=A.dur-.05){ playing=false; off=0; $('#pp').textContent='Play'; } }; }
+function pause(){ if(!playing) return; off=now(); playing=false; src.onended=null; try{ src.stop(); }catch(e){} $('#pp').textContent='Play'; }
+function seek(t){ const was=playing; pause(); off=clamp(t,0,A.dur-.05); if(was) play(); }
+function start(data,sr){ $('#msg').textContent='Listening to the song…'; setTimeout(()=>{ A=analyse(data,sr); actx=actx||new (window.AudioContext||window.webkitAudioContext)(); buf=actx.createBuffer(1,data.length,sr); buf.copyToChannel(data,0); off=0; $('#msg').style.display='none';
+  window.__lab={A,seek,play,pause}; console.warn('PLASMA '+JSON.stringify({dur:+A.dur.toFixed(1),fps:+A.fps.toFixed(1),frames:A.F,bigHits:A.hits.length})); actx.resume(); play(); },30); }
+$('#demo').onclick=()=>{ const d=synthDemo(); start(d.data,d.sr); };
+const onFile=async e=>{ const f=e.target.files[0]; if(!f) return; pause(); $('#msg').style.display=''; $('#msg').textContent='Reading the song…'; actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+  try{ const b=await actx.decodeAudioData(await f.arrayBuffer()), n=b.length; if(b.duration>720){ $('#msg').textContent='That one is longer than 12 minutes. Pick a shorter song.'; return; } const d=new Float32Array(n); for(let c=0;c<b.numberOfChannels;c++){ const ch=b.getChannelData(c); for(let i=0;i<n;i++) d[i]+=ch[i]/b.numberOfChannels; } start(d,b.sampleRate); }catch(err){ $('#msg').textContent='That file could not be read as audio.'; } };
+$('#file').onchange=onFile; $('#file2').onchange=onFile;
+$('#pp').onclick=()=>{ if(!A) return; actx.resume(); playing?pause():play(); };
+$('#seek').oninput=e=>{ if(A) seek(e.target.value*A.dur); };
+function nextCol(){ palI=(palI+1)%PALS.length; $('#col').textContent='Colour: '+PALS[palI][0]; } $('#col').onclick=nextCol;
+addEventListener('keydown',e=>{ if(e.code==='KeyC') nextCol(); if(e.code==='Space'&&A){ e.preventDefault(); playing?pause():play(); } });
+
+/* ---------------- camera: drag to turn the globe (heavy, slow to settle), scroll to zoom ---------------- */
+const orb={az:0,el:.12,d:96,azT:0,elT:.12,dT:96,drag:false,x:0,y:0};
+renderer.domElement.addEventListener('pointerdown',e=>{ orb.drag=true; orb.x=e.clientX; orb.y=e.clientY; renderer.domElement.setPointerCapture(e.pointerId); });
+renderer.domElement.addEventListener('pointermove',e=>{ if(!orb.drag) return; orb.azT-=(e.clientX-orb.x)*.0025; orb.elT=clamp(orb.elT+(e.clientY-orb.y)*.002,-1.2,1.2); orb.x=e.clientX; orb.y=e.clientY; });
+addEventListener('pointerup',()=>orb.drag=false);
+renderer.domElement.addEventListener('wheel',e=>{ e.preventDefault(); orb.dT=clamp(orb.dT*Math.exp(e.deltaY*.001),45,220); },{passive:false});
+
+/* ---------------- frame ---------------- */
+const lev=U.uLev.value, shot=U.uShot.value, cA=new THREE.Vector3(), cB=new THREE.Vector3(), cC=new THREE.Vector3(); let last=performance.now(), hitI=0, prevT=0, allT=0, beatT=0, lastKick=-9;
+function frame(ms){ requestAnimationFrame(frame); const dt=Math.min(.05,(ms-last)/1000); last=ms; U.uTime.value+=dt; U.uSpin.value+=dt*.05; let bass=0, kick=0; const live=!!A&&playing;
+  if(A){ const t=now(), fr=clamp(t*A.fps,0,A.F-1), f0=fr|0, f1=Math.min(A.F-1,f0+1), k=fr-f0;
+    for(let b=0;b<NB;b++){ const L=live?A.lev[f0*NB+b]*(1-k)+A.lev[f1*NB+b]*k:0, O=live?Math.max(A.on[f0*NB+b],A.on[f1*NB+b]):0;
+      lev[b]+=(L-lev[b])*Math.min(1,dt*7); shot[b]+=(O-shot[b])*Math.min(1,dt*(O>shot[b]?20:2.4)); if(b<6&&live) kick=Math.max(kick,O); if(b<8) bass+=lev[b]/8; }
+    if(kick>.62&&t-lastKick>.18){ lastKick=t; beatT=1; } if(t<lastKick) lastKick=t-1;
+    if(Math.abs(t-prevT)>.5) hitI=0; while(hitI<A.hits.length&&A.hits[hitI].t<prevT) hitI++;
+    if(live) while(hitI<A.hits.length&&A.hits[hitI].t<=t){ allT=Math.max(allT,A.hits[hitI].s); hitI++; } prevT=t;
+    if(document.activeElement!==$('#seek')) $('#seek').value=t/A.dur; $('#tm').textContent=`${(t/60)|0}:${String((t%60)|0).padStart(2,'0')}`; }
+  U.uBass.value+=(bass-U.uBass.value)*Math.min(1,dt*6); allT*=Math.exp(-dt*2.2); U.uAll.value+=(allT-U.uAll.value)*Math.min(1,dt*12);
+  U.uBeat.value+=(beatT-U.uBeat.value)*Math.min(1,dt*(beatT>U.uBeat.value?20:5)); beatT*=Math.exp(-dt*8);
+  U.uLive.value+=((live?1:0)-U.uLive.value)*Math.min(1,dt*1.5);
+  for(let i=0;i<NT;i++){ const m=MAIN[i], lv=lev[m.band], sh=shot[m.band], all=U.uAll.value, x=clamp((lv*.8+sh+all*.5+m.hue*.2-.2)/.35,0,1), mus=(.06+.75*lv+1.1*sh+.5*all)*x*x*(3-2*x);
+    tipDir(m,U.uTime.value,U.uSpin.value,tips[i]); tips[i].w=.3+(mus-.3)*U.uLive.value; tipH[i]=m.hue; }
+  U.uA.value.lerp(cA.set(...PALS[palI][1]),Math.min(1,dt*3)); U.uB.value.lerp(cB.set(...PALS[palI][2]),Math.min(1,dt*3)); U.uC.value.lerp(cC.set(...PALS[palI][3]),Math.min(1,dt*3));
+  orb.az+=(orb.azT-orb.az)*Math.min(1,dt*2.67); orb.el+=(orb.elT-orb.el)*Math.min(1,dt*2.67); orb.d+=(orb.dT-orb.d)*Math.min(1,dt*3);
+  const ce=Math.cos(orb.el); camera.position.set(Math.sin(orb.az)*ce*orb.d,Math.sin(orb.el)*orb.d,Math.cos(orb.az)*ce*orb.d); camera.lookAt(0,0,0);
+  composer.render(); }
+requestAnimationFrame(frame);
+</script></body></html>
