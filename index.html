@@ -392,7 +392,7 @@ h1 .hollow{display:block;color:transparent;-webkit-text-stroke:2px var(--text)}
 /* one size for everything in the top bar: 13 px semi-bold text, 16 px icons, the same as the round tool buttons; the effect column's icons match */
 #worldSeg button,#planetSeg button,.vmt-rainbow-btn{font-size:13px;font-weight:600}.wi,.wi.globe,.vmt-rainbow-btn svg{width:16px;height:16px}.wi.globe{stroke-width:1.5}.pc span svg{width:16px;height:16px}
 #planetSeg button{color:#fff}#planetSeg button:hover{color:#fff;background:rgba(255,255,255,.12)}#planetSeg button[aria-pressed="true"]{color:#0b0618}   /* white, so it reads as a live button and not a disabled one */
-#endTxt,.endnote{display:none}.endcard h2{margin-bottom:18px}#app[data-state="ended"]:not(.endclosed) .keypad{opacity:0;pointer-events:none}   /* the end card is just its title and two buttons */
+#endTxt,.endnote{display:none}.endcard{text-align:center}.endcard h2{margin-bottom:18px;padding:0 34px}.endcard .pb,.endcard .row,.endcard .btns,.endcard>div{justify-content:center}#app[data-state="ended"]:not(.endclosed) .keypad{opacity:0;pointer-events:none}   /* the end card is just its title and two buttons */
 /* every pop-up fades and slides: quick in, quicker out */
 #hint{position:absolute;left:50%;top:50%;bottom:auto;width:min(780px,calc(100% - 32px));max-width:none;max-height:calc(100% - 40px);overflow:auto;white-space:normal;text-align:left;line-height:1.4;font-size:13px;padding:22px 26px 24px;border-radius:26px;z-index:60;
   opacity:0;visibility:hidden;pointer-events:none;transform:translate(-50%,calc(-50% + 18px)) scale(.98);box-shadow:0 0 0 9999px rgba(6,4,18,.5),0 24px 70px rgba(0,0,0,.5);transition:opacity .2s ease,transform .26s cubic-bezier(.2,.8,.2,1),visibility 0s .26s}
