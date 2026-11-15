@@ -242,6 +242,15 @@ The owner is reworking the top bar one step at a time. Done: every mode tab has 
 - **The owner asked whether effects can follow the small sounds in psytrance and similar.** This per-band onset analysis is the answer and is meant to go into the main app's analysis later (it has 12 bands and whole-song beats only). Further steps discussed: pitch sweeps (a band's energy moving up or down the spectrum), and repeating-pattern detection.
 - Checked headless on the demo, stills only. Not checked: real songs, motion, frame rate with 2,600 beams on a real GPU.
 
+## 8q. Black hole lab, second pass (2026-11-15 morning)
+
+Owner's corrections, all firm:
+- **One colour only, and never white.** "Bright" means a strong, saturated laser of the active colour with a glow of the same colour. Nothing is mixed towards white in any shader; palettes are a hue and its near neighbour (default `red` = pure 1,0,0); a last pass divides any over-bright pixel by its brightest channel, so piled-up light keeps its hue. A whited-out test frame was rejected outright.
+- **A bright origin point on the surface** where each beam leaves (a `THREE.Points` pass sharing the beams' attributes), not a point at the tip.
+- **Front lasers hit your face:** an origin point whose beam is firing and aimed within a narrow cone of the camera (`pow(face,26)`) grows and throws a four-way flare.
+- **Sparse enough to follow each beam:** the firing threshold is `0.6 + 3*aInf.y`, so a soft sound fires a few beams and a hard one a few hundred of the 2,600, never all. Beams aimed at the camera are no longer dimmed.
+- Bloom 0.95/0.9/0.12.
+
 ## 9. Coaster lab: full specification (state on 2026-11-14)
 
 File `coaster-lab.html`, about 300 lines, standalone. Artifact "Coaster lab", slug `c68270d2-057b-4b14-83d6-67b9296d41d3`. The owner rides it and loves it ("vertigo-inducing"); it is the benchmark. When he says so, port it into `index.html` in place of `coastPlan`/`coastStep`/`coastCam`.

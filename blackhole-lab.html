@@ -13,7 +13,7 @@ button:hover,label.b:hover{background:rgba(255,255,255,.2)}
 </style></head><body>
 <div id="hud"></div>
 <div id="msg">Black hole lab<br><br><button id="demo">Play the demo track</button> <label class="b">Upload a song<input id="file" type="file" accept="audio/*" hidden></label></div>
-<div id="bar"><button id="pp">Play</button><button id="col" title="Next colour (C)">Colour: ember</button><input id="seek" type="range" min="0" max="1" step="0.001" value="0"><span id="tm">0:00</span><label class="b">Song<input id="file2" type="file" accept="audio/*" hidden></label></div>
+<div id="bar"><button id="pp">Play</button><button id="col" title="Next colour (C)">Colour: red</button><input id="seek" type="range" min="0" max="1" step="0.001" value="0"><span id="tm">0:00</span><label class="b">Song<input id="file2" type="file" accept="audio/*" hidden></label></div>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/shaders/CopyShader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
@@ -62,7 +62,7 @@ function analyse(data,sr){ const N=2048, hop=1024, F=Math.max(1,Math.floor((data
 /* ---------------- rendering ---------------- */
 const renderer=new THREE.WebGLRenderer({antialias:true}); document.body.prepend(renderer.domElement);
 const scene=new THREE.Scene(), camera=new THREE.PerspectiveCamera(58,1,.5,4000);
-const PALS=[['ember',[1,.16,.1],[1,.55,.12]],['blood',[1,.05,.12],[1,.3,.35]],['ice',[.1,.5,1],[.5,.95,1]],['acid',[.3,1,.2],[1,.95,.2]],['violet',[.7,.2,1],[1,.35,.8]],['white',[1,.85,.8],[1,1,1]]]; let palI=0;
+const PALS=[['red',[1,0,0],[1,.035,.02]],['ember',[1,.2,.02],[1,.42,.03]],['ice',[.05,.4,1],[.1,.75,1]],['acid',[.25,1,.05],[.7,1,.05]],['violet',[.6,.08,1],[1,.1,.75]],['white',[1,.9,.85],[1,1,1]]];   /* each is one colour and its near neighbour. Nothing is ever mixed towards white: a red hole is red and only red */ let palI=0;
 const U={uLev:{value:new Float32Array(NB)},uShot:{value:new Float32Array(NB)},uTime:{value:0},uAll:{value:0},uBass:{value:0},uA:{value:new THREE.Vector3(...PALS[0][1])},uB:{value:new THREE.Vector3(...PALS[0][2])},uCam:{value:new THREE.Vector3()},uPx:{value:1}};
 /* the hole itself: a plain black ball. It only hides what is behind it */
 scene.add(new THREE.Mesh(new THREE.SphereGeometry(R*.985,64,48),new THREE.MeshBasicMaterial({color:0x000000})));
@@ -75,20 +75,35 @@ const beams=(()=>{ const g=new THREE.InstancedBufferGeometry(); g.setAttribute('
   const m=new THREE.Mesh(g,new THREE.ShaderMaterial({uniforms:U,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide,
     vertexShader:`uniform float uLev[${NB}],uShot[${NB}]; uniform float uTime,uAll,uBass; uniform vec3 uCam; attribute vec3 aDir; attribute vec4 aInf; varying vec2 vQ; varying float vLen,vW,vHue,vGlow;
 void main(){ int b=int(aInf.x+.5); float lv=uLev[b], sh=uShot[b], low=1.-smoothstep(4.,14.,aInf.x);
-  float fire=smoothstep(.3+aInf.y*1.15,.3+aInf.y*1.15+.2,sh+uAll*.55);                          // the harder the sound hits, the more of its beams answer
+  float fire=smoothstep(.6+aInf.y*3.,.6+aInf.y*3.+.2,sh+uAll*.5);   /* few beams answer a soft sound, hundreds a hard one; never all of them, so each beam stays a line you can follow */                          // the harder the sound hits, the more of its beams answer
   float idle=.6+1.8*lv*(.25+.75*aInf.z);                                                 // a short stub that breathes with the band's level
   float len=${R.toFixed(1)}*(idle*.3+fire*(1.6+6.5*aInf.z)*(.55+.45*min(sh,1.))+uAll*1.5*aInf.z); // and a long shot when it fires
   float w=(.022+.02*aInf.w+.16*low*uBass*aInf.z*fire+.02*fire);                   // low bands throw the fat beams
-  vec3 p0=aDir*${R.toFixed(1)}, p=p0+aDir*len*position.y, side=normalize(cross(aDir,uCam-p)); float wq=max(w*6.,.4);
-  p+=side*position.x*wq; vQ=vec2(position.x*wq,(1.-position.y)*len); vLen=len; vW=w; vHue=aInf.w; vGlow=(.03+.08*lv*aInf.z+.6*fire)*smoothstep(1.5,12.,length(uCam-p))*(1.-.93*smoothstep(.45,.9,dot(aDir,normalize(uCam))));   /* beams aimed straight at you go dark, so the middle stays a black disc: that is the hole. And a beam passing right by the camera fades, so it cannot flood the picture */   /* a beam passing right by the camera fades, so it cannot flood the picture */
+  vec3 p0=aDir*${R.toFixed(1)}, p=p0+aDir*len*position.y, side=normalize(cross(aDir,uCam-p)); float wq=max(w*10.,.7);
+  p+=side*position.x*wq; vQ=vec2(position.x*wq,(1.-position.y)*len); vLen=len; vW=w; vHue=aInf.w; vGlow=(.012+.03*lv*aInf.z+.55*fire)*smoothstep(.3,5.,length(uCam-p));   /* beams aimed straight at you go dark, so the middle stays a black disc: that is the hole. And a beam passing right by the camera fades, so it cannot flood the picture */   /* a beam passing right by the camera fades, so it cannot flood the picture */
   gl_Position=projectionMatrix*viewMatrix*vec4(p,1.); }`,
     fragmentShader:`precision highp float; uniform vec3 uA,uB; varying vec2 vQ; varying float vLen,vW,vHue,vGlow;
 void main(){ float core=exp(-vQ.x*vQ.x/(vW*vW)), along=1.-vQ.y/max(vLen,.001);         // 0 at the surface, 1 at the tip
-  float line=core*(.25+.75*along*along);                                                 // brighter towards the tip
-  float r=vW*2.2+.06, dot_=exp(-(vQ.x*vQ.x+vQ.y*vQ.y)/(r*r))*2.2;                         // the bright point at the end of every beam
-  vec3 c=mix(uA,uB,vHue)*line+mix(mix(uA,uB,vHue),vec3(1.),.55)*dot_; gl_FragColor=vec4(c*vGlow,1.); }`}));
-  m.frustumCulled=false; scene.add(m); return m; })();
-const composer=new THREE.EffectComposer(renderer); composer.addPass(new THREE.RenderPass(scene,camera)); const bloom=new THREE.UnrealBloomPass(new THREE.Vector2(1,1),.85,.8,.18); composer.addPass(bloom);
+  float halo=exp(-vQ.x*vQ.x/(vW*vW*14.))*.09, line=(core+halo)*(.75+.25*(1.-along));   /* a hot core in a soft wide halo, a touch brighter where it leaves the surface */                                                 // brighter towards the tip
+  float dot_=0.;                         // the bright point at the end of every beam
+  vec3 c=mix(uA,uB,vHue)*line; gl_FragColor=vec4(c*vGlow,1.); }`}));
+  m.frustumCulled=false; scene.add(m);
+  const pg=new THREE.BufferGeometry(), pos=new Float32Array(NBEAM*3); for(let i=0;i<NBEAM*3;i++) pos[i]=dir[i]*R*1.004; pg.setAttribute('position',new THREE.BufferAttribute(pos,3)); pg.setAttribute('aDir',new THREE.BufferAttribute(dir,3)); pg.setAttribute('aInf',new THREE.BufferAttribute(inf,4));
+  const pts=new THREE.Points(pg,new THREE.ShaderMaterial({uniforms:U,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,
+    vertexShader:`uniform float uLev[${NB}],uShot[${NB}]; uniform float uAll,uPx; uniform vec3 uCam; attribute vec3 aDir; attribute vec4 aInf; varying float vB,vHit,vHue;
+void main(){ int b=int(aInf.x+.5); float lv=uLev[b], sh=uShot[b]; float fire=smoothstep(.6+aInf.y*3.,.6+aInf.y*3.+.2,sh+uAll*.5);   /* few beams answer a soft sound, hundreds a hard one; never all of them, so each beam stays a line you can follow */
+  vec3 toC=uCam-position; float dist=length(toC), face=max(0.,dot(aDir,toC/dist)); vHit=fire*pow(face,26.);     // this beam is firing and aimed at your face
+  float size=.24+.75*fire+3.2*vHit; vB=.02*lv+1.1*fire+1.3*vHit; vHue=aInf.w;
+  gl_PointSize=min(uPx*.6,size*uPx*.9/dist); gl_Position=projectionMatrix*viewMatrix*vec4(position,1.); }`,
+    fragmentShader:`precision highp float; uniform vec3 uA,uB; varying float vB,vHit,vHue;
+void main(){ vec2 q=(gl_PointCoord-.5)*2.; float d2=dot(q,q); if(d2>1.) discard; float k=1.+3.*vHit;                    // a hit is drawn large, so its core is kept small inside it
+  float core=exp(-d2*22.*k), halo=exp(-d2*4.)*.3*(1.-d2), rays=(exp(-abs(q.x)*40.)*exp(-abs(q.y)*2.5)+exp(-abs(q.y)*40.)*exp(-abs(q.x)*2.5))*vHit*.8*(1.-d2);
+  vec3 c=mix(uA,uB,vHue); gl_FragColor=vec4(c*(core*1.6+halo+rays)*vB,1.); }`}));
+  pts.frustumCulled=false; scene.add(pts); return m; })();
+const composer=new THREE.EffectComposer(renderer); composer.addPass(new THREE.RenderPass(scene,camera)); const bloom=new THREE.UnrealBloomPass(new THREE.Vector2(1,1),.95,.9,.12)   /* a rich, wide glow */; composer.addPass(bloom);
+/* however much light piles up, it keeps its colour: a pixel brighter than full is scaled back as a whole, so red stays red and never clips to white */
+composer.addPass(new THREE.ShaderPass({uniforms:{tDiffuse:{value:null}},vertexShader:'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }',
+  fragmentShader:'precision highp float; uniform sampler2D tDiffuse; varying vec2 vUv; void main(){ vec3 c=texture2D(tDiffuse,vUv).rgb; float m=max(c.r,max(c.g,c.b)); gl_FragColor=vec4(c/max(1.,m),1.); }'}));
 function resize(){ const w=innerWidth,h=innerHeight, pr=Math.min(1.5,devicePixelRatio||1); renderer.setPixelRatio(pr); renderer.setSize(w,h,false); composer.setSize(w*pr,h*pr); camera.aspect=w/h; camera.updateProjectionMatrix(); U.uPx.value=h*pr; } addEventListener('resize',resize); resize();
 
 /* ---------------- transport ---------------- */
