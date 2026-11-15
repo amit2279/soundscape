@@ -416,6 +416,17 @@ h1 .hollow{display:block;color:transparent;-webkit-text-stroke:2px var(--text)}
 @media (prefers-reduced-motion:reduce){#hint,.moremenu,.tourcard,.endcard,.toast,.snapview,.snapview .snapbox,#plBox{transition:none!important}}
 #app:not([data-world="coast"]) .cinst{display:none!important}   /* the coaster's map and dial never show in another mode */
 #app[data-world="coast"]:not([data-state="ended"]) .keypad{display:none}   /* the Coaster's drive keys appear only once the song is over */
+/* the wallpaper studio */
+#studio{position:absolute;inset:0;z-index:40;pointer-events:none}#studio[hidden]{display:none}
+#stFrame{position:absolute;box-shadow:0 0 0 9999px rgba(4,3,12,.8),0 0 0 1px rgba(255,255,255,.45);border-radius:3px;overflow:hidden}#stOv{width:100%;height:100%;display:block}
+#stPanel{position:absolute;right:20px;top:50%;transform:translateY(-50%);width:min(320px,calc(34% - 12px));max-height:calc(100% - 40px);overflow:auto;padding:16px;border-radius:22px;pointer-events:auto;display:grid;gap:12px;font-size:13px}
+#stPanel .sthead{display:flex;justify-content:space-between;align-items:center;font-size:16px}#stPanel .stx{all:unset;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:19px;cursor:pointer;background:rgba(255,255,255,.1)}
+#stPanel .strow{display:grid;gap:6px}#stPanel .strow>span{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;opacity:.6}
+#stPanel .stseg,#stPanel .stchips{display:flex;flex-wrap:wrap;gap:6px}
+#stPanel .stseg button,#stPanel .stchips button{all:unset;cursor:pointer;padding:6px 11px;border-radius:999px;font-size:12.5px;font-weight:600;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.14)}
+#stPanel button:hover{background:rgba(255,255,255,.2)}#stPanel button[aria-pressed="true"]{background:#fff;color:#0b0618;border-color:#fff}#stPanel button:disabled{opacity:.35;pointer-events:none}
+#stPanel #stSave{all:revert;font:inherit;font-weight:700;height:42px;border-radius:999px;border:0;cursor:pointer;background:var(--a,#ff3fb4);color:var(--on,#fff)}
+#app.studio .top,#app.studio .dock,#app.studio .meters,#app.studio .keypad,#app.studio .fxstack,#app.studio #camSeg,#app.studio #plBox,#app.studio .cinst,#app.studio .endcard,#app.studio .panel{opacity:0!important;pointer-events:none!important}
 /* the playlist box */
 #plBox{position:absolute;right:16px;bottom:110px;width:230px;max-height:178px;overflow:auto;padding:10px 8px 8px;border-radius:20px;z-index:5;display:flex;flex-direction:column;gap:2px;pointer-events:auto;transition:opacity .28s ease,transform .42s cubic-bezier(.2,.8,.2,1)}
 #plBox .plhead{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;opacity:.6;padding:0 8px 4px}
@@ -2155,8 +2166,8 @@ ${KF} varying vec3 vD; varying float vH;
 void main(){ gl_FragColor=vec4(kcol(normalize(vD))*(.75+.5*vH),1.); }`}));
   kSphere.frustumCulled=false; kSphere.visible=false; scene.add(kSphere);
 }
-function resize(over){
-  const w = app.clientWidth || 1, h = app.clientHeight || 1;
+function resize(over,W,H){   /* W and H: an explicit picture size, used by the wallpaper studio for one frame */
+  const w = W || app.clientWidth || 1, h = H || app.clientHeight || 1;
   const dpr = typeof over==='number' ? over : Math.min(window.devicePixelRatio || 1, QDPR[quality]);
   renderer.setPixelRatio(dpr); renderer.setSize(w, h, false);
   if (composer) { composer.setPixelRatio(dpr); composer.setSize(w, h); }
@@ -2802,7 +2813,7 @@ async function snapshot(){
     const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),4000); return; }
   $('#snapimg').src=url; $('#snapview').hidden=false;
 }
-$('#btnSnap').addEventListener('click',snapshot); $('#btnSnap2').addEventListener('click',snapshot);
+$('#btnSnap').addEventListener('click',()=>openStudio()); $('#btnSnap2').addEventListener('click',snapshot);
 $('#snapClose').addEventListener('click',()=>{ $('#snapview').hidden=true; try{ URL.revokeObjectURL($('#snapimg').src); }catch(e){} });
 let qualityManual=false;
 $('#qual').addEventListener('input',e=>{ quality=+e.target.value; qualityManual=true; resize(); });
@@ -2955,7 +2966,7 @@ async function loadFile(file){
   if(tools){ const wrap=document.createElement('span'); wrap.className='morewrap'; const mb=document.createElement('button'); mb.className='tbtn icon plate'; mb.id='btnMore'; mb.title='More'; mb.setAttribute('aria-label','More'); mb.setAttribute('aria-expanded','false');
     mb.innerHTML='<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.900"/><circle cx="12" cy="12" r="1.900"/><circle cx="19" cy="12" r="1.900"/></svg>';
     const menu=document.createElement('div'); menu.className='moremenu plate'; menu.hidden=true; const shut=()=>{ menu.hidden=true; mb.setAttribute('aria-expanded','false'); };
-    for(const [id,label] of [['btnSnap','Save a snapshot'],['btnPanel','Controls'],['btnKeys','Keyboard shortcuts'],['btnHide','Hide the interface']]){ const b=$('#'+id); if(!b) continue; const sp=document.createElement('span'); sp.textContent=label; b.append(sp); b.classList.remove('plate'); menu.append(b); b.addEventListener('click',shut); }
+    for(const [id,label] of [['btnSnap','Wallpaper studio'],['btnPanel','Controls'],['btnKeys','Keyboard shortcuts'],['btnHide','Hide the interface']]){ const b=$('#'+id); if(!b) continue; const sp=document.createElement('span'); sp.textContent=label; b.append(sp); b.classList.remove('plate'); menu.append(b); b.addEventListener('click',shut); }
     wrap.append(mb,menu); tools.append(wrap); const fs=$('#btnFs'); if(fs) wrap.before(fs);
     mb.addEventListener('click',e=>{ e.stopPropagation(); menu.hidden=!menu.hidden; mb.setAttribute('aria-expanded',String(!menu.hidden)); });
     document.addEventListener('click',e=>{ if(!wrap.contains(e.target)) shut(); }); } }
@@ -2984,6 +2995,105 @@ function resetAll(){ autoShuf=false; themeKey='auto'; applyTheme(); setNitro(fal
   h.querySelector('.kclose').addEventListener('click',()=>h.classList.remove('on'));
   addEventListener('keydown',e=>{ if(e.key==='Escape') h.classList.remove('on'); });
   document.addEventListener('pointerdown',e=>{ if(h.classList.contains('on')&&!h.contains(e.target)&&!(e.target.closest&&e.target.closest('#btnKeys'))) h.classList.remove('on'); }); }
+
+/* ================= Wallpaper studio =================
+   Freezes the moment and lets you compose a wallpaper from it: phone or desktop, one of two type layouts or none, any world, kaleidoscope,
+   diamond or planet, any colour, and the moment nudged a quarter second either way. What the frame shows is what is saved, re-rendered
+   at 2160 x 3840 or 3840 x 2160. Templates: "Poster" (the world's name huge, a diagonal band, a row of figures) and "Collector"
+   (a thin inset border, corner marks, the song's waveform as a strip). All type is drawn on a 2D canvas over the render. */
+const ST={on:false,fmt:'phone',tpl:'poster',was:false,hud:false};
+const ST_NAME={city:'CITY',terrain:'TERRAIN',worm:'WORMHOLE',tun:'TUNNEL',coast:'COASTER',hole:'BLACK HOLE',loom:'LOOM'};
+function stInfo(){ const t=now(), tr=($('#trackName').textContent||'').replace(/\s*\(built-in demo track\)/i,'').replace(/\.[a-z0-9]{2,4}$/i,'').trim()||'UNTITLED';
+  const col=world==='hole'?BHOLE.name():(themeKey==='auto'?'Signature':((THEMES[themeKey]&&THEMES[themeKey].name)||'Custom')), figs=[['TEMPO',(A&&A.bpm?A.bpm:'–')+'','BPM'],['LENGTH',fmt(dur),'MIN'],['MOMENT',fmt(t),'']];
+  if(world==='coast'&&COASTER.ride()){ const r=COASTER.ride().report; figs.push(['TOP SPEED',r.vmax+'','KM/H'],['PEAK FORCE',(+r.gmax).toFixed(1),'G']); }
+  else if(world==='hole') figs.push(['LASERS','2,600',''],['BANDS','48','']);
+  else figs.push(['DROPS',((A&&A.drops&&A.drops.length)||0)+'',''],['WORLD',(WORLDS.indexOf(world)+1)+'/'+WORLDS.length,'']);
+  let ed=1; try{ ed=(+localStorage.getItem('ss_ed')||0)+1; }catch(e){}
+  const cs=getComputedStyle(app), d=new Date();
+  return {t,track:tr.toUpperCase(),world:ST_NAME[world]||world.toUpperCase(),colour:(col+'').toUpperCase(),figs,ed:'No. '+String(ed).padStart(4,'0'),a:cs.getPropertyValue('--a').trim()||'#ff3fb4',b:cs.getPropertyValue('--b').trim()||'#3fe0ff',
+    date:d.getDate()+' '+['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'][d.getMonth()]+' '+d.getFullYear()}; }
+/* text with letter spacing, since canvas has no reliable setting for it. Returns the width drawn */
+function stText(g,str,x,y,track,align){ let w=0; for(const ch of str) w+=g.measureText(ch).width+track; w-=track; let cx=align==='center'?x-w/2:align==='right'?x-w:x; g.textAlign='left'; for(const ch of str){ g.fillText(ch,cx,y); cx+=g.measureText(ch).width+track; } return w; }
+function stFit(g,str,weight,fam,maxW,size,track){ let px=size; for(let k=0;k<30;k++){ g.font=weight+' '+Math.round(px)+'px '+fam; let w=0; for(const ch of str) w+=g.measureText(ch).width+track*px; if(w<=maxW) break; px*=.93; } return px; }
+function stDraw(g,W,H,tpl,I){ if(tpl==='clean') return; const port=H>W, u=Math.min(W,H)/1080, DISP='"Big Shoulders Display","Arial Narrow",sans-serif', SANS='"Manrope",system-ui,sans-serif', MONO='"DM Mono",ui-monospace,monospace', m=port?64*u:72*u;
+  g.save(); g.textBaseline='alphabetic';
+  const scrim=(y0,y1,a0,a1)=>{ const gr=g.createLinearGradient(0,y0,0,y1); gr.addColorStop(0,'rgba(0,0,0,'+a0+')'); gr.addColorStop(1,'rgba(0,0,0,'+a1+')'); g.fillStyle=gr; g.fillRect(0,Math.min(y0,y1),W,Math.abs(y1-y0)); };
+  if(tpl==='poster'){
+    scrim(0,H*.3,.5,0); scrim(H*.56,H,0,.82);
+    /* the diagonal band, in the scene's own colour */
+    g.save(); g.globalAlpha=.8; g.fillStyle=I.a; g.translate(W*(port?.66:.7),H*(port?.2:.3)); g.rotate(-Math.PI/4); g.fillRect(-W*2,-(port?.07:.05)*W,W*4,(port?.14:.1)*W); g.globalAlpha=.55; g.fillStyle=I.b; g.fillRect(-W*2,(port?.09:.065)*W,W*4,(port?.018:.012)*W); g.restore();
+    /* the world's name, as large as the width allows; long names take two lines on a phone */
+    const lines=port&&I.world.includes(' ')?I.world.split(' '):[I.world]; let y=port?H*.13:H*.2;
+    for(const ln of lines){ const px=stFit(g,ln,'900',DISP,W-2*m,port?W*.62:H*.5,-.01); g.font='900 '+Math.round(px)+'px '+DISP; y+=px*.78;
+      g.globalCompositeOperation='overlay'; g.fillStyle='rgba(255,255,255,.95)'; stText(g,ln,W/2,y,-.01*px,'center'); g.globalCompositeOperation='source-over'; g.fillStyle='rgba(255,255,255,.3)'; stText(g,ln,W/2,y,-.01*px,'center'); y+=px*.06; }
+    g.fillStyle='rgba(255,255,255,.92)'; g.font='700 '+Math.round(20*u)+'px '+SANS; stText(g,'SOUNDSCAPE',W/2,m+6*u,9*u,'center');
+    /* the song, then the figures */
+    const yb=H-m; const cols=I.figs.length, cw=(W-2*m)/cols;
+    I.figs.forEach((f,i)=>{ const cx=m+cw*(i+.5); g.fillStyle='rgba(255,255,255,.6)'; g.font='600 '+Math.round((port?15:14)*u)+'px '+SANS; stText(g,f[0],cx,yb-(port?70:62)*u,2.4*u,'center');
+      g.fillStyle='#fff'; g.font='800 '+Math.round((port?52:50)*u)+'px '+DISP; stText(g,f[1],cx,yb-14*u,.5*u,'center'); g.fillStyle=I.a; g.font='700 '+Math.round(13*u)+'px '+SANS; if(f[2]) stText(g,f[2],cx,yb+8*u,2.2*u,'center');
+      if(i){ g.fillStyle='rgba(255,255,255,.22)'; g.fillRect(m+cw*i,yb-78*u,Math.max(1,u),86*u); } });
+    const ty=yb-(port?150:128)*u; const tp=stFit(g,I.track,'800',DISP,W-2*m,(port?74:66)*u,.04); g.font='800 '+Math.round(tp)+'px '+DISP; g.fillStyle='#fff'; stText(g,I.track,W/2,ty,.04*tp,'center');
+    g.fillStyle='rgba(255,255,255,.7)'; g.font='500 '+Math.round(15*u)+'px '+SANS; stText(g,'MADE FROM THE SOUND  ·  '+I.colour+'  ·  '+I.ed.toUpperCase(),W/2,ty+34*u,4.2*u,'center');
+  } else {
+    scrim(0,H*.22,.45,0); scrim(H*.6,H,0,.8);
+    const b=m*.62; g.strokeStyle='rgba(255,255,255,.7)'; g.lineWidth=Math.max(1,1.5*u); g.strokeRect(b,b,W-2*b,H-2*b);
+    const x0=b+34*u, x1=W-b-34*u, yt=b+50*u; g.fillStyle='rgba(255,255,255,.92)'; g.font='500 '+Math.round(17*u)+'px '+MONO; stText(g,I.ed.toUpperCase(),x0,yt,3*u,'left'); stText(g,'SOUNDSCAPE.ZONE',x1,yt,3*u,'right');
+    g.fillStyle=I.a; g.fillRect(x0,yt+16*u,46*u,Math.max(2,3*u));
+    /* bottom: the title, a line of small type, the figures, and the song's own waveform as a strip with the captured moment marked */
+    const yb=H-b-40*u; const n=port?72:120, sw=x1-x0, bw=sw/n, sh=(port?74:64)*u, sy=yb-18*u;
+    if(A&&A.inten){ for(let i=0;i<n;i++){ const f=Math.min(A.F-1,Math.floor((i+.5)/n*A.F)), v=Math.max(.06,Math.min(1,A.inten[f])), played=(i+.5)/n<=I.t/Math.max(1,dur); g.fillStyle=played?I.a:'rgba(255,255,255,.5)'; g.fillRect(x0+i*bw,sy-v*sh,Math.max(1,bw*.55),v*sh); } }
+    g.fillStyle='rgba(255,255,255,.75)'; g.font='500 '+Math.round(14*u)+'px '+MONO; stText(g,fmt(I.t)+' / '+fmt(dur),x0,yb+8*u,2*u,'left'); stText(g,I.date,x1,yb+8*u,2*u,'right');
+    const fy=sy-sh-(port?46:40)*u; let fx=x0; g.textAlign='left';
+    I.figs.forEach(f=>{ g.fillStyle='rgba(255,255,255,.55)'; g.font='500 '+Math.round(12.5*u)+'px '+MONO; stText(g,f[0],fx,fy-34*u,2*u,'left'); g.fillStyle='#fff'; g.font='600 '+Math.round(27*u)+'px '+SANS; const w=stText(g,f[1],fx,fy,.4*u,'left'); if(f[2]){ g.fillStyle='rgba(255,255,255,.6)'; g.font='500 '+Math.round(12*u)+'px '+MONO; stText(g,f[2],fx+w+7*u,fy,1.4*u,'left'); } fx+=sw/I.figs.length; });
+    const ty=fy-(port?96:84)*u; g.fillStyle='rgba(255,255,255,.7)'; g.font='500 '+Math.round(15*u)+'px '+MONO; stText(g,I.world+'  /  '+I.colour,x0,ty-(port?92:84)*u,4*u,'left');
+    const tp=stFit(g,I.track,'900',DISP,sw,(port?118:108)*u,.02); g.font='900 '+Math.round(tp)+'px '+DISP; g.fillStyle='#fff'; stText(g,I.track,x0,ty,.02*tp,'left');
+  }
+  g.restore(); }
+{ const ui=document.createElement('div'); ui.id='studio'; ui.hidden=true;
+  ui.innerHTML='<div id="stFrame"><canvas id="stOv"></canvas></div><div id="stPanel" class="plate" role="dialog" aria-label="Wallpaper studio"><div class="sthead"><strong>Wallpaper studio</strong><button class="stx" data-s="close" aria-label="Close">&times;</button></div>'
+    +'<div class="strow"><span>Size</span><div class="stseg" data-g="fmt"><button data-v="phone">Phone</button><button data-v="desk">Desktop</button></div></div>'
+    +'<div class="strow"><span>Layout</span><div class="stseg" data-g="tpl"><button data-v="poster">Poster</button><button data-v="collector">Collector</button><button data-v="clean">None</button></div></div>'
+    +'<div class="strow"><span>World</span><div class="stchips" id="stWorlds"></div></div>'
+    +'<div class="strow"><span>Look</span><div class="stchips"><button data-s="kal">Kaleidoscope</button><button data-s="gem">Diamond</button><button data-s="planet">Planet</button><button data-s="col">Next colour</button></div></div>'
+    +'<div class="strow"><span>Moment</span><div class="stchips"><button data-s="back">&#9664; earlier</button><button data-s="fwd">later &#9654;</button></div></div>'
+    +'<button class="btn primary" data-s="save" id="stSave">Download wallpaper</button></div>';
+  app.append(ui); const frame=ui.querySelector('#stFrame'), ov=ui.querySelector('#stOv'), og=ov.getContext('2d'), wb=ui.querySelector('#stWorlds');
+  const chips=()=>{ if(wb.children.length) return; for(const w of WORLDS){ const b=document.createElement('button'); b.dataset.w=w; b.textContent=(ST_NAME[w]||w).toLowerCase().replace(/^./,c=>c.toUpperCase()); wb.append(b); } };   /* built on first opening: the list of worlds is declared further down the file */
+  const dims=()=>ST.fmt==='phone'?[2160,3840]:[3840,2160];
+  function rect(){ const ww=app.clientWidth, wh=app.clientHeight, [W,H]=dims(), pw=Math.min(320,ww*.34-12), availW=ww-2*(pw+40), availH=wh-40, k=Math.min(availW/W,availH/H), fw=W*k, fh=H*k; return {x:(ww-fw)/2, y:(wh-fh)/2, w:fw, h:fh}; }   /* the frame is centred on the screen, because the saved picture is rendered about the screen's centre: what the frame shows is what you get */
+  function lay(){ if(!ST.on) return; const r=rect(); frame.style.cssText='left:'+r.x+'px;top:'+r.y+'px;width:'+r.w+'px;height:'+r.h+'px'; const d=Math.min(2,window.devicePixelRatio||1); ov.width=Math.round(r.w*d); ov.height=Math.round(r.h*d); og.clearRect(0,0,ov.width,ov.height); stDraw(og,ov.width,ov.height,ST.tpl,stInfo());
+    ui.querySelectorAll('.stseg').forEach(sg=>sg.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(ST[sg.dataset.g]===b.dataset.v))));
+    wb.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.w===world)));
+    const q=s=>ui.querySelector('[data-s="'+s+'"]'); q('kal').setAttribute('aria-pressed',String(!!kaleido)); q('gem').setAttribute('aria-pressed',String(!!$('#cGem').checked&&!!kaleido)); q('planet').setAttribute('aria-pressed',String(mode==='planet')); q('planet').disabled=!PLANET_OK[world]; }
+  /* the live picture is moved so the part inside the frame is exactly what will be saved: the camera is given the frame's shape for the capture */
+  function renderTo(W,H,I){ const r=rect(), wh=app.clientHeight, f0=camera.fov; let c=null;
+    try{ resize(1,W,H); camera.fov=2*Math.atan(Math.tan(f0*Math.PI/360)*r.h/wh)*180/Math.PI; camera.aspect=W/H; camera.updateProjectionMatrix(); render();
+      c=document.createElement('canvas'); c.width=W; c.height=H; const g=c.getContext('2d'); try{ if(curFilter) g.filter=curFilter; }catch(e){} g.drawImage(canvas,0,0,W,H); g.filter='none'; stDraw(g,W,H,ST.tpl,I||stInfo()); }
+    catch(e){ c=null; } camera.fov=f0; resize(); return c; }
+  async function save(){ const [W,H]=dims(), I=stInfo(); const btn=ui.querySelector('#stSave'); btn.disabled=true; btn.textContent='Rendering…'; await new Promise(q=>setTimeout(q,30));
+    const c=renderTo(W,H,I);
+    const blob=c&&await new Promise(q=>c.toBlob(q,'image/png')); btn.disabled=false; btn.textContent='Download wallpaper';
+    if(!blob){ toast('The wallpaper could not be created in this browser.'); return; }
+    try{ localStorage.setItem('ss_ed',String((+localStorage.getItem('ss_ed')||0)+1)); }catch(e){}
+    const name='soundscape-'+(I.track.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,32)||'song')+'-'+world+'-'+ST.fmt+'.png';
+    if(dlCap){ try{ await dlCap.save({filename:name,data:blob}); lay(); return; }catch(e){ if(e&&e.code==='declined') return; } }
+    const url=URL.createObjectURL(blob); if(window.self===window.top){ const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),4000); lay(); return; }
+    $('#snapimg').src=url; $('#snapview').hidden=false; lay(); }
+  function close(){ if(!ST.on) return; ST.on=false; window.__studio=false; ui.hidden=true; app.classList.remove('studio'); if(ST.was&&app.dataset.state==='riding') play(); }
+  window.openStudio=function(){ if(!A||ST.on) return; chips(); { const sk=document.querySelector('.tourcard:not([hidden]) [data-t=skip]'); if(sk) sk.click(); } ST.was=playing; if(playing) pause(); ST.on=true; window.__studio=true; ui.hidden=false; app.classList.add('studio'); const mm=document.querySelector('.moremenu'); if(mm) mm.hidden=true; lay(); };
+  ui.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return;
+    if(b.dataset.v){ ST[b.parentElement.dataset.g]=b.dataset.v; }
+    else if(b.dataset.w){ setWorld(b.dataset.w); }
+    else switch(b.dataset.s){ case 'close': close(); return; case 'save': save(); return;
+      case 'kal': setKal(!kaleido); break;
+      case 'gem': { const el=$('#cGem'), on=!(el.checked&&kaleido); el.checked=on; el.dispatchEvent(new Event('change')); if(on) setKal(true); break; }
+      case 'planet': togglePlanet(); break;
+      case 'col': if(world==='hole'){ const hb=$('#btnHoleCol'); if(hb) hb.click(); } else { const ks=[...document.querySelectorAll('.sw[data-k]')].map(x=>x.dataset.k).filter(k=>k!=='auto'&&THEMES[k]); themeKey=ks[(ks.indexOf(themeKey)+1)%ks.length]; applyTheme(); } break;
+      case 'back': seek(Math.max(0,now()-.25)); break; case 'fwd': seek(Math.min(dur-.05,now()+.25)); break; }
+    setTimeout(lay,60); });
+  addEventListener('resize',lay); addEventListener('keydown',e=>{ if(ST.on&&e.key==='Escape') close(); });
+  if(document.fonts&&document.fonts.ready) document.fonts.ready.then(lay);
+  window.__st={lay,save,close,draw:stDraw,info:stInfo,ST,renderTo,seek}; }
 
 /* ================= a short guided tour, the first time a ride starts =================
    Five steps, each ringing one part of the screen with a line on what it does. Skip or Next; it never comes back by itself once seen
@@ -3545,13 +3655,13 @@ addEventListener('pointerup',()=>orb.drag=false);
 canvas.addEventListener('wheel',e=>{ if(!on) return; e.preventDefault(); orb.dT=clamp(orb.dT*Math.exp(e.deltaY*.001),16,220); },{passive:false});
 const invM=new THREE.Matrix4(), lev=U.uLev.value, shot=U.uShot.value, smk=U.uSmoke.value, camP=new THREE.Vector3(0,0,62), cA=new THREE.Vector3(), cB=new THREE.Vector3();
 let pulse=0, pulseT=0, lastKick=-9, hitI=0, push=0, prevT=0, allT=0, HA=null, curA=null, invK=0;
-function step(dt,t,isOn,playing,pxH,getData){
+function step(dt,t,isOn,playing,pxH,getData,hold){   /* hold: a frozen moment (wallpaper studio): each band fires with its strongest hit within a quarter second, so the still is full of lasers */
   on=isOn; root.visible=isOn; if(!isOn){ orb.drag=false; return; }
   U.uTime.value+=dt; U.uPx.value=pxH;
   if(curA!==A){ curA=A; HA=null; hitI=0; const mine=A; setTimeout(()=>{ if(curA!==mine) return; const d=getData(); if(d) HA=analyse(d.data,d.sr); },80); }   /* a second or two of listening; the resting hole shows meanwhile */
   const live=playing&&!!HA; let kick=0, bass=0;
   if(HA){ const fr=clamp(t*HA.fps,0,HA.F-1), f0=fr|0, f1=Math.min(HA.F-1,f0+1), k=fr-f0;
-    for(let b=0;b<NB;b++){ const L=live?HA.lev[f0*NB+b]*(1-k)+HA.lev[f1*NB+b]*k:0, O=live?Math.max(HA.on[f0*NB+b],HA.on[f1*NB+b]):0;
+    for(let b=0;b<NB;b++){ const L=live?HA.lev[f0*NB+b]*(1-k)+HA.lev[f1*NB+b]*k:0; let O=live?Math.max(HA.on[f0*NB+b],HA.on[f1*NB+b]):0; if(hold&&live) for(let q=-11;q<=11;q++){ const ff=clamp(f0+q,0,HA.F-1); O=Math.max(O,HA.on[ff*NB+b]); }
       lev[b]+=(L-lev[b])*Math.min(1,dt*10); const tgt=Math.max(O,0); shot[b]+=(tgt-shot[b])*Math.min(1,dt*(tgt>shot[b]?26:2.6));
       smk[b]+=(shot[b]-smk[b])*Math.min(1,dt*(shot[b]>smk[b]?2.4:.3)); if(b<6&&live) kick=Math.max(kick,O); if(b<8) bass+=lev[b]/8; }
     if(kick>.62&&t-lastKick>.18){ lastKick=t; pulseT=1; } if(t<lastKick) lastKick=t-1;
@@ -3573,7 +3683,7 @@ return {step,cam,inv:()=>invK,next:()=>{ palI=(palI+1)%PALS.length; return PALS[
 })(scene,camera,renderer.domElement);
 let hfPass=null;
 function holeData(){ if(!buffer) return null; const n=buffer.length, nc=buffer.numberOfChannels, d=new Float32Array(n); for(let c=0;c<nc;c++){ const ch=buffer.getChannelData(c); for(let i=0;i<n;i++) d[i]+=ch[i]/nc; } return {data:d,sr:buffer.sampleRate}; }
-function holeStep(dt,t,on){ HOLE.on=on; if(sky.visible===on) sky.visible=!on;   /* its space is its own: plain black and its own stars, without the app's sky and nebula */ BHOLE.step(dt,t,on,playing,renderer.domElement.height,holeData);
+function holeStep(dt,t,on){ HOLE.on=on; if(sky.visible===on) sky.visible=!on;   /* its space is its own: plain black and its own stars, without the app's sky and nebula */ BHOLE.step(dt,t,on,playing||window.__studio===true,renderer.domElement.height,holeData,window.__studio===true);   /* in the wallpaper studio the lasers stay lit at the frozen moment */
   if(composer&&THREE.ShaderPass&&!hfPass){ /* light that piles up keeps its colour; and the inverse palette turns the finished picture over (white space, black lasers) */
     hfPass=new THREE.ShaderPass({uniforms:{tDiffuse:{value:null},uInv:{value:0}},vertexShader:'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }',
       fragmentShader:'precision highp float; uniform sampler2D tDiffuse; uniform float uInv; varying vec2 vUv; void main(){ vec3 c=texture2D(tDiffuse,vUv).rgb; float m=max(c.r,max(c.g,c.b)); c/=max(1.,m); gl_FragColor=vec4(mix(c,vec3(1.-min(1.,m)),uInv),1.); }'}); hfPass.enabled=false; composer.addPass(hfPass); }

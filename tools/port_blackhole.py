@@ -27,13 +27,13 @@ addEventListener('pointerup',()=>orb.drag=false);
 canvas.addEventListener('wheel',e=>{ if(!on) return; e.preventDefault(); orb.dT=clamp(orb.dT*Math.exp(e.deltaY*.001),16,220); },{passive:false});
 const invM=new THREE.Matrix4(), lev=U.uLev.value, shot=U.uShot.value, smk=U.uSmoke.value, camP=new THREE.Vector3(0,0,62), cA=new THREE.Vector3(), cB=new THREE.Vector3();
 let pulse=0, pulseT=0, lastKick=-9, hitI=0, push=0, prevT=0, allT=0, HA=null, curA=null, invK=0;
-function step(dt,t,isOn,playing,pxH,getData){
+function step(dt,t,isOn,playing,pxH,getData,hold){   /* hold: a frozen moment (wallpaper studio): each band fires with its strongest hit within a quarter second, so the still is full of lasers */
   on=isOn; root.visible=isOn; if(!isOn){ orb.drag=false; return; }
   U.uTime.value+=dt; U.uPx.value=pxH;
   if(curA!==A){ curA=A; HA=null; hitI=0; const mine=A; setTimeout(()=>{ if(curA!==mine) return; const d=getData(); if(d) HA=analyse(d.data,d.sr); },80); }   /* a second or two of listening; the resting hole shows meanwhile */
   const live=playing&&!!HA; let kick=0, bass=0;
   if(HA){ const fr=clamp(t*HA.fps,0,HA.F-1), f0=fr|0, f1=Math.min(HA.F-1,f0+1), k=fr-f0;
-    for(let b=0;b<NB;b++){ const L=live?HA.lev[f0*NB+b]*(1-k)+HA.lev[f1*NB+b]*k:0, O=live?Math.max(HA.on[f0*NB+b],HA.on[f1*NB+b]):0;
+    for(let b=0;b<NB;b++){ const L=live?HA.lev[f0*NB+b]*(1-k)+HA.lev[f1*NB+b]*k:0; let O=live?Math.max(HA.on[f0*NB+b],HA.on[f1*NB+b]):0; if(hold&&live) for(let q=-11;q<=11;q++){ const ff=clamp(f0+q,0,HA.F-1); O=Math.max(O,HA.on[ff*NB+b]); }
       lev[b]+=(L-lev[b])*Math.min(1,dt*10); const tgt=Math.max(O,0); shot[b]+=(tgt-shot[b])*Math.min(1,dt*(tgt>shot[b]?26:2.6));
       smk[b]+=(shot[b]-smk[b])*Math.min(1,dt*(shot[b]>smk[b]?2.4:.3)); if(b<6&&live) kick=Math.max(kick,O); if(b<8) bass+=lev[b]/8; }
     if(kick>.62&&t-lastKick>.18){ lastKick=t; pulseT=1; } if(t<lastKick) lastKick=t-1;
@@ -55,7 +55,7 @@ return {step,cam,inv:()=>invK,next:()=>{ palI=(palI+1)%PALS.length; return PALS[
 })(scene,camera,renderer.domElement);
 let hfPass=null;
 function holeData(){ if(!buffer) return null; const n=buffer.length, nc=buffer.numberOfChannels, d=new Float32Array(n); for(let c=0;c<nc;c++){ const ch=buffer.getChannelData(c); for(let i=0;i<n;i++) d[i]+=ch[i]/nc; } return {data:d,sr:buffer.sampleRate}; }
-function holeStep(dt,t,on){ HOLE.on=on; if(sky.visible===on) sky.visible=!on;   /* its space is its own: plain black and its own stars, without the app's sky and nebula */ BHOLE.step(dt,t,on,playing,renderer.domElement.height,holeData);
+function holeStep(dt,t,on){ HOLE.on=on; if(sky.visible===on) sky.visible=!on;   /* its space is its own: plain black and its own stars, without the app's sky and nebula */ BHOLE.step(dt,t,on,playing||window.__studio===true,renderer.domElement.height,holeData,window.__studio===true);   /* in the wallpaper studio the lasers stay lit at the frozen moment */
   if(composer&&THREE.ShaderPass&&!hfPass){ /* light that piles up keeps its colour; and the inverse palette turns the finished picture over (white space, black lasers) */
     hfPass=new THREE.ShaderPass({uniforms:{tDiffuse:{value:null},uInv:{value:0}},vertexShader:'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }',
       fragmentShader:'precision highp float; uniform sampler2D tDiffuse; uniform float uInv; varying vec2 vUv; void main(){ vec3 c=texture2D(tDiffuse,vUv).rgb; float m=max(c.r,max(c.g,c.b)); c/=max(1.,m); gl_FragColor=vec4(mix(c,vec3(1.-min(1.,m)),uInv),1.); }'}); hfPass.enabled=false; composer.addPass(hfPass); }

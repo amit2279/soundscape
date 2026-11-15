@@ -326,6 +326,16 @@ The owner reversed section 8j: **the bioluminescent blue is reserved for the ins
 - **Shuffle** now picks one of the named colour swatches at random (not a generated palette), so the active swatch is marked.
 - Coaster map and dial are forced off outside the Coaster by CSS. Icons on active toggles are white for blue themes too (hue 205 and up).
 
+## 8z6. Wallpaper studio (2026-11-15 evening)
+
+"Wallpaper studio" in the More menu (`#btnSnap` → `openStudio()`; key P and the Controls panel still take the old quick snapshot). Block before the guided tour.
+- Opening it pauses the song (`window.__studio=true`), hides the interface (`#app.studio`), and shows a centred frame with a live type overlay plus a panel: Size (phone 2160x3840, desktop 3840x2160), Layout (Poster, Collector, None), World chips, Look (Kaleidoscope, Diamond, Planet, Next colour), Moment (a quarter second earlier or later), Download.
+- `renderTo(W,H)` re-renders one frame at the output size with the camera's field of view narrowed to the frame's height, so the frame is what you get; `stDraw(g,W,H,tpl,info)` draws the type (same function for preview and file). Fonts are the app's: Big Shoulders Display, Manrope, DM Mono. `stInfo()` gathers title, world, colour, BPM, length, moment, drops or coaster figures (top speed, peak g) or black hole figures, an edition number (`ss_ed` in localStorage, bumped per download) and the date.
+- **Poster:** world name as large as fits (overlay blend), a diagonal band in the theme colour, song title, a row of five figures. **Collector:** thin inset border, edition number and wordmark in the corners, title bottom left, figures, the song's waveform as a strip with the captured moment marked.
+- In the studio the Black hole stays lit (`hold`: each band fires with its strongest hit within a quarter second).
+- The main script is not global scope: tests reach it through `window.__st` (`renderTo`, `seek`, `ST`, `draw`, `info`).
+- Not checked: the real fonts (blocked in the test browser, so it fell back to Arial), a full-size 3840 render, the download itself, Collector on desktop in worlds other than the Black hole. Owner has not reviewed the layouts yet; expect typography rounds.
+
 ## 8zz. Phase 2 ideas, analysed only, nothing built (2026-11-15)
 
 The owner sent references and asked for analysis to keep for later. Suggested order: 1, 2, 3, 4.
