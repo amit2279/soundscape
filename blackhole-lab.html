@@ -13,7 +13,7 @@ button:hover,label.b:hover{background:rgba(255,255,255,.2)}
 </style></head><body>
 <div id="hud"></div>
 <div id="msg">Black hole lab<br><br><button id="demo">Play the demo track</button> <label class="b">Upload a song<input id="file" type="file" accept="audio/*" hidden></label></div>
-<div id="bar"><button id="pp">Play</button><button id="col" title="Next colour (C)">Colour: red</button><input id="seek" type="range" min="0" max="1" step="0.001" value="0"><span id="tm">0:00</span><label class="b">Song<input id="file2" type="file" accept="audio/*" hidden></label></div>
+<div id="bar"><button id="pp">Play</button><button id="col" title="Next colour (C)">Colour: red</button><label class="b" style="display:flex;align-items:center;gap:6px;cursor:default">Glow <input id="glow" type="range" min="0" max="3" step="0.05" value="1.35" style="width:110px"><span id="glowV">1.35</span></label><input id="seek" type="range" min="0" max="1" step="0.001" value="0"><span id="tm">0:00</span><label class="b">Song<input id="file2" type="file" accept="audio/*" hidden></label></div>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/shaders/CopyShader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
@@ -62,7 +62,7 @@ function analyse(data,sr){ const N=2048, hop=1024, F=Math.max(1,Math.floor((data
 /* ---------------- rendering ---------------- */
 const renderer=new THREE.WebGLRenderer({antialias:true}); document.body.prepend(renderer.domElement);
 const scene=new THREE.Scene(), camera=new THREE.PerspectiveCamera(58,1,.5,4000);
-const PALS=[['red',[1,0,0],[1,.035,.02]],['ember',[1,.2,.02],[1,.42,.03]],['ice',[.05,.4,1],[.1,.75,1]],['acid',[.25,1,.05],[.7,1,.05]],['violet',[.6,.08,1],[1,.1,.75]],['white',[1,.9,.85],[1,1,1]]];   /* each is one colour and its near neighbour. Nothing is ever mixed towards white: a red hole is red and only red */ let palI=0;
+const PALS=[['red',[1,.1,.04],[.97,.1,.27]],['ember',[1,.5,.05],[1,.24,.03]],['ice',[.2,.85,1],[.06,.45,1]],['acid',[.75,1,.08],[.25,1,.1]],['violet',[.95,.2,.85],[.6,.1,1]],['white',[1,.95,.9],[.9,.92,1]]];   /* A: the colour where a beam leaves the surface. B: the colour it settles into further out */    let palI=0;
 const U={uLev:{value:new Float32Array(NB)},uShot:{value:new Float32Array(NB)},uTime:{value:0},uAll:{value:0},uBass:{value:0},uA:{value:new THREE.Vector3(...PALS[0][1])},uB:{value:new THREE.Vector3(...PALS[0][2])},uCam:{value:new THREE.Vector3()},uPx:{value:1}};
 /* the hole itself: a plain black ball. It only hides what is behind it */
 scene.add(new THREE.Mesh(new THREE.SphereGeometry(R*.985,64,48),new THREE.MeshBasicMaterial({color:0x000000})));
@@ -86,19 +86,20 @@ void main(){ int b=int(aInf.x+.5); float lv=uLev[b], sh=uShot[b], low=1.-smooths
 void main(){ float core=exp(-vQ.x*vQ.x/(vW*vW)), along=1.-vQ.y/max(vLen,.001);         // 0 at the surface, 1 at the tip
   float halo=exp(-vQ.x*vQ.x/(vW*vW*14.))*.16+exp(-vQ.x*vQ.x/(vW*vW*60.))*.07, line=(core+halo)*(.75+.25*(1.-along));   /* a hot core in a soft wide halo, a touch brighter where it leaves the surface */                                                 // brighter towards the tip
   float dot_=0.;                         // the bright point at the end of every beam
-  vec3 c=mix(uA,uB,vHue)*line; gl_FragColor=vec4(c*vGlow,1.); }`}));
+  /* measured on the reference: a beam is palest and hottest at its source, and by half its length it has deepened and shifted about 15 degrees in hue; brightness barely changes */
+  vec3 base=mix(uA,uB,smoothstep(0.,.55,along)+(vHue-.5)*.12), c=mix(base,vec3(1.),.6*exp(-along*4.2)*core)*line; gl_FragColor=vec4(c*vGlow,1.); }`}));
   m.frustumCulled=false; scene.add(m);
   const pg=new THREE.BufferGeometry(), pos=new Float32Array(NBEAM*3); for(let i=0;i<NBEAM*3;i++) pos[i]=dir[i]*R*1.004; pg.setAttribute('position',new THREE.BufferAttribute(pos,3)); pg.setAttribute('aDir',new THREE.BufferAttribute(dir,3)); pg.setAttribute('aInf',new THREE.BufferAttribute(inf,4));
   const pts=new THREE.Points(pg,new THREE.ShaderMaterial({uniforms:U,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,
     vertexShader:`uniform float uLev[${NB}],uShot[${NB}]; uniform float uAll,uPx; uniform vec3 uCam; attribute vec3 aDir; attribute vec4 aInf; varying float vB,vHit,vHue;
 void main(){ int b=int(aInf.x+.5); float lv=uLev[b], sh=uShot[b]; float fire=smoothstep(.6+aInf.y*3.,.6+aInf.y*3.+.2,sh+uAll*.5);   /* few beams answer a soft sound, hundreds a hard one; never all of them, so each beam stays a line you can follow */
   vec3 toC=uCam-position; float dist=length(toC), face=max(0.,dot(aDir,toC/dist)); vHit=fire*pow(face,26.);     // this beam is firing and aimed at your face
-  float size=.24+.75*fire+3.2*vHit; vB=.02*lv+1.1*fire+1.3*vHit; vHue=aInf.w;
-  gl_PointSize=min(uPx*.6,size*uPx*.9/dist); gl_Position=projectionMatrix*viewMatrix*vec4(position,1.); }`,
+  float size=.15+.07*fire+1.1*vHit; vB=.02*lv+2.2*fire+1.2*vHit; vHue=aInf.w;
+  gl_PointSize=clamp(size*uPx*.9/dist,2.,uPx*.4); gl_Position=projectionMatrix*viewMatrix*vec4(position,1.); }`,
     fragmentShader:`precision highp float; uniform vec3 uA,uB; varying float vB,vHit,vHue;
 void main(){ vec2 q=(gl_PointCoord-.5)*2.; float d2=dot(q,q); if(d2>1.) discard; float k=1.+3.*vHit;                    // a hit is drawn large, so its core is kept small inside it
   float core=exp(-d2*22.*k), halo=exp(-d2*3.2)*.42*(1.-d2), rays=(exp(-abs(q.x)*40.)*exp(-abs(q.y)*2.5)+exp(-abs(q.y)*40.)*exp(-abs(q.x)*2.5))*vHit*.8*(1.-d2);
-  vec3 c=mix(uA,uB,vHue); gl_FragColor=vec4(c*(core*1.6+halo+rays)*vB,1.); }`}));
+  vec3 c=uA; gl_FragColor=vec4((mix(c,vec3(1.),.7)*core*1.6+c*(halo+rays))*vB,1.); }`}));
   pts.frustumCulled=false; scene.add(pts); return m; })();
 const composer=new THREE.EffectComposer(renderer); composer.addPass(new THREE.RenderPass(scene,camera)); const bloom=new THREE.UnrealBloomPass(new THREE.Vector2(1,1),1.35,1.,.05)   /* a rich, wide glow */; composer.addPass(bloom);
 /* however much light piles up, it keeps its colour: a pixel brighter than full is scaled back as a whole, so red stays red and never clips to white */
@@ -120,6 +121,7 @@ const onFile=async e=>{ const f=e.target.files[0]; if(!f) return; pause(); $('#m
 $('#file').onchange=onFile; $('#file2').onchange=onFile;
 $('#pp').onclick=()=>{ if(!A) return; actx.resume(); playing?pause():play(); };
 $('#seek').oninput=e=>{ if(A) seek(e.target.value*A.dur); };
+$('#glow').oninput=e=>{ bloom.strength=+e.target.value; $('#glowV').textContent=(+e.target.value).toFixed(2); };
 function nextCol(){ palI=(palI+1)%PALS.length; $('#col').textContent='Colour: '+PALS[palI][0]; } $('#col').onclick=nextCol;
 addEventListener('keydown',e=>{ if(e.code==='KeyC') nextCol(); if(e.code==='Space'&&A){ e.preventDefault(); playing?pause():play(); } });
 
