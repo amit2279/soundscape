@@ -311,6 +311,10 @@ Owner's rules: **mode tabs always top centre, alone; shuffle stays visible.** A 
 - **Playlist box** `#plBox` (built in `plShow`): a glass list bottom right above the music bar, shown when the playlist has two or more songs; current song marked, click to jump. `#app.haspl` moves the coaster's speed dial left of it.
 - End card: title and two buttons only ("Ride again", "Upload another song"); the driving keys hide while it is open.
 
+## 8z3. Coaster: blue only in its tunnels; sounds only in self-drive (2026-11-15)
+
+The owner reversed section 8j: **the bioluminescent blue is reserved for the inside of the bioluminescent tunnels**; the open-air "blue moments" at drops are gone (`R.bio` is still computed but no longer read), and the colours return quickly on leaving the tunnel (5/s). **Ride sounds play only while you drive it yourself**; silent while the song plays (so no chain tick either). Changed in the lab and in `tools/port_coaster.py`'s step, then re-ported.
+
 ## 8zz. Phase 2 ideas, analysed only, nothing built (2026-11-15)
 
 The owner sent references and asked for analysis to keep for later. Suggested order: 1, 2, 3, 4.

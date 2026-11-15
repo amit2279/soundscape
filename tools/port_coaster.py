@@ -61,9 +61,9 @@ function step(dt,t,on,playing,pxH,drive,ended){
   while(beatI<A_.beats.length&&A_.beats[beatI].t<t-1) beatI++; if(beatI>0&&A_.beats[beatI-1].t>t) beatI=0; let bp=0; for(let b=beatI;b<A_.beats.length&&A_.beats[b].t<=t;b++) bp=Math.max(bp,A_.beats[b].s*Math.exp(-(t-A_.beats[b].t)*7)); U.uBeat.value=live?bp:0;
   if(live&&t>prevT&&t-prevT<.5) for(let b=beatI;b<A_.beats.length;b++){ const bt=A_.beats[b]; if(bt.t>t) break; if(bt.t>prevT){ spinV+=2.6*bt.s; if(bt.s>.45) U.uRip.value[ripI++%6].set(P.x,P.z,bt.t); } } prevT=t;
   spinV+=(.4-spinV)*Math.min(1,dt*.8); spinV=Math.min(spinV,7); U.uSpA.value+=spinV*dt; U.uSpB.value+=(U.uSpA.value-U.uSpB.value)*Math.min(1,dt*3.5); U.uSpC.value+=(U.uSpB.value-U.uSpC.value)*Math.min(1,dt*3.5);
-  { const inBio=R.tun.some(tn=>tn.bio&&t>tn.t0-.3&&t<tn.t1+.2)||(R.bio||[]).some(w=>t>w[0]&&t<w[1])?1:0; U.uBio.value+=(inBio-U.uBio.value)*Math.min(1,dt*2.2); }   /* blue moments and bioluminescent tunnels */
+  { const inBio=R.tun.some(tn=>tn.bio&&t>tn.t0-.15&&t<tn.t1+.05)?1:0; U.uBio.value+=(inBio-U.uBio.value)*Math.min(1,dt*(inBio?2.5:5));   /* blue only inside a bioluminescent tunnel; out of it, straight back to the normal colours */ }   /* blue moments and bioluminescent tunnels */
   for(const tn of R.tun){ const kk=t>tn.t0-.12&&t<tn.t1+.05?1:0; tn.mat.uniforms.uIn.value+=(kk-tn.mat.uniforms.uIn.value)*Math.min(1,dt*(kk?2.2:3)); }
-  sfxStep(R,t,f,v,R.marks.some(m=>i>=m.lift[0]&&i<m.lift[1])&&!free.on,playing||(free.on&&v>.3));
+  sfxStep(R,t,f,v,false,free.on&&v>.3);   /* ride sounds only when you drive it yourself; silent while the song plays */
   { const show=free.on?'block':'none'; if(gaugeC.style.display!==show) gaugeC.style.display=show; if(free.on) drawGauge(free.v,free.th,gS); drawMap(R,f); }
   U.uVel.value.copy(D).multiplyScalar(v); U.uSpd.value+=(v-U.uSpd.value)*Math.min(1,dt*4); sea.position.x=P.x; sea.position.z=P.z;
   return v; }
