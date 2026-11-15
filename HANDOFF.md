@@ -260,6 +260,10 @@ The owner withdrew "red only" after looking closer at his reference; seven beams
 - So hue moves about 15 degrees (warm red to crimson) and saturation climbs from 0.3 to 0.9, most of it in the first quarter; brightness stays within 0.9 to 1.0.
 In the lab: palette entry A is the colour at the surface, B the colour further out (`smoothstep(0,.55,along)`). The core is paled towards white by `0.6*exp(-4.2*along)`, so the source is pale and hot as in the reference. **This measured version is the one the owner settled on** (he tried a saturated, no-white source that tapers with distance, commit fa1011f, and asked for this one back). Source points are 0.15 to 0.22 units (the beam's width), paler and brighter, and only a face-on hit grows them. A **Glow slider** (0 to 3, default 1.35) sets bloom strength so the owner can find his value. The hue-keeping pass stays. Smoke that the beams light up is the next thing he wants, after "some cool changes" he has not described yet.
 
+## 8s. Black hole lab: rest state (2026-11-15)
+
+With no music playing (`uRest` eases to 1), source points light up at random and fade again with **no beams**: each point has its own slow clock (`uTime*0.3`), and on about one tick in seven it rises and falls as `sin²`. The beams and points now sit in a group `hole` that always turns (0.11 rad/s about Y with a slow nod), so the shaders work in the group's frame: they use `modelViewMatrix`, and `uCam` is the camera position in the group's space.
+
 ## 9. Coaster lab: full specification (state on 2026-11-14)
 
 File `coaster-lab.html`, about 300 lines, standalone. Artifact "Coaster lab", slug `c68270d2-057b-4b14-83d6-67b9296d41d3`. The owner rides it and loves it ("vertigo-inducing"); it is the benchmark. When he says so, port it into `index.html` in place of `coastPlan`/`coastStep`/`coastCam`.

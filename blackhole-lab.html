@@ -63,7 +63,8 @@ function analyse(data,sr){ const N=2048, hop=1024, F=Math.max(1,Math.floor((data
 const renderer=new THREE.WebGLRenderer({antialias:true}); document.body.prepend(renderer.domElement);
 const scene=new THREE.Scene(), camera=new THREE.PerspectiveCamera(58,1,.5,4000);
 const PALS=[['red',[1,.1,.04],[.97,.1,.27]],['ember',[1,.5,.05],[1,.24,.03]],['ice',[.2,.85,1],[.06,.45,1]],['acid',[.75,1,.08],[.25,1,.1]],['violet',[.95,.2,.85],[.6,.1,1]],['white',[1,.95,.9],[.9,.92,1]]];   /* A: the colour where a beam leaves the surface. B: the colour it settles into further out */    let palI=0;
-const U={uLev:{value:new Float32Array(NB)},uShot:{value:new Float32Array(NB)},uTime:{value:0},uAll:{value:0},uBass:{value:0},uA:{value:new THREE.Vector3(...PALS[0][1])},uB:{value:new THREE.Vector3(...PALS[0][2])},uCam:{value:new THREE.Vector3()},uPx:{value:1}};
+const hole=new THREE.Group(); scene.add(hole);   /* the beams and their source points turn together, slowly, so the hole is seen to rotate */
+const U={uRest:{value:1},uLev:{value:new Float32Array(NB)},uShot:{value:new Float32Array(NB)},uTime:{value:0},uAll:{value:0},uBass:{value:0},uA:{value:new THREE.Vector3(...PALS[0][1])},uB:{value:new THREE.Vector3(...PALS[0][2])},uCam:{value:new THREE.Vector3()},uPx:{value:1}};
 /* the hole itself: a plain black ball. It only hides what is behind it */
 scene.add(new THREE.Mesh(new THREE.SphereGeometry(R*.985,64,48),new THREE.MeshBasicMaterial({color:0x000000})));
 /* the beams: one flat strip each, turned to face the camera, starting on the surface and pointing straight out. All drawn in one batch */
@@ -81,26 +82,28 @@ void main(){ int b=int(aInf.x+.5); float lv=uLev[b], sh=uShot[b], low=1.-smooths
   float w=(.022+.02*aInf.w+.16*low*uBass*aInf.z*fire+.02*fire);                   // low bands throw the fat beams
   vec3 p0=aDir*${R.toFixed(1)}, p=p0+aDir*len*position.y, side=normalize(cross(aDir,uCam-p)); float wq=max(w*22.,1.3);   /* room for the soft haze each beam carries, in its own colour */
   p+=side*position.x*wq; vQ=vec2(position.x*wq,(1.-position.y)*len); vLen=len; vW=w; vHue=aInf.w; vGlow=(.012+.03*lv*aInf.z+.55*fire)*smoothstep(.3,5.,length(uCam-p));   /* beams aimed straight at you go dark, so the middle stays a black disc: that is the hole. And a beam passing right by the camera fades, so it cannot flood the picture */   /* a beam passing right by the camera fades, so it cannot flood the picture */
-  gl_Position=projectionMatrix*viewMatrix*vec4(p,1.); }`,
+  gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.); }`,
     fragmentShader:`precision highp float; uniform vec3 uA,uB; varying vec2 vQ; varying float vLen,vW,vHue,vGlow;
 void main(){ float core=exp(-vQ.x*vQ.x/(vW*vW)), along=1.-vQ.y/max(vLen,.001);         // 0 at the surface, 1 at the tip
   float halo=exp(-vQ.x*vQ.x/(vW*vW*14.))*.16+exp(-vQ.x*vQ.x/(vW*vW*60.))*.07, line=(core+halo)*(.75+.25*(1.-along));   /* a hot core in a soft wide halo, a touch brighter where it leaves the surface */                                                 // brighter towards the tip
   float dot_=0.;                         // the bright point at the end of every beam
   /* measured on the reference: a beam is palest and hottest at its source, and by half its length it has deepened and shifted about 15 degrees in hue; brightness barely changes */
   vec3 base=mix(uA,uB,smoothstep(0.,.55,along)+(vHue-.5)*.12), c=mix(base,vec3(1.),.6*exp(-along*4.2)*core)*line; gl_FragColor=vec4(c*vGlow,1.); }`}));
-  m.frustumCulled=false; scene.add(m);
+  m.frustumCulled=false; hole.add(m);
   const pg=new THREE.BufferGeometry(), pos=new Float32Array(NBEAM*3); for(let i=0;i<NBEAM*3;i++) pos[i]=dir[i]*R*1.004; pg.setAttribute('position',new THREE.BufferAttribute(pos,3)); pg.setAttribute('aDir',new THREE.BufferAttribute(dir,3)); pg.setAttribute('aInf',new THREE.BufferAttribute(inf,4));
   const pts=new THREE.Points(pg,new THREE.ShaderMaterial({uniforms:U,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,
-    vertexShader:`uniform float uLev[${NB}],uShot[${NB}]; uniform float uAll,uPx; uniform vec3 uCam; attribute vec3 aDir; attribute vec4 aInf; varying float vB,vHit,vHue;
+    vertexShader:`uniform float uLev[${NB}],uShot[${NB}]; uniform float uAll,uPx,uRest,uTime; uniform vec3 uCam; attribute vec3 aDir; attribute vec4 aInf; varying float vB,vHit,vHue;
 void main(){ int b=int(aInf.x+.5); float lv=uLev[b], sh=uShot[b]; float fire=smoothstep(.6+aInf.y*3.,.6+aInf.y*3.+.2,sh+uAll*.5);   /* few beams answer a soft sound, hundreds a hard one; never all of them, so each beam stays a line you can follow */
   vec3 toC=uCam-position; float dist=length(toC), face=max(0.,dot(aDir,toC/dist)); vHit=fire*pow(face,26.);     // this beam is firing and aimed at your face
-  float size=.15+.07*fire+1.1*vHit; vB=.02*lv+2.2*fire+1.2*vHit; vHue=aInf.w;
-  gl_PointSize=clamp(size*uPx*.9/dist,2.,uPx*.4); gl_Position=projectionMatrix*viewMatrix*vec4(position,1.); }`,
+  /* at rest (no music): points on the surface light up at random and fade again, with no beams. Each point has its own slow clock; on about one tick in twelve it glows, rising and falling smoothly */
+  float tk=uTime*.3+aInf.w*37., ph=fract(tk), pick=step(.86,fract(sin((floor(tk)+aInf.y*91.3)*127.1)*43758.5453)), tw=uRest*pick*pow(sin(3.14159*ph),2.);
+  float size=.15+.07*fire+1.1*vHit+.22*tw; vB=.02*lv+2.2*fire+1.2*vHit+4.5*tw; vHue=aInf.w;
+  gl_PointSize=clamp(size*uPx*.9/dist,2.+2.5*tw,uPx*.4); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
     fragmentShader:`precision highp float; uniform vec3 uA,uB; varying float vB,vHit,vHue;
 void main(){ vec2 q=(gl_PointCoord-.5)*2.; float d2=dot(q,q); if(d2>1.) discard; float k=1.+3.*vHit;                    // a hit is drawn large, so its core is kept small inside it
   float core=exp(-d2*22.*k), halo=exp(-d2*3.2)*.42*(1.-d2), rays=(exp(-abs(q.x)*40.)*exp(-abs(q.y)*2.5)+exp(-abs(q.y)*40.)*exp(-abs(q.x)*2.5))*vHit*.8*(1.-d2);
   vec3 c=uA; gl_FragColor=vec4((mix(c,vec3(1.),.7)*core*1.6+c*(halo+rays))*vB,1.); }`}));
-  pts.frustumCulled=false; scene.add(pts); return m; })();
+  pts.frustumCulled=false; hole.add(pts); return m; })();
 const composer=new THREE.EffectComposer(renderer); composer.addPass(new THREE.RenderPass(scene,camera)); const bloom=new THREE.UnrealBloomPass(new THREE.Vector2(1,1),1.35,1.,.05)   /* a rich, wide glow */; composer.addPass(bloom);
 /* however much light piles up, it keeps its colour: a pixel brighter than full is scaled back as a whole, so red stays red and never clips to white */
 composer.addPass(new THREE.ShaderPass({uniforms:{tDiffuse:{value:null}},vertexShader:'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }',
@@ -133,7 +136,7 @@ addEventListener('pointerup',()=>orb.drag=false);
 renderer.domElement.addEventListener('wheel',e=>{ e.preventDefault(); orb.dT=clamp(orb.dT*Math.exp(e.deltaY*.001),16,220); },{passive:false});
 
 /* ---------------- frame ---------------- */
-const lev=U.uLev.value, shot=U.uShot.value; let last=performance.now(), hitI=0, push=0, prevT=0, allT=0;
+const invM=new THREE.Matrix4(), lev=U.uLev.value, shot=U.uShot.value; let last=performance.now(), hitI=0, push=0, prevT=0, allT=0;
 function frame(ms){ requestAnimationFrame(frame); const dt=Math.min(.05,(ms-last)/1000); last=ms; U.uTime.value+=dt;
   if(A){ const t=now(), live=playing, fr=clamp(t*A.fps,0,A.F-1), f0=fr|0, f1=Math.min(A.F-1,f0+1), k=fr-f0; let bass=0;
     for(let b=0;b<NB;b++){ const L=live?A.lev[f0*NB+b]*(1-k)+A.lev[f1*NB+b]*k:0, O=live?Math.max(A.on[f0*NB+b],A.on[f1*NB+b]):0;
@@ -148,7 +151,9 @@ function frame(ms){ requestAnimationFrame(frame); const dt=Math.min(.05,(ms-last
   U.uA.value.lerp(new THREE.Vector3(...PALS[palI][1]),Math.min(1,dt*3)); U.uB.value.lerp(new THREE.Vector3(...PALS[palI][2]),Math.min(1,dt*3));
   orb.idle+=dt; if(!orb.drag&&orb.idle>1.5) orb.azT+=dt*.07;
   orb.az+=(orb.azT-orb.az)*Math.min(1,dt*4); orb.el+=(orb.elT-orb.el)*Math.min(1,dt*4); orb.d+=(orb.dT*(1-.12*push)-orb.d)*Math.min(1,dt*3);
-  const ce=Math.cos(orb.el); camera.position.set(Math.sin(orb.az)*ce*orb.d,Math.sin(orb.el)*orb.d,Math.cos(orb.az)*ce*orb.d); camera.lookAt(0,0,0); U.uCam.value.copy(camera.position);
+  const ce=Math.cos(orb.el); camera.position.set(Math.sin(orb.az)*ce*orb.d,Math.sin(orb.el)*orb.d,Math.cos(orb.az)*ce*orb.d); camera.lookAt(0,0,0);
+  hole.rotation.y+=dt*.11; hole.rotation.x=.25*Math.sin(U.uTime.value*.05); hole.updateMatrixWorld(); U.uCam.value.copy(camera.position).applyMatrix4(invM.copy(hole.matrixWorld).invert());   /* the shaders work in the hole's own turning frame */
+  U.uRest.value+=((playing?0:1)-U.uRest.value)*Math.min(1,dt*1.5);
   composer.render(); }
 requestAnimationFrame(frame);
 </script></body></html>
