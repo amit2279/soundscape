@@ -457,3 +457,7 @@ Top left: speed, force, height, "chain lift", countdown to the next drop. Bottom
 
 ### 9.9 Ideas the owner has raised but not approved or built
 Motion blur and speed streaks; chain and wind sound; fireworks placed beside the track; tunnels with more wall styles (the Wormhole patterns); deliberately putting corkscrews inside tunnels to show off the turning walls.
+
+
+### 8z9. Laser field lab: straight edges removed
+User saw straight lines cutting across the lasers. Cause: each fan sheet and the cone ended abruptly at their far end (uv.y=1) and sides. Fix in `laser-lab.html`: fan `edge=smoothstep(1.,.5,abs(vU))`, and both fan and cone `fade` multiplied by `smoothstep(1.,.45,vV)`. Checked in one headless still (front view, mix scene); not checked while dragging the camera.

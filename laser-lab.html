@@ -90,8 +90,8 @@ void main(){ int bi=int(aB.x+.5); float lv=uLev[bi], sh=uShot[bi], t=uTime*aB.z,
 ${NOISE}
 void main(){ if(vI<.004) discard; float x=(vU*.5+.5)*vN, k=abs(fract(x)-.5)*2.;
   float beam=exp(-k*k*38.)+.35*exp(-k*k*5.);                                              // a row of separate beams, each with a soft skirt
-  float sm=smoke(vW,uTime), edge=smoothstep(1.,.86,abs(vU));
-  float fade=(.35+.65*exp(-vV*2.2))*smoothstep(0.,.03,vV);                                // strongest near the projector
+  float sm=smoke(vW,uTime), edge=smoothstep(1.,.5,abs(vU));   /* the sheet melts away towards its sides: no visible border */
+  float fade=(.35+.65*exp(-vV*2.2))*smoothstep(0.,.03,vV)*smoothstep(1.,.45,vV);   /* and dies out long before its far end, so no sheet ever stops in a straight line */                                // strongest near the projector
   vec3 col=vHue<.34?uA:(vHue<.67?uB:uC);
   float near=smoothstep(4.,40.,length(vW-cameraPosition));                                // a sheet passing through your head fades instead of flooding the view
   gl_FragColor=vec4(col*vI*edge*fade*near*(beam*(.5+.6*sm)+.1*sm),1.); }`}));
@@ -106,7 +106,7 @@ void main(){ float th=position.x*3.14159, ha=.2+.1*sin(uTime*.21)+.16*uBass+.08*
     fragmentShader:`precision highp float; uniform float uTime; uniform vec3 uA,uB; varying vec3 vW; varying float vU,vV,vI;
 ${NOISE}
 void main(){ float sm=smoke(vW*1.3,uTime*1.4), ring=.5+.5*sin(vV*60.-uTime*1.5);
-  float fade=(.3+.7*exp(-vV*1.6))*smoothstep(0.,.04,vV);
+  float fade=(.3+.7*exp(-vV*1.6))*smoothstep(0.,.04,vV)*smoothstep(1.,.45,vV);
   vec3 col=mix(uA,uB,.5+.5*sin(vU*3.14159+uTime*.2));
   float near=smoothstep(3.,30.,length(vW-cameraPosition));
   gl_FragColor=vec4(col*vI*fade*near*(.04+.5*sm*sm+.02*ring),1.); }`}));
