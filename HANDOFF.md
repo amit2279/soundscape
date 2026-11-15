@@ -492,3 +492,13 @@ File `plasma-lab.html` (built from the laser lab's audio scaffold; same 48-band 
 
 ### 8z16. Deployed
 Commit 0fb119f deployed to production (soundscape.zone, www) on 15 Nov 2026, deployment dpl_BjxKDZ7zqA94eTPipUxbY7M8xphU. Live site now includes everything up to the simplified snapshot. The live page itself was not opened to verify (the workspace cannot reach it).
+
+### 8z17. Build pipeline (minify + light obfuscation) and deploy change
+The live site is now served from `dist/`, not the repo root. **Readable source is unchanged: keep editing `index.html` (and labs) at the repo root exactly as before.** Before each deploy, rebuild `dist/index.html`.
+
+- Source of truth: `index.html` (readable) at repo root. The headless test harness still builds `test.html` from `index.html`. Labs stay readable at root and are **no longer deployed** (so coaster-lab.html etc. are not reachable on soundscape.zone anymore).
+- Build: `cd build && node build.mjs`. It isolates the single inline app IIFE (lines ~707–3960, `(() => { 'use strict'; … })();`), runs javascript-obfuscator (LIGHT: stringArray off, no controlFlowFlattening/deadCode/selfDefending — those would kill the 60fps loop), then terser last (compress+mangle) so the result is smaller than source, then html-minifier-terser on the whole doc (minifyJS:false). Output: `dist/index.html` (~306 KB vs 373 KB source). CDN three.js tags, HTML and CSS are left intact aside from whitespace/CSS minify.
+- Obfuscator/terser only touch names inside the IIFE. DOM ids, localStorage keys, uniform names and GLSL (all strings) are untouched, and `window.*` hooks stay (renameProperties/renameGlobals off), so behaviour is identical. Verified: obfuscated dist rendered headlessly (City scene full UI, no JS errors).
+- Tools live in `build/` (package.json + node_modules; node_modules gitignored). Restore with `cd build && npm install`.
+- Routing: `vercel.json` sets `{"outputDirectory":"dist"}`. Revert by deleting vercel.json (serves root again).
+- **Deploy checklist:** 1) edit `index.html`; 2) `cd build && node build.mjs`; 3) copy readable `index.html` into the repo (it already is the repo file); 4) `git add -A && commit && push`; 5) Vercel deploy from main. If you forget the rebuild, dist is stale and the site won't show your change.
