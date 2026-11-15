@@ -2800,9 +2800,17 @@ async function snapshot(){
   g.drawImage(canvas,0,0); g.filter='none';
   resize();
   const t=now(), track=$('#trackName').textContent;
-  if(CT.cap){ const u=h/1080, paper=app.classList.contains('paper'); g.fillStyle=paper?'rgba(0,0,0,.9)':'rgba(255,255,255,.94)'; g.textBaseline='alphabetic';
-    g.font='900 '+Math.round(34*u)+'px "Big Shoulders Display","Arial Narrow",sans-serif'; g.fillText('SOUNDSCAPE',44*u,h-62*u);
-    g.font='500 '+Math.round(19*u)+'px "Manrope",system-ui,sans-serif'; g.fillStyle=paper?'rgba(0,0,0,.7)':'rgba(255,255,255,.75)'; g.fillText(track+'  ·  '+fmt(t)+' of '+fmt(dur),44*u,h-32*u); }
+  if(CT.cap){ /* the picture is exactly what is on screen, signed at the bottom left: the Soundscape mark, the song, and a few figures about the sound */
+    const u=Math.min(w,h)/1080, m=56*u, paper=app.classList.contains('paper'), ink=paper?'0,0,0':'255,255,255', DISP='"Big Shoulders Display","Arial Narrow",sans-serif', SANS='"Manrope",system-ui,sans-serif';
+    const lg=40*u, fz=34*u, yv=h-m, yl=yv-fz*.95, yt=yl-36*u, ys2=yt-34*u, ys1=ys2-lg*.86, top=ys1-lg;
+    const figs=[['TEMPO',(A.bpm?Math.round(A.bpm):'–')+'','BPM'],['LENGTH',fmt(dur),''],['MOMENT',fmt(t),''],['DROPS',((A.drops&&A.drops.length)||0)+'','']];
+    const gr=g.createLinearGradient(0,top-2*m,0,h); gr.addColorStop(0,paper?'rgba(255,255,255,0)':'rgba(0,0,0,0)'); gr.addColorStop(1,paper?'rgba(255,255,255,.6)':'rgba(0,0,0,.6)'); g.fillStyle=gr; g.fillRect(0,top-2*m,w,h-top+2*m);
+    g.textBaseline='alphabetic'; g.textAlign='left'; g.font='900 '+Math.round(lg)+'px '+DISP; g.fillStyle='rgb('+ink+')'; g.fillText('SOUND',m,ys1);
+    g.lineWidth=Math.max(1.5,2*u); g.strokeStyle='rgb('+ink+')'; g.lineJoin='round'; g.strokeText('SCAPE',m,ys2);
+    const name=(track||'').replace(/\s*\(built-in demo track\)/i,'').replace(/\.[a-z0-9]{2,4}$/i,'').trim().toUpperCase().slice(0,48);
+    g.fillStyle='rgba('+ink+',.8)'; g.font='600 '+Math.round(16*u)+'px '+SANS; stText(g,name,m,yt,3*u,'left');
+    figs.forEach((f,i)=>{ const x=m+150*u*i; g.fillStyle='rgba('+ink+',.6)'; g.font='600 '+Math.round(12*u)+'px '+SANS; stText(g,f[0],x,yl,2*u,'left');
+      g.fillStyle='rgb('+ink+')'; g.font='800 '+Math.round(fz)+'px '+DISP; const fw=stText(g,f[1],x,yv,.5*u,'left'); if(f[2]){ g.fillStyle='rgba('+ink+',.7)'; g.font='700 '+Math.round(11*u)+'px '+SANS; stText(g,f[2],x+fw+6*u,yv,1.5*u,'left'); } }); }
   const fx=$('#flashfx'); fx.classList.remove('go'); void fx.offsetWidth; fx.classList.add('go');
   const blob=await new Promise(r=>c.toBlob(r,'image/png'));
   if(!blob){ toast('The snapshot could not be created in this browser.'); return; }
@@ -2813,7 +2821,7 @@ async function snapshot(){
     const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),4000); return; }
   $('#snapimg').src=url; $('#snapview').hidden=false;
 }
-$('#btnSnap').addEventListener('click',()=>openStudio()); $('#btnSnap2').addEventListener('click',snapshot);
+$('#btnSnap').addEventListener('click',snapshot);   /* the Wallpaper studio is parked (its code stays below, unreachable): the button saves the screen as it is */ $('#btnSnap2').addEventListener('click',snapshot);
 $('#snapClose').addEventListener('click',()=>{ $('#snapview').hidden=true; try{ URL.revokeObjectURL($('#snapimg').src); }catch(e){} });
 let qualityManual=false;
 $('#qual').addEventListener('input',e=>{ quality=+e.target.value; qualityManual=true; resize(); });
@@ -2966,7 +2974,7 @@ async function loadFile(file){
   if(tools){ const wrap=document.createElement('span'); wrap.className='morewrap'; const mb=document.createElement('button'); mb.className='tbtn icon plate'; mb.id='btnMore'; mb.title='More'; mb.setAttribute('aria-label','More'); mb.setAttribute('aria-expanded','false');
     mb.innerHTML='<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.900"/><circle cx="12" cy="12" r="1.900"/><circle cx="19" cy="12" r="1.900"/></svg>';
     const menu=document.createElement('div'); menu.className='moremenu plate'; menu.hidden=true; const shut=()=>{ menu.hidden=true; mb.setAttribute('aria-expanded','false'); };
-    for(const [id,label] of [['btnSnap','Wallpaper studio'],['btnPanel','Controls'],['btnKeys','Keyboard shortcuts'],['btnHide','Hide the interface']]){ const b=$('#'+id); if(!b) continue; const sp=document.createElement('span'); sp.textContent=label; b.append(sp); b.classList.remove('plate'); menu.append(b); b.addEventListener('click',shut); }
+    for(const [id,label] of [['btnSnap','Take snapshot'],['btnPanel','Controls'],['btnKeys','Keyboard shortcuts'],['btnHide','Hide the interface']]){ const b=$('#'+id); if(!b) continue; const sp=document.createElement('span'); sp.textContent=label; b.append(sp); b.classList.remove('plate'); menu.append(b); b.addEventListener('click',shut); }
     wrap.append(mb,menu); tools.append(wrap); const fs=$('#btnFs'); if(fs) wrap.before(fs);
     mb.addEventListener('click',e=>{ e.stopPropagation(); menu.hidden=!menu.hidden; mb.setAttribute('aria-expanded',String(!menu.hidden)); });
     document.addEventListener('click',e=>{ if(!wrap.contains(e.target)) shut(); }); } }

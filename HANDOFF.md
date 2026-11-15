@@ -481,3 +481,10 @@ First sphere version started a whole fan from one surface point (`uE+c*RS`), so 
 
 ### 8z14. Plasma globe lab (new, phase 2 extra idea from the user)
 File `plasma-lab.html` (built from the laser lab's audio scaffold; same 48-band `analyse`, same transport and `window.__lab`). A glass ball (`R=30`) with a core point; `NT=22` main filaments, each with 2 forks and 5 hairs (176 instanced ribbons, `SEG=72`, billboarded in the vertex shader, function `at(u)` gives the path). Mains: `dir*R*s` plus two-axis value-noise wriggle with an envelope that is zero at core and glass. Forks/hairs share the parent's path from `s0` and bend away, forced onto the glass at their end. `tipDir()` in JS mirrors the shader so `uTip[22]` puts a glow on the glass under each main. Music drives brightness, thickness, colour only (`uLive` eases between idle glow and music); wriggle and `uSpin` run on a steady clock (user rule: organic motion never pulses). Palettes aurora/green/neon/violet/ice/white (key C). Checked: one headless still at 0:48. Known: an occasional fork shows as a straight line; hairs look dotted at small size. Not checked: motion, idle state, other palettes.
+
+
+### 8z15. Labs parked; snapshot simplified (user decision)
+- Laser field lab and Plasma globe lab are parked (not merged). Bloom lab was parked earlier.
+- Wallpaper studio is parked: `#btnSnap` (in the More menu, now labelled "Take snapshot") and key P call `snapshot()` again. The studio code (`ST`, `stDraw`, `openStudio`, `window.__st`) is still in `index.html` but nothing opens it.
+- `snapshot()` saves the screen exactly as it is and signs it bottom left: SOUND (solid) / SCAPE (outline), the song name, and four figures: TEMPO, LENGTH, MOMENT, DROPS. No mode, no colour name. A soft dark gradient sits behind it (light on the paper theme). Uses `stText` from the studio code, so do not delete that helper.
+- Checked: one headless snapshot in City (fallback fonts). Not checked: phone-shaped screens, paper theme, real fonts. Not deployed.
