@@ -273,6 +273,10 @@ With no music playing (`uRest` eases to 1), source points light up at random and
 - **Drag feels heavy:** half the turn per pixel (0.0025 and 0.002 rad/px), and the camera follows at 2.67/s instead of 4/s, so it takes half as long again to settle.
 - Checked on stills. Not checked in motion: the smoke's drift, the pulse's feel, the drag.
 
+## 8u. Black hole lab: stars (2026-11-15), a trial
+
+3,500 faint stars 900 to 1,600 units out, tinted 30% towards the laser colour, turning very slowly; button "Stars" or key S switches them off. On by default so the owner can judge it; he has not decided whether to keep them. He decided against satellites; particles falling into the hole were suggested as the one worthwhile addition, not built.
+
 ## 9. Coaster lab: full specification (state on 2026-11-14)
 
 File `coaster-lab.html`, about 300 lines, standalone. Artifact "Coaster lab", slug `c68270d2-057b-4b14-83d6-67b9296d41d3`. The owner rides it and loves it ("vertigo-inducing"); it is the benchmark. When he says so, port it into `index.html` in place of `coastPlan`/`coastStep`/`coastCam`.

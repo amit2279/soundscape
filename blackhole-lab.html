@@ -13,7 +13,7 @@ button:hover,label.b:hover{background:rgba(255,255,255,.2)}
 </style></head><body>
 <div id="hud"></div>
 <div id="msg">Black hole lab<br><br><button id="demo">Play the demo track</button> <label class="b">Upload a song<input id="file" type="file" accept="audio/*" hidden></label></div>
-<div id="bar"><button id="pp">Play</button><button id="col" title="Next colour (C)">Colour: red</button><label class="b" style="display:flex;align-items:center;gap:6px;cursor:default">Glow <input id="glow" type="range" min="0" max="3" step="0.05" value="1.35" style="width:110px"><span id="glowV">1.35</span></label><input id="seek" type="range" min="0" max="1" step="0.001" value="0"><span id="tm">0:00</span><label class="b">Song<input id="file2" type="file" accept="audio/*" hidden></label></div>
+<div id="bar"><button id="pp">Play</button><button id="col" title="Next colour (C)">Colour: red</button><button id="st" title="Stars behind the black hole on or off (S)">Stars: on</button><label class="b" style="display:flex;align-items:center;gap:6px;cursor:default">Glow <input id="glow" type="range" min="0" max="3" step="0.05" value="1.35" style="width:110px"><span id="glowV">1.35</span></label><input id="seek" type="range" min="0" max="1" step="0.001" value="0"><span id="tm">0:00</span><label class="b">Song<input id="file2" type="file" accept="audio/*" hidden></label></div>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/shaders/CopyShader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
@@ -126,6 +126,14 @@ void main(){ vec2 q=(gl_PointCoord-.5)*2.; float d2=dot(q,q); if(d2>1.) discard;
   float puff=(1.-d2)*(1.-d2)*(.35+.9*n2(w)*n2(w*2.3+7.));                                 // a soft, uneven wisp, not a disc
   gl_FragColor=vec4(mix(mix(uA,uB,.6),h2rgb(vHue),uRand)*puff*vA*(1.-.35*uRand),1.); }`}));
   smoke.frustumCulled=false; hole.add(smoke); return m; })();
+/* space behind it: a few thousand faint stars, far away, tinted a little towards the laser colour. Button "Stars" or key S switches them off */
+const stars=(()=>{ const n=3500, pos=new Float32Array(n*3), sd=new Float32Array(n); let q=11; const r=()=>((q=(q*1664525+1013904223)>>>0)/4294967296);
+  for(let i=0;i<n;i++){ const y=2*r()-1, a=r()*6.283, k=Math.sqrt(1-y*y), d=900+700*r(); pos[i*3]=k*Math.cos(a)*d; pos[i*3+1]=y*d; pos[i*3+2]=k*Math.sin(a)*d; sd[i]=r(); }
+  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3)); g.setAttribute('aS',new THREE.BufferAttribute(sd,1));
+  const m=new THREE.Points(g,new THREE.ShaderMaterial({uniforms:U,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,
+    vertexShader:`uniform float uPx,uTime; attribute float aS; varying float vB; void main(){ vB=(.4+1.6*aS*aS*aS)*(.8+.2*sin(uTime*(.5+aS)+aS*40.)); gl_PointSize=max(2.,uPx*(.0026+.004*aS*aS)); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
+    fragmentShader:`precision highp float; uniform vec3 uA; uniform float uRand; varying float vB; void main(){ vec2 q=(gl_PointCoord-.5)*2.; float d2=dot(q,q); if(d2>1.) discard; gl_FragColor=vec4(mix(vec3(.8,.85,1.),mix(uA,vec3(.8,.85,1.),uRand),.3)*exp(-d2*4.)*vB,1.); }`}));
+  m.frustumCulled=false; scene.add(m); return m; })();
 const composer=new THREE.EffectComposer(renderer); composer.addPass(new THREE.RenderPass(scene,camera)); const bloom=new THREE.UnrealBloomPass(new THREE.Vector2(1,1),1.35,1.,.05)   /* a rich, wide glow */; composer.addPass(bloom);
 /* however much light piles up, it keeps its colour: a pixel brighter than full is scaled back as a whole, so red stays red and never clips to white */
 composer.addPass(new THREE.ShaderPass({uniforms:{tDiffuse:{value:null}},vertexShader:'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }',
@@ -148,7 +156,8 @@ $('#pp').onclick=()=>{ if(!A) return; actx.resume(); playing?pause():play(); };
 $('#seek').oninput=e=>{ if(A) seek(e.target.value*A.dur); };
 $('#glow').oninput=e=>{ bloom.strength=+e.target.value; $('#glowV').textContent=(+e.target.value).toFixed(2); };
 function nextCol(){ palI=(palI+1)%PALS.length; $('#col').textContent='Colour: '+PALS[palI][0]; } $('#col').onclick=nextCol;
-addEventListener('keydown',e=>{ if(e.code==='KeyC') nextCol(); if(e.code==='Space'&&A){ e.preventDefault(); playing?pause():play(); } });
+function togStars(){ stars.visible=!stars.visible; $('#st').textContent='Stars: '+(stars.visible?'on':'off'); } $('#st').onclick=togStars;
+addEventListener('keydown',e=>{ if(e.code==='KeyS') togStars(); if(e.code==='KeyC') nextCol(); if(e.code==='Space'&&A){ e.preventDefault(); playing?pause():play(); } });
 
 /* ---------------- camera: a slow orbit; drag to turn it, scroll to move in and out. Everything eased ---------------- */
 const orb={az:.6,el:.25,d:62,azT:.6,elT:.25,dT:62,drag:false,x:0,y:0,idle:0};
@@ -180,7 +189,7 @@ function frame(ms){ requestAnimationFrame(frame); const dt=Math.min(.05,(ms-last
   /* the hole swells on the beat and only on the beat: a kick sets the target, the size eases up to it and settles straight back */
   pulse+=(pulseT-pulse)*Math.min(1,dt*(pulseT>pulse?22:6)); pulseT*=Math.exp(-dt*9); { const sc=1+.1*pulse; hole.scale.setScalar(sc); ball.scale.setScalar(sc); }
   U.uRand.value+=((PALS[palI][0]==='random'?1:0)-U.uRand.value)*Math.min(1,dt*3);
-  hole.rotation.y+=dt*.11; hole.rotation.x=.25*Math.sin(U.uTime.value*.05); hole.updateMatrixWorld(); U.uCam.value.copy(camera.position).applyMatrix4(invM.copy(hole.matrixWorld).invert());   /* the shaders work in the hole's own turning frame */
+  stars.rotation.y+=dt*.004; hole.rotation.y+=dt*.11; hole.rotation.x=.25*Math.sin(U.uTime.value*.05); hole.updateMatrixWorld(); U.uCam.value.copy(camera.position).applyMatrix4(invM.copy(hole.matrixWorld).invert());   /* the shaders work in the hole's own turning frame */
   U.uRest.value+=((playing?0:1)-U.uRest.value)*Math.min(1,dt*1.5);
   composer.render(); }
 requestAnimationFrame(frame);
