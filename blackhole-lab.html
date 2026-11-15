@@ -89,7 +89,7 @@ void main(){ float core=exp(-vQ.x*vQ.x/(vW*vW)), along=1.-vQ.y/max(vLen,.001);  
   float halo=exp(-vQ.x*vQ.x/(vW*vW*14.))*.16+exp(-vQ.x*vQ.x/(vW*vW*60.))*.07, line=(core+halo)*(.75+.25*(1.-along));   /* a hot core in a soft wide halo, a touch brighter where it leaves the surface */                                                 // brighter towards the tip
   float dot_=0.;                         // the bright point at the end of every beam
   /* measured on the reference: a beam is palest and hottest at its source, and by half its length it has deepened and shifted about 15 degrees in hue; brightness barely changes */
-  vec3 base=mix(mix(uA,uB,smoothstep(0.,.55,along)+(vHue-.5)*.12),h2rgb(vHue-.04*along),uRand), c=mix(base,vec3(1.),.6*exp(-along*4.2)*core*(1.-.75*uRand))*line; gl_FragColor=vec4(c*vGlow*(1.-.5*uRand),1.); }`}));   /* many different colours piled up add towards white, so the random mode runs dimmer and keeps its sources coloured */
+  vec3 base=mix(mix(uA,uB,smoothstep(0.,.55,along)+(vHue-.5)*.12),h2rgb(vHue-.04*along),uRand), c=mix(base,vec3(1.),.6*exp(-along*4.2)*core*(1.-.75*uRand))*line; gl_FragColor=vec4(c*vGlow*(1.-.15*uRand),1.); }`}));   /* many different colours piled up add towards white, so the random mode runs dimmer and keeps its sources coloured */
   m.frustumCulled=false; hole.add(m);
   const pg=new THREE.BufferGeometry(), pos=new Float32Array(NBEAM*3); for(let i=0;i<NBEAM*3;i++) pos[i]=dir[i]*R*1.004; pg.setAttribute('position',new THREE.BufferAttribute(pos,3)); pg.setAttribute('aDir',new THREE.BufferAttribute(dir,3)); pg.setAttribute('aInf',new THREE.BufferAttribute(inf,4));
   const pts=new THREE.Points(pg,new THREE.ShaderMaterial({uniforms:U,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,
@@ -124,7 +124,7 @@ void main(){ int b=int(aInf.x+.5); float sm=uSmoke[b], sh=uShot[b];
 float n2(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.-2.*f); float a=fract(sin(dot(i,vec2(127.1,311.7)))*43758.5), b=fract(sin(dot(i+vec2(1.,0.),vec2(127.1,311.7)))*43758.5), c=fract(sin(dot(i+vec2(0.,1.),vec2(127.1,311.7)))*43758.5), d=fract(sin(dot(i+vec2(1.,1.),vec2(127.1,311.7)))*43758.5); return mix(mix(a,b,f.x),mix(c,d,f.x),f.y); }
 void main(){ vec2 q=(gl_PointCoord-.5)*2.; float d2=dot(q,q); if(d2>1.) discard; vec2 w=q*1.6+vSeed*40.+uTime*.04;
   float puff=(1.-d2)*(1.-d2)*(.35+.9*n2(w)*n2(w*2.3+7.));                                 // a soft, uneven wisp, not a disc
-  gl_FragColor=vec4(mix(mix(uA,uB,.6),h2rgb(vHue),uRand)*puff*vA*(1.-.6*uRand),1.); }`}));
+  gl_FragColor=vec4(mix(mix(uA,uB,.6),h2rgb(vHue),uRand)*puff*vA*(1.-.35*uRand),1.); }`}));
   smoke.frustumCulled=false; hole.add(smoke); return m; })();
 const composer=new THREE.EffectComposer(renderer); composer.addPass(new THREE.RenderPass(scene,camera)); const bloom=new THREE.UnrealBloomPass(new THREE.Vector2(1,1),1.35,1.,.05)   /* a rich, wide glow */; composer.addPass(bloom);
 /* however much light piles up, it keeps its colour: a pixel brighter than full is scaled back as a whole, so red stays red and never clips to white */
