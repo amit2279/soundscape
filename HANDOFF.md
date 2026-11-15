@@ -461,3 +461,7 @@ Motion blur and speed streaks; chain and wind sound; fireworks placed beside the
 
 ### 8z9. Laser field lab: straight edges removed
 User saw straight lines cutting across the lasers. Cause: each fan sheet and the cone ended abruptly at their far end (uv.y=1) and sides. Fix in `laser-lab.html`: fan `edge=smoothstep(1.,.5,abs(vU))`, and both fan and cone `fade` multiplied by `smoothstep(1.,.45,vV)`. Checked in one headless still (front view, mix scene); not checked while dragging the camera.
+
+
+### 8z10. Laser field lab: smoke no longer pulses
+User rule: smoke must flow freely and organically; music may drive only colour and brightness. The cone's opening angle was driven by bass and beat, which dragged its wall through the noise field and made the smoke itself jump. Now the angle only drifts slowly on time (`ha=.26+.1*sin(uTime*.21)+.04*sin(uTime*.13+1.7)`); `vI` still follows bass/beat. Smoke clock `uTime` was already steady. Not tested headlessly (motion cannot be judged from stills).

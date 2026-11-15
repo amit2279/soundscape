@@ -99,7 +99,7 @@ void main(){ if(vI<.004) discard; float x=(vU*.5+.5)*vN, k=abs(fract(x)-.5)*2.;
 /* the cone: a tunnel of light opening from the projector towards you, with the haze swirling on its wall */
 const cone=(()=>{ const m=new THREE.Mesh(new THREE.PlaneGeometry(2,1,96,24),new THREE.ShaderMaterial({uniforms:U,transparent:true,depthWrite:false,depthTest:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide,
     vertexShader:`uniform float uTime,uBass,uBeat,uAll,uCone; uniform vec3 uE,uAx; varying vec3 vW; varying float vU,vV,vI;
-void main(){ float th=position.x*3.14159, ha=.2+.1*sin(uTime*.21)+.16*uBass+.08*uBeat;    // the cone breathes with the bass
+void main(){ float th=position.x*3.14159, ha=.26+.1*sin(uTime*.21)+.04*sin(uTime*.13+1.7);    // the cone only drifts slowly: music changes its brightness and colour, never the shape of the smoke
   vec3 ax=normalize(uAx+vec3(.12*sin(uTime*.17),.05*sin(uTime*.13),0.)), e1=normalize(cross(vec3(0.,1.,0.),ax)), e2=cross(ax,e1);
   vec3 d=ax*cos(ha)+(cos(th)*e1+sin(th)*e2)*sin(ha); vec3 p=uE+d*uv.y*200.; vW=p; vU=position.x; vV=uv.y; vI=uCone*(.1+.5*uBass+.5*uBeat+.4*uAll);
   gl_Position=projectionMatrix*viewMatrix*vec4(p,1.); }`,
