@@ -294,6 +294,10 @@ The owner noticed the faint idle stubs of the beams when paused and asked for th
 - Checked headless on the demo: playing, paused, inverse, and switching to City and Coaster afterwards. In the main app the inverse look comes out heavier (more black) than in the lab.
 - Deployed to Vercel from `main` the same morning.
 
+## 8y. Top bar simplified (2026-11-15)
+
+Owner's rules: **mode tabs always top centre, alone; shuffle stays visible.** A block just before the Coaster section rearranges the bar at startup: top right is Upload (icon only), Colours (or the "Lasers" pill in Black hole mode), Shuffle, Full screen, and `#btnMore` with a menu `.moremenu` holding Snapshot, Controls, Keyboard shortcuts and Hide. `#btnPlanet` is moved into `#camSeg` in the bottom bar as a fourth view (shown only where `PLANET_OK`); `#nitroWrap` (Amplify) is moved to the top of `.fxstack` as a round button. The logo no longer has a gradient behind it. `tools/port_coaster.py` now stops before the Black hole module instead of at the frame loop (it would have deleted that module). Known: the end-of-song card still talks about the city in every mode.
+
 ## 9. Coaster lab: full specification (state on 2026-11-14)
 
 File `coaster-lab.html`, about 300 lines, standalone. Artifact "Coaster lab", slug `c68270d2-057b-4b14-83d6-67b9296d41d3`. The owner rides it and loves it ("vertigo-inducing"); it is the benchmark. When he says so, port it into `index.html` in place of `coastPlan`/`coastStep`/`coastCam`.

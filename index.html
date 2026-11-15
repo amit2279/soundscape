@@ -203,7 +203,7 @@ h1 .hollow{display:block;color:transparent;-webkit-text-stroke:2px var(--text)}
 .vmt-rainbow-btn:hover{transform:scale(1.03)}
 #btnNitro[aria-pressed="true"]{color:#0b0618;background:linear-gradient(180deg,rgba(255,255,255,.45),rgba(255,255,255,0) 60%),var(--a);border:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.55)}
 #worldSeg button{position:relative;overflow:hidden;isolation:isolate}
-#worldSeg button,#planetSeg button{display:inline-flex;align-items:center;gap:6px}.wi{width:17px;height:17px;flex:none}
+#worldSeg button,#planetSeg button,#btnPlanet{display:inline-flex;align-items:center;gap:6px}.wi{width:17px;height:17px;flex:none}
 
 .wi.globe{width:22px;height:22px;stroke-width:1.25}.globe .gm{transform-origin:12px 12px}.globe .g2{transform:scaleX(.62)}.globe .g3{transform:scaleX(.26)}   /* a still wireframe globe: the outline, two parallels and the equator, and two meridians */
 @media (max-width:1180px){#worldSeg button{padding:0 10px;gap:5px}}@media (max-width:1040px){#worldSeg button span{display:none}#worldSeg button{padding:0 11px}}   /* on a narrow window the tabs fall back to icons alone */
@@ -392,6 +392,15 @@ h1 .hollow{display:block;color:transparent;-webkit-text-stroke:2px var(--text)}
 /* one size for everything in the top bar: 13 px semi-bold text, 16 px icons, the same as the round tool buttons; the effect column's icons match */
 #worldSeg button,#planetSeg button,.vmt-rainbow-btn{font-size:13px;font-weight:600}.wi,.wi.globe,.vmt-rainbow-btn svg{width:16px;height:16px}.wi.globe{stroke-width:1.5}.pc span svg{width:16px;height:16px}
 #planetSeg button{color:#fff}#planetSeg button:hover{color:#fff;background:rgba(255,255,255,.12)}#planetSeg button[aria-pressed="true"]{color:#0b0618}   /* white, so it reads as a live button and not a disabled one */
+/* the simplified top bar */
+.morewrap{position:relative;display:inline-flex}
+.moremenu{position:absolute;right:0;top:calc(100% + 8px);display:flex;flex-direction:column;gap:2px;padding:6px;border-radius:16px;min-width:214px;z-index:30;pointer-events:auto}
+.moremenu[hidden]{display:none}
+.moremenu .tbtn{width:auto;height:38px;padding:0 12px;justify-content:flex-start;gap:10px;border-radius:10px;background:none;border:0;box-shadow:none;font-size:13px;font-weight:600;white-space:nowrap}
+.moremenu .tbtn:hover{background:rgba(255,255,255,.14)}.moremenu .tbtn span{display:inline}
+#btnLoad span{display:none}#btnLoad{width:40px;padding:0;justify-content:center}
+.fxstack #nitroWrap{max-width:none;align-self:center}.fxstack #nitroTxt{display:none}.fxstack .vmt-rainbow-btn{width:40px;height:40px;padding:0;justify-content:center}
+.fxstack #nitroWrap.gone{max-width:none;max-height:0;margin:0 0 -8px;transform:scale(.6);opacity:0;pointer-events:none;overflow:hidden}
 #holeSeg button{color:#fff;font-size:13px;font-weight:600}#holeSeg button:hover{color:#fff;background:rgba(255,255,255,.12)}
 #planetSeg,#nitroWrap,#holeSeg{max-width:260px;transition:opacity .3s ease,transform .5s cubic-bezier(.2,1.3,.4,1),max-width .45s ease,margin .45s ease}
 #planetSeg.gone,#nitroWrap.gone,#holeSeg.gone{opacity:0;transform:translateY(-34px) scale(.85);max-width:0;margin-left:-10px;pointer-events:none;overflow:hidden}
@@ -2871,6 +2880,20 @@ async function loadFile(file){
   }
 }
 
+/* ================= top bar, simplified (2026-11-15) =================
+   Top centre: the mode tabs alone. Top right: upload, colours (or the lasers' colour), shuffle, full screen, and a More menu holding snapshot,
+   controls, keyboard shortcuts and hide. Planet sits with the camera views in the bottom bar. Amplify heads the effects column on the right. */
+{ const tools=document.querySelector('.tools'), fx=document.querySelector('.fxstack'), cam=$('#camSeg'), pb=$('#btnPlanet'), nw=$('#nitroWrap');
+  if(cam&&pb){ cam.append(pb); const ps=$('#planetSeg'); if(ps) ps.remove(); }
+  if(fx&&nw) fx.prepend(nw);
+  if(tools){ const wrap=document.createElement('span'); wrap.className='morewrap'; const mb=document.createElement('button'); mb.className='tbtn icon plate'; mb.id='btnMore'; mb.title='More'; mb.setAttribute('aria-label','More'); mb.setAttribute('aria-expanded','false');
+    mb.innerHTML='<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.900"/><circle cx="12" cy="12" r="1.900"/><circle cx="19" cy="12" r="1.900"/></svg>';
+    const menu=document.createElement('div'); menu.className='moremenu plate'; menu.hidden=true; const shut=()=>{ menu.hidden=true; mb.setAttribute('aria-expanded','false'); };
+    for(const [id,label] of [['btnSnap','Save a snapshot'],['btnPanel','Controls'],['btnKeys','Keyboard shortcuts'],['btnHide','Hide the interface']]){ const b=$('#'+id); if(!b) continue; const sp=document.createElement('span'); sp.textContent=label; b.append(sp); b.classList.remove('plate'); menu.append(b); b.addEventListener('click',shut); }
+    wrap.append(mb,menu); tools.append(wrap); const fs=$('#btnFs'); if(fs) wrap.before(fs);
+    mb.addEventListener('click',e=>{ e.stopPropagation(); menu.hidden=!menu.hidden; mb.setAttribute('aria-expanded',String(!menu.hidden)); });
+    document.addEventListener('click',e=>{ if(!wrap.contains(e.target)) shut(); }); } }
+
 /* ================= Coaster: a roller coaster in the void =================
    Generated by tools/port_coaster.py from coaster-lab.html (see HANDOFF.md, sections 8 and 9). Do not edit the copied parts here: change the
    lab and run the script again. The track is laid out in space from the song with real physics; this is track version 2. Everything lives
@@ -3441,7 +3464,7 @@ function holeCam(){ BHOLE.cam(); U.uCam.value.copy(camera.position); }
 /* its colours have their own button in the top bar, shown only in this mode; key L does the same (C is the Controls panel) */
 { const grp=document.createElement('div'); grp.className='seg plate gone'; grp.id='holeSeg'; grp.setAttribute('role','group'); grp.setAttribute('aria-label','Laser colour');
   const b=document.createElement('button'); b.id='btnHoleCol'; b.title='Next laser colour (L)'; const lab=()=>{ const n=BHOLE.name(); b.textContent='Lasers: '+(n==='random'?'multi':n); }; lab();
-  const nx=()=>{ BHOLE.next(); lab(); }; b.addEventListener('click',nx); grp.append(b); const nw=$('#nitroWrap'); if(nw) nw.after(grp);
+  const nx=()=>{ BHOLE.next(); lab(); }; b.addEventListener('click',nx); grp.append(b); const sw=document.querySelector('.tools .swwrap'); if(sw) sw.before(grp);   /* it takes the colour button's place in the top bar */
   window.addEventListener('keydown',e=>{ if(world==='hole'&&(e.key==='l'||e.key==='L')&&!e.metaKey&&!e.ctrlKey&&!(e.target&&/INPUT|TEXTAREA/.test(e.target.tagName))) nx(); }); }
 
 /* ================= frame loop ================= */
@@ -3461,7 +3484,7 @@ const endDrag=()=>{ orbit.drag=false; }; canvas.addEventListener('pointerup',end
 let zoomT=1, zoomK=1, fovBase=60;   // scroll zoom for the ride cameras: 1 is normal, above 1 zooms in, below 1 widens the view
 canvas.addEventListener('wheel',e=>{ if(mode!=='planet'&&!ORBW[world]){ if(started&&(world==='city'||world==='terrain'||world==='abyss'||world==='loom')){ e.preventDefault(); zoomT=clamp(zoomT*Math.exp(-e.deltaY*(e.ctrlKey?.012:.0016)),.55,5); } return; } e.preventDefault(); orbit.dist=clamp(orbit.dist*Math.exp(e.deltaY*.0012),PR*2.2,PR*10); },{passive:false});
 function setWorld(w){ if(mode==='planet'&&!PLANET_OK[w]) setMode(lastCam);   /* Planet only exists for the city and the terrain */
-  { const ps=$('#planetSeg'), nw=$('#nitroWrap'); if(ps) ps.classList.toggle('gone',!PLANET_OK[w]); if(nw) nw.classList.toggle('gone',!NITRO_OK[w]); const cs=$('#camSeg'); if(cs) cs.classList.toggle('gone',!CAM_OK[w]); const hs=$('#holeSeg'); if(hs) hs.classList.toggle('gone',w!=='hole'); }   /* the buttons drop in where they work and lift away where they do not */
+  { const ps=$('#planetSeg'), nw=$('#nitroWrap'); if(ps) ps.classList.toggle('gone',!PLANET_OK[w]); if(nw) nw.classList.toggle('gone',!NITRO_OK[w]); const cs=$('#camSeg'); if(cs) cs.classList.toggle('gone',!CAM_OK[w]); const hs=$('#holeSeg'); if(hs) hs.classList.toggle('gone',w!=='hole'); const pb=$('#btnPlanet'); if(pb) pb.style.display=PLANET_OK[w]?'':'none'; }   /* the buttons drop in where they work and lift away where they do not */
   world=w; fr.on=false; zoomT=1; app.dataset.world=w; fxVis(); document.querySelectorAll('#worldSeg button[data-world]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.world===w))); fly.x=clamp(fly.x,-20,20); fly.vx=0; }
 // Height a flyer must clear over the strip of blocks under x (0 over a street), looking a little ahead.
 function stripH(x,along){

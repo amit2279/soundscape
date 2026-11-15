@@ -78,5 +78,5 @@ function coastStep(dt,t,on){ COAST.on=on; const nr=on?.1:1; if(camera.near!==nr)
 function coastCam(){ COASTER.cam(); U.uCam.value.copy(camera.position); }
 
 '''
-a=s.index('/* ================= Coaster: a roller coaster in the void'); b=s.index('/* ================= frame loop ================= */')
+a=s.index('/* ================= Coaster: a roller coaster in the void'); H='/* ================= Black hole: lasers out of a black sphere in space'; b=s.index(H) if H in s else s.index('/* ================= frame loop ================= */')   # stop before the Black hole module, which sits between the Coaster and the frame loop
 s=s[:a]+mod+s[b:]; open(path,'w').write(s); print('ported',len(mod),'chars')

@@ -65,7 +65,7 @@ function holeCam(){ BHOLE.cam(); U.uCam.value.copy(camera.position); }
 /* its colours have their own button in the top bar, shown only in this mode; key L does the same (C is the Controls panel) */
 { const grp=document.createElement('div'); grp.className='seg plate gone'; grp.id='holeSeg'; grp.setAttribute('role','group'); grp.setAttribute('aria-label','Laser colour');
   const b=document.createElement('button'); b.id='btnHoleCol'; b.title='Next laser colour (L)'; const lab=()=>{ const n=BHOLE.name(); b.textContent='Lasers: '+(n==='random'?'multi':n); }; lab();
-  const nx=()=>{ BHOLE.next(); lab(); }; b.addEventListener('click',nx); grp.append(b); const nw=$('#nitroWrap'); if(nw) nw.after(grp);
+  const nx=()=>{ BHOLE.next(); lab(); }; b.addEventListener('click',nx); grp.append(b); const sw=document.querySelector('.tools .swwrap'); if(sw) sw.before(grp);   /* it takes the colour button's place in the top bar */
   window.addEventListener('keydown',e=>{ if(world==='hole'&&(e.key==='l'||e.key==='L')&&!e.metaKey&&!e.ctrlKey&&!(e.target&&/INPUT|TEXTAREA/.test(e.target.tagName))) nx(); }); }
 
 '''
