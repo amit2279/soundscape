@@ -488,3 +488,7 @@ File `plasma-lab.html` (built from the laser lab's audio scaffold; same 48-band 
 - Wallpaper studio is parked: `#btnSnap` (in the More menu, now labelled "Take snapshot") and key P call `snapshot()` again. The studio code (`ST`, `stDraw`, `openStudio`, `window.__st`) is still in `index.html` but nothing opens it.
 - `snapshot()` saves the screen exactly as it is and signs it bottom left: SOUND (solid) / SCAPE (outline) and four figures (no song name, by user request): TEMPO, LENGTH, MOMENT, DROPS. No mode, no colour name. A soft dark gradient sits behind it (light on the paper theme). Uses `stText` from the studio code, so do not delete that helper.
 - Checked: one headless snapshot in City (fallback fonts). Not checked: phone-shaped screens, paper theme, real fonts. Not deployed.
+
+
+### 8z16. Deployed
+Commit 0fb119f deployed to production (soundscape.zone, www) on 15 Nov 2026, deployment dpl_BjxKDZ7zqA94eTPipUxbY7M8xphU. Live site now includes everything up to the simplified snapshot. The live page itself was not opened to verify (the workspace cannot reach it).
