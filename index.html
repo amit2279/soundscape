@@ -392,16 +392,32 @@ h1 .hollow{display:block;color:transparent;-webkit-text-stroke:2px var(--text)}
 /* one size for everything in the top bar: 13 px semi-bold text, 16 px icons, the same as the round tool buttons; the effect column's icons match */
 #worldSeg button,#planetSeg button,.vmt-rainbow-btn{font-size:13px;font-weight:600}.wi,.wi.globe,.vmt-rainbow-btn svg{width:16px;height:16px}.wi.globe{stroke-width:1.5}.pc span svg{width:16px;height:16px}
 #planetSeg button{color:#fff}#planetSeg button:hover{color:#fff;background:rgba(255,255,255,.12)}#planetSeg button[aria-pressed="true"]{color:#0b0618}   /* white, so it reads as a live button and not a disabled one */
+#endTxt,.endnote{display:none}.endcard h2{margin-bottom:18px}#app[data-state="ended"]:not(.endclosed) .keypad{opacity:0;pointer-events:none}   /* the end card is just its title and two buttons */
+/* the playlist box */
+#plBox{position:absolute;right:16px;bottom:110px;width:230px;max-height:178px;overflow:auto;padding:10px 8px 8px;border-radius:20px;z-index:5;display:flex;flex-direction:column;gap:2px;pointer-events:auto;transition:opacity .28s ease,transform .42s cubic-bezier(.2,.8,.2,1)}
+#plBox[hidden]{display:none}
+#plBox .plhead{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;opacity:.6;padding:0 8px 4px}
+#plBox button{all:unset;display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:10px;cursor:pointer;font-size:12.5px;color:inherit;opacity:.78}
+#plBox button:hover{background:rgba(255,255,255,.12);opacity:1}
+#plBox button i{font-style:normal;font-variant-numeric:tabular-nums;opacity:.55;width:14px;text-align:right;flex:none}
+#plBox button span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+#plBox button[aria-current]{background:color-mix(in srgb,var(--a,#ff3fb4) 30%,transparent);opacity:1;font-weight:600}
+#app.nohud #plBox{opacity:0;pointer-events:none;transform:translateX(40px)}
+#app[data-state="landing"] #plBox,#app[data-state="loading"] #plBox{display:none}
+#app.haspl #cGauge{right:262px}
+@media (max-width:700px){#plBox{width:170px;max-height:120px;bottom:150px}}
 /* the guided tour */
-.tourring{position:absolute;z-index:70;border-radius:22px;border:2px solid #fff;box-shadow:0 0 0 9999px rgba(6,4,18,.55),0 0 24px rgba(255,255,255,.45);pointer-events:none;transition:left .35s ease,top .35s ease,width .35s ease,height .35s ease}
+.tourring{position:absolute;z-index:70;border-radius:26px;box-shadow:0 0 0 9999px rgba(6,4,18,.55),0 0 22px 4px rgba(255,255,255,.75),0 0 60px 14px color-mix(in srgb,var(--a,#ff3fb4) 75%,transparent);animation:tourglow 1.8s ease-in-out infinite;pointer-events:none;transition:left .35s ease,top .35s ease,width .35s ease,height .35s ease}
 .tourcard{position:absolute;z-index:71;width:290px;padding:16px 16px 14px;border-radius:18px;pointer-events:auto;transition:left .35s ease,top .35s ease}
 .tourcard small{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;opacity:.65;margin-bottom:4px}.tourcard strong{display:block;font-size:17px;margin-bottom:6px}.tourcard p{margin:0 0 12px;font-size:13.5px;line-height:1.45;opacity:.92}
 .tourbtn{display:flex;justify-content:flex-end;gap:8px}.tourbtn .btn{height:34px;padding:0 14px;font-size:13px}
 .tourring[hidden],.tourcard[hidden]{display:none}
+@keyframes tourglow{50%{box-shadow:0 0 0 9999px rgba(6,4,18,.55),0 0 30px 8px rgba(255,255,255,.9),0 0 84px 24px color-mix(in srgb,var(--a,#ff3fb4) 85%,transparent)}}
+@media (prefers-reduced-motion:reduce){.tourring{animation:none}}
 /* the views pill, above the music bar */
-#camSeg{position:absolute;left:50%;bottom:106px;transform:translateX(-50%);z-index:5;pointer-events:auto;white-space:nowrap}
+#camSeg{max-width:none;position:absolute;left:50%;bottom:106px;transform:translateX(-50%);z-index:5;pointer-events:auto;white-space:nowrap}
 #camSeg button{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600}
-#camSeg.gone{transform:translate(-50%,30px) scale(.9)}
+#camSeg.gone{max-width:none;margin:0;padding:revert;transform:translate(-50%,30px) scale(.9)}
 #app.nohud #camSeg{opacity:0;pointer-events:none;transform:translate(-50%,70px)}
 #app[data-state="landing"] #camSeg,#app[data-state="loading"] #camSeg{display:none}
 #app .keypad{bottom:186px}
@@ -636,7 +652,7 @@ h1 .hollow{display:block;color:transparent;-webkit-text-stroke:2px var(--text)}
     <p class="endnote">The city stays open. Close this to keep driving.</p>
     <div class="cta">
       <button class="btn primary" id="btnAgain">Ride again</button>
-      <button class="btn" id="btnOther">Choose another song</button>
+      <button class="btn" id="btnOther">Upload another song</button>
     </div>
   </div>
 
@@ -2633,7 +2649,15 @@ $('#btnAgain').addEventListener('click',()=>{ offset=0; secIdx=-1; setState('rid
 $('#tap').addEventListener('click',()=>{ if(actx) actx.resume().then(()=>app.classList.remove('needtap')).catch(()=>{}); });
 /* a playlist: up to ten songs chosen or dropped together play one after another. The files stay in this browser; nothing is uploaded */
 const PL={q:[],i:0};
-function plShow(){ const el=$('#pl'), on=PL.q.length>1; el.hidden=!on; el.style.display=on?'flex':'none'; if(on) $('#plTxt').textContent='Song '+(PL.i+1)+' of '+PL.q.length; }
+const PLNAME={late:'Late Line (demo)',house:'Night Shift (demo)'};
+function plShow(){ const el=$('#pl'), on=PL.q.length>1; el.hidden=!on; el.style.display=on?'flex':'none'; if(on) $('#plTxt').textContent='Song '+(PL.i+1)+' of '+PL.q.length;
+  /* the playlist itself: a small glass list at the bottom right, above the music bar. The current song is marked; click a song to jump to it */
+  let box=$('#plBox'); if(!box){ box=document.createElement('aside'); box.id='plBox'; box.className='plate'; box.setAttribute('aria-label','Playlist'); $('#app').append(box);
+    box.addEventListener('click',e=>{ const b=e.target.closest('button[data-i]'); if(b) plGo(+b.dataset.i); }); }
+  $('#app').classList.toggle('haspl',on); box.hidden=!on; if(!on) return; box.textContent='';
+  const h=document.createElement('div'); h.className='plhead'; h.textContent='Playlist'; box.append(h);
+  PL.q.forEach((q,i)=>{ const b=document.createElement('button'); b.dataset.i=i; if(i===PL.i) b.setAttribute('aria-current','true'); const n=document.createElement('i'); n.textContent=i+1; const t=document.createElement('span'); t.textContent=typeof q==='string'?(PLNAME[q]||q):q.name.replace(/\.[a-z0-9]+$/i,''); b.title=t.textContent; b.append(n,t); box.append(b); });
+  const cur=box.querySelector('[aria-current]'); if(cur&&cur.scrollIntoView) cur.scrollIntoView({block:'nearest'}); }
 /* an entry is a file, or the name of a built-in track ('late', 'house'): the demo playlist. Add a built-in here and in DEMOS to grow it */
 const DEMOS=['late','house'];
 function plGo(i){ if(i<0||i>=PL.q.length) return false; PL.i=i; plShow(); const q=PL.q[i]; if(q==='late') loadDemo(true,true); else if(q==='house') loadHouse(true); else loadFile(q); return true; }

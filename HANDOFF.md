@@ -304,6 +304,13 @@ Owner's rules: **mode tabs always top centre, alone; shuffle stays visible.** A 
 - **Guided tour:** a block before the Coaster section. The first time a ride starts (flag `ss_tour` in localStorage) five steps ring the tabs, views pill, effects column, top-right tools and music bar with a card (Skip / Next / Esc); steps whose target is hidden are skipped. "Show me around" in the More menu (`window.__tour`) replays it. The shortcuts hint appears on its own only after the tour has been seen.
 - **One landing button, "Play demo tracks":** it queues the built-in tracks as a playlist (`DEMOS=['late','house']`; playlist entries may now be a file or one of these names; `loadDemo(thenRide,keep)` and `loadHouse(keep)` keep the playlist when `keep===true`). The separate house-track button is hidden. Uploading your own songs replaces the demo playlist. **The owner wants one demo track per genre, as many as it takes:** each new one is a composition for `renderDemo(kind)` plus an entry in `DEMOS` and `plGo` (or bundled royalty-free audio files, which the static site could serve). Not done.
 
+## 8z2. Later on 2026-11-15
+
+- Views pill no longer clips Planet (`max-width:none`).
+- The tour highlights with a pulsing glow (white plus the theme colour), no border.
+- **Playlist box** `#plBox` (built in `plShow`): a glass list bottom right above the music bar, shown when the playlist has two or more songs; current song marked, click to jump. `#app.haspl` moves the coaster's speed dial left of it.
+- End card: title and two buttons only ("Ride again", "Upload another song"); the driving keys hide while it is open.
+
 ## 8zz. Phase 2 ideas, analysed only, nothing built (2026-11-15)
 
 The owner sent references and asked for analysis to keep for later. Suggested order: 1, 2, 3, 4.
