@@ -486,5 +486,5 @@ File `plasma-lab.html` (built from the laser lab's audio scaffold; same 48-band 
 ### 8z15. Labs parked; snapshot simplified (user decision)
 - Laser field lab and Plasma globe lab are parked (not merged). Bloom lab was parked earlier.
 - Wallpaper studio is parked: `#btnSnap` (in the More menu, now labelled "Take snapshot") and key P call `snapshot()` again. The studio code (`ST`, `stDraw`, `openStudio`, `window.__st`) is still in `index.html` but nothing opens it.
-- `snapshot()` saves the screen exactly as it is and signs it bottom left: SOUND (solid) / SCAPE (outline), the song name, and four figures: TEMPO, LENGTH, MOMENT, DROPS. No mode, no colour name. A soft dark gradient sits behind it (light on the paper theme). Uses `stText` from the studio code, so do not delete that helper.
+- `snapshot()` saves the screen exactly as it is and signs it bottom left: SOUND (solid) / SCAPE (outline) and four figures (no song name, by user request): TEMPO, LENGTH, MOMENT, DROPS. No mode, no colour name. A soft dark gradient sits behind it (light on the paper theme). Uses `stText` from the studio code, so do not delete that helper.
 - Checked: one headless snapshot in City (fallback fonts). Not checked: phone-shaped screens, paper theme, real fonts. Not deployed.
