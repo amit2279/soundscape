@@ -2668,7 +2668,7 @@ const swBox=$('#swatches');
 
 function cutTo(fn){ const c=$('#cut'); if(RM){ fn(); return; } c.classList.add('on'); setTimeout(()=>{ fn(); requestAnimationFrame(()=>c.classList.remove('on')); },330); }
 function startRide(){ ensureCtx(); const p=actx.resume(); if(p&&p.catch) p.catch(()=>{});
-  cutTo(()=>{ offset=0; secIdx=-1; started=true; setState('riding'); snapCam=true; play();
+  cutTo(()=>{ offset=0; secIdx=-1; started=true; if(typeof syncURL==='function') syncURL(world); setState('riding'); snapCam=true; play();
     }); }   /* the shortcuts appear on their own only once the guided tour has been seen; before that the tour does the explaining */
 
 $('#play').addEventListener('click',()=>{ if(playing) pause(); else { if(app.dataset.state==='ended') setState('riding'); play(); } });
@@ -3716,7 +3716,7 @@ let zoomT=1, zoomK=1, fovBase=60;   // scroll zoom for the ride cameras: 1 is no
 canvas.addEventListener('wheel',e=>{ if(mode!=='planet'&&!ORBW[world]){ if(started&&(world==='city'||world==='terrain'||world==='abyss'||world==='loom')){ e.preventDefault(); zoomT=clamp(zoomT*Math.exp(-e.deltaY*(e.ctrlKey?.012:.0016)),.55,5); } return; } e.preventDefault(); orbit.dist=clamp(orbit.dist*Math.exp(e.deltaY*.0012),PR*2.2,PR*10); },{passive:false});
 function setWorld(w){ if(mode==='planet'&&!PLANET_OK[w]) setMode(lastCam);   /* Planet only exists for the city and the terrain */
   { const ps=$('#planetSeg'), nw=$('#nitroWrap'); if(ps) ps.classList.toggle('gone',!PLANET_OK[w]); if(nw) nw.classList.toggle('gone',!NITRO_OK[w]); const cs=$('#camSeg'); if(cs) cs.classList.toggle('gone',!CAM_OK[w]); const hs=$('#holeSeg'); if(hs) hs.classList.toggle('gone',w!=='hole'); const pb=$('#btnPlanet'); if(pb) pb.style.display=PLANET_OK[w]?'':'none'; }   /* the buttons drop in where they work and lift away where they do not */
-  world=w; fr.on=false; zoomT=1; app.dataset.world=w; fxVis(); document.querySelectorAll('#worldSeg button[data-world]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.world===w))); fly.x=clamp(fly.x,-20,20); fly.vx=0; }
+  world=w; fr.on=false; zoomT=1; app.dataset.world=w; fxVis(); document.querySelectorAll('#worldSeg button[data-world]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.world===w))); fly.x=clamp(fly.x,-20,20); fly.vx=0; if(typeof syncURL==='function') syncURL(w); }
 // Height a flyer must clear over the strip of blocks under x (0 over a street), looking a little ahead.
 function stripH(x,along){
   const ax=Math.abs(x); if(ax<AV/2-2 || !blockH) return 0;
@@ -3953,6 +3953,25 @@ function render(){
 
 app.dataset.world=world; app.dataset.mode=mode;
 applyTheme(); resize();
+/* ---------- URL mode slugs: soundscape.zone/coaster opens a mode; the address bar follows the mode you switch to, so any view is a shareable link ---------- */
+const SLUG2W={city:'city',terrain:'terrain',wormhole:'worm',tunnel:'tun',coaster:'coast',blackhole:'hole',loom:'loom'},
+      W2SLUG={city:'city',terrain:'terrain',worm:'wormhole',tun:'tunnel',coast:'coaster',hole:'blackhole',loom:'loom'},
+      SLUGLABEL={city:'City',terrain:'Terrain',worm:'Wormhole',tun:'Tunnel',coast:'Coaster',hole:'Black hole',loom:'Loom'},
+      urlIsPath=location.hostname==='soundscape.zone'||location.hostname==='www.soundscape.zone'||/\.vercel\.app$/i.test(location.hostname);
+function syncURL(w){ const s=W2SLUG[w]; if(!s) return; try{ history.replaceState(null,'',urlIsPath?'/'+s:'#'+s); }catch(e){} }
+function readMode(){ let s=(location.pathname.split('/').filter(Boolean).pop()||'').toLowerCase(); if(SLUG2W[s]) return SLUG2W[s];
+  s=(location.hash.replace(/^#/,'')).toLowerCase(); if(SLUG2W[s]) return SLUG2W[s];
+  try{ s=(new URLSearchParams(location.search).get('m')||'').toLowerCase(); if(SLUG2W[s]) return SLUG2W[s]; }catch(e){} return ''; }
+{ const mp=document.createElement('div'); mp.id='modePrompt'; mp.hidden=true;
+  mp.innerHTML='<div class="mpcard plate"><button class="mpx" id="mpClose" aria-label="Close">×</button><small>You arrived at</small><strong id="mpName">This mode</strong><p>Drop in a song and this mode builds itself around it.</p><div class="mpbtns"><button class="btn primary" id="mpUpload">Upload a song</button><button class="btn" id="mpDemo">Play a demo track</button></div></div>';
+  const st=document.createElement('style'); st.textContent='#modePrompt{position:absolute;inset:0;z-index:50;display:grid;place-items:center;background:rgba(4,3,14,.66);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);padding:20px}#modePrompt[hidden]{display:none}#modePrompt .mpcard{position:relative;width:min(380px,calc(100% - 32px));padding:26px 26px 22px;border-radius:24px;text-align:left}#modePrompt small{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}#modePrompt strong{display:block;font-family:var(--display);font-weight:900;font-size:40px;letter-spacing:.03em;text-transform:uppercase;line-height:1;margin:4px 0 10px}#modePrompt p{margin:0 0 18px;color:#d9d2f2;font-size:13.5px}#modePrompt .mpbtns{display:flex;gap:10px;flex-wrap:wrap}#modePrompt .mpx{position:absolute;top:12px;right:14px;width:32px;height:32px;border-radius:50%;border:1px solid var(--hair);background:rgba(255,255,255,.08);color:#fff;font-size:19px;line-height:1;cursor:pointer}';
+  document.head.appendChild(st); app.appendChild(mp);
+  const hide=()=>{ mp.hidden=true; };
+  mp.addEventListener('click',e=>{ if(e.target===mp) hide(); });
+  $('#mpClose').addEventListener('click',hide);
+  $('#mpUpload').addEventListener('click',()=>{ hide(); pick(); });
+  $('#mpDemo').addEventListener('click',()=>{ hide(); ensureCtx(); const p=actx.resume(); if(p&&p.catch)p.catch(()=>{}); loadDemo(true); });
+  const w0=readMode(); if(w0){ setWorld(w0); if(!buffer){ $('#mpName').textContent=SLUGLABEL[w0]||'This mode'; mp.hidden=false; } } }
 requestAnimationFrame(frame);
 loadDemo(false);
 })();

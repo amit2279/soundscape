@@ -502,3 +502,12 @@ The live site is now served from `dist/`, not the repo root. **Readable source i
 - Tools live in `build/` (package.json + node_modules; node_modules gitignored). Restore with `cd build && npm install`.
 - Routing: `vercel.json` sets `{"outputDirectory":"dist"}`. Revert by deleting vercel.json (serves root again).
 - **Deploy checklist:** 1) edit `index.html`; 2) `cd build && node build.mjs`; 3) copy readable `index.html` into the repo (it already is the repo file); 4) `git add -A && commit && push`; 5) Vercel deploy from main. If you forget the rebuild, dist is stale and the site won't show your change.
+
+### 8z18. URL mode slugs + "arrive at a mode" popup
+`vercel.json` now has a catch-all rewrite (`/(.*) -> /index.html`) on top of `outputDirectory:dist`, so any path serves the app (labs no longer 404 — they serve the app too; acceptable). In `index.html` (end of IIFE):
+- `SLUG2W`/`W2SLUG`/`SLUGLABEL` map friendly slugs <-> world keys: city, terrain, wormhole(worm), tunnel(tun), coaster(coast), blackhole(hole), loom.
+- `readMode()` reads the world from, in order: last path segment, `#hash`, `?m=`. `syncURL(w)` writes it back with `history.replaceState` — PATH form on soundscape.zone / *.vercel.app (`urlIsPath`), HASH form elsewhere (so it's safe inside the claude.ai artifact iframe).
+- `setWorld` calls `syncURL(w)` at the end, and `startRide` calls it too, so the address bar always holds a shareable link to the current mode.
+- On load, if a slug is present: `setWorld(slug)` pre-selects it; if no song yet (`!buffer`), a modal `#modePrompt` ("You arrived at <Mode>") appears with Upload a song / Play a demo track / close. Built entirely in JS at the end of the IIFE (element + injected <style>). Upload -> `pick()`; demo -> `loadDemo(true)`; both ride into the pre-selected world.
+- Verified headless (`test/slug.py`, `?m=coaster`): world=coast on load, popup shows "Coaster", demo rides into coaster, hash becomes #coaster, no console errors.
+Live links to try: soundscape.zone/coaster, /blackhole, /city, /terrain, /wormhole, /tunnel, /loom.
