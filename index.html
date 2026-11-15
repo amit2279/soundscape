@@ -301,7 +301,7 @@ h1 .hollow{display:block;color:transparent;-webkit-text-stroke:2px var(--text)}
 .paper .logo .hollow{-webkit-text-stroke-color:#0b0618}
 .paper .brand .track{color:#333;text-shadow:none}
 
-.brand{padding:7px 22px 8px 10px;margin:-7px 0 0 -10px;border-radius:16px;background:linear-gradient(90deg,rgba(6,5,20,.62),rgba(6,5,20,.4) 65%,rgba(6,5,20,0))}
+.brand{padding:7px 22px 8px 10px;margin:-7px 0 0 -10px;border-radius:16px;background:none}
 .paper .brand{background:none}
 .pc span{background:rgba(10,9,24,.45);color:#e6e0fa}
 
@@ -473,7 +473,7 @@ h1 .hollow{display:block;color:transparent;-webkit-text-stroke:2px var(--text)}
         <button data-world="tun" aria-pressed="false" title="A winding road tunnel made of dots, with five wall patterns that change as you drive. Click the picture or press G for the next pattern (T switches)">Tunnel</button>
         <button data-world="ill" aria-pressed="false" title="Black-and-white optical illusions that pour, spin and ripple with the music. It stays on one until you click the picture or press G (T switches)">Illusions</button>
         <button data-world="coast" aria-pressed="false" title="A roller coaster in the void, laid out from the song: lift hills on build-ups, real drops on the drops, loops and barrel rolls. (T switches)">Coaster</button>
-        <button data-world="hole" aria-pressed="false" title="A black hole in space that shows only by the lasers it fires, each one tied to its own slice of the sound. Drag to turn it, scroll to move in and out, C changes the colour (T switches)">Black hole</button>
+        <button data-world="hole" aria-pressed="false" title="A black hole in space that shows only by the lasers it fires, each one tied to its own slice of the sound. Drag to turn it, scroll to move in and out, L changes the colour (T switches)">Black hole</button>
         <button data-world="loom" aria-pressed="false" title="Ribbons knotted through each other, one frequency band each. Drag to look around (T switches)">Loom</button>
         <button data-world="mandala" aria-pressed="false" title="A stepped well of decorated rings, different for every song. Drag to look around, Fly looks straight down (T switches)">Mandala</button>
       </div>
@@ -3438,11 +3438,11 @@ function holeStep(dt,t,on){ HOLE.on=on; if(sky.visible===on) sky.visible=!on;   
   if(hfPass){ hfPass.enabled=on; hfPass.uniforms.uInv.value=BHOLE.inv(); }
   if(on){ fovOver=58; if(dkPass) dkPass.enabled=false; if(bloom){ bloom.strength=1.35*CT.glow; bloom.radius=1.; bloom.threshold=.05; } } }
 function holeCam(){ BHOLE.cam(); U.uCam.value.copy(camera.position); }
-/* its colours have their own button in the top bar, shown only in this mode; key C does the same */
+/* its colours have their own button in the top bar, shown only in this mode; key L does the same (C is the Controls panel) */
 { const grp=document.createElement('div'); grp.className='seg plate gone'; grp.id='holeSeg'; grp.setAttribute('role','group'); grp.setAttribute('aria-label','Laser colour');
-  const b=document.createElement('button'); b.id='btnHoleCol'; b.title='Next laser colour (C)'; const lab=()=>{ const n=BHOLE.name(); b.textContent='Lasers: '+(n==='random'?'multi':n); }; lab();
+  const b=document.createElement('button'); b.id='btnHoleCol'; b.title='Next laser colour (L)'; const lab=()=>{ const n=BHOLE.name(); b.textContent='Lasers: '+(n==='random'?'multi':n); }; lab();
   const nx=()=>{ BHOLE.next(); lab(); }; b.addEventListener('click',nx); grp.append(b); const nw=$('#nitroWrap'); if(nw) nw.after(grp);
-  window.addEventListener('keydown',e=>{ if(world==='hole'&&(e.key==='c'||e.key==='C')&&!e.metaKey&&!e.ctrlKey&&!(e.target&&/INPUT|TEXTAREA/.test(e.target.tagName))) nx(); }); }
+  window.addEventListener('keydown',e=>{ if(world==='hole'&&(e.key==='l'||e.key==='L')&&!e.metaKey&&!e.ctrlKey&&!(e.target&&/INPUT|TEXTAREA/.test(e.target.tagName))) nx(); }); }
 
 /* ================= frame loop ================= */
 let tunV=24, tunDv=0, tunDt=0, tunDir=1, tunBeat=0;

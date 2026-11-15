@@ -62,11 +62,11 @@ function holeStep(dt,t,on){ HOLE.on=on; if(sky.visible===on) sky.visible=!on;   
   if(hfPass){ hfPass.enabled=on; hfPass.uniforms.uInv.value=BHOLE.inv(); }
   if(on){ fovOver=58; if(dkPass) dkPass.enabled=false; if(bloom){ bloom.strength=1.35*CT.glow; bloom.radius=1.; bloom.threshold=.05; } } }
 function holeCam(){ BHOLE.cam(); U.uCam.value.copy(camera.position); }
-/* its colours have their own button in the top bar, shown only in this mode; key C does the same */
+/* its colours have their own button in the top bar, shown only in this mode; key L does the same (C is the Controls panel) */
 { const grp=document.createElement('div'); grp.className='seg plate gone'; grp.id='holeSeg'; grp.setAttribute('role','group'); grp.setAttribute('aria-label','Laser colour');
-  const b=document.createElement('button'); b.id='btnHoleCol'; b.title='Next laser colour (C)'; const lab=()=>{ const n=BHOLE.name(); b.textContent='Lasers: '+(n==='random'?'multi':n); }; lab();
+  const b=document.createElement('button'); b.id='btnHoleCol'; b.title='Next laser colour (L)'; const lab=()=>{ const n=BHOLE.name(); b.textContent='Lasers: '+(n==='random'?'multi':n); }; lab();
   const nx=()=>{ BHOLE.next(); lab(); }; b.addEventListener('click',nx); grp.append(b); const nw=$('#nitroWrap'); if(nw) nw.after(grp);
-  window.addEventListener('keydown',e=>{ if(world==='hole'&&(e.key==='c'||e.key==='C')&&!e.metaKey&&!e.ctrlKey&&!(e.target&&/INPUT|TEXTAREA/.test(e.target.tagName))) nx(); }); }
+  window.addEventListener('keydown',e=>{ if(world==='hole'&&(e.key==='l'||e.key==='L')&&!e.metaKey&&!e.ctrlKey&&!(e.target&&/INPUT|TEXTAREA/.test(e.target.tagName))) nx(); }); }
 
 '''
 M='/* ================= Black hole: lasers out of a black sphere in space'; F='/* ================= frame loop ================= */'
