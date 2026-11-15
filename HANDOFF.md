@@ -281,6 +281,10 @@ With no music playing (`uRest` eases to 1), source points light up at random and
 
 Colour button entry `inverse` (after white, before random): the scene is drawn in pure white on black and the final pass turns it over (`uInv`, eased; output is `1 - brightest channel`), giving white space with black lasers, black glow, black stars and a hole that reads as a paler disc. The owner calls black and white possibly the best look. Colour order: red, ember, ice, acid, violet, white, inverse, random.
 
+## 8w. Black hole lab: rest state is now needles (2026-11-15)
+
+The owner noticed the faint idle stubs of the beams when paused and asked for those as the rest look. With `uRest` at 1 every beam is a very faint, thin needle (length `R*(0.15+1.25*z²)`, glow `0.05*(0.35+0.65*z)`, both breathing slowly), so the hole is fully black inside a soft corona of needles. The twinkling points of 8s are switched off by a `0.*` factor in the points shader (`tw`); change it to `1.` to have both.
+
 ## 9. Coaster lab: full specification (state on 2026-11-14)
 
 File `coaster-lab.html`, about 300 lines, standalone. Artifact "Coaster lab", slug `c68270d2-057b-4b14-83d6-67b9296d41d3`. The owner rides it and loves it ("vertigo-inducing"); it is the benchmark. When he says so, port it into `index.html` in place of `coastPlan`/`coastStep`/`coastCam`.

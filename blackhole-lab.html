@@ -74,14 +74,16 @@ const beams=(()=>{ const g=new THREE.InstancedBufferGeometry(); g.setAttribute('
     const l=Math.hypot(dir[i*3],dir[i*3+1],dir[i*3+2]); dir[i*3]/=l; dir[i*3+1]/=l; dir[i*3+2]/=l; inf[i*4]=Math.floor(rnd()*NB); inf[i*4+1]=rnd(); inf[i*4+2]=rnd(); inf[i*4+3]=rnd(); }   /* band, how easily it fires, its reach, its hue */
   g.setAttribute('aDir',new THREE.InstancedBufferAttribute(dir,3)); g.setAttribute('aInf',new THREE.InstancedBufferAttribute(inf,4)); g.instanceCount=NBEAM;
   const m=new THREE.Mesh(g,new THREE.ShaderMaterial({uniforms:U,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide,
-    vertexShader:`uniform float uLev[${NB}],uShot[${NB}]; uniform float uTime,uAll,uBass; uniform vec3 uCam; attribute vec3 aDir; attribute vec4 aInf; varying vec2 vQ; varying float vLen,vW,vHue,vGlow;
+    vertexShader:`uniform float uLev[${NB}],uShot[${NB}]; uniform float uTime,uAll,uBass,uRest; uniform vec3 uCam; attribute vec3 aDir; attribute vec4 aInf; varying vec2 vQ; varying float vLen,vW,vHue,vGlow;
 void main(){ int b=int(aInf.x+.5); float lv=uLev[b], sh=uShot[b], low=1.-smoothstep(4.,14.,aInf.x);
   float fire=smoothstep(.6+aInf.y*3.,.6+aInf.y*3.+.2,sh+uAll*.5);   /* few beams answer a soft sound, hundreds a hard one; never all of them, so each beam stays a line you can follow */                          // the harder the sound hits, the more of its beams answer
   float idle=.6+1.8*lv*(.25+.75*aInf.z);                                                 // a short stub that breathes with the band's level
   float len=${R.toFixed(1)}*(idle*.3+fire*(1.6+6.5*aInf.z)*(.55+.45*min(sh,1.))+uAll*1.5*aInf.z); // and a long shot when it fires
+  /* at rest (no music) every beam stays as a very faint, very thin needle of its own length, slowly breathing: the hole is all black and bristles with them */
+  float br=.7+.3*sin(uTime*.35+aInf.w*40.), needle=uRest*(.15+1.25*aInf.z*aInf.z)*br; len+=${R.toFixed(1)}*needle;
   float w=(.022+.02*aInf.w+.16*low*uBass*aInf.z*fire+.02*fire);                   // low bands throw the fat beams
   vec3 p0=aDir*${R.toFixed(1)}, p=p0+aDir*len*position.y, side=normalize(cross(aDir,uCam-p)); float wq=max(w*22.,1.3);   /* room for the soft haze each beam carries, in its own colour */
-  p+=side*position.x*wq; vQ=vec2(position.x*wq,(1.-position.y)*len); vLen=len; vW=w; vHue=aInf.w; vGlow=(.012+.03*lv*aInf.z+.55*fire)*smoothstep(.3,5.,length(uCam-p));   /* beams aimed straight at you go dark, so the middle stays a black disc: that is the hole. And a beam passing right by the camera fades, so it cannot flood the picture */   /* a beam passing right by the camera fades, so it cannot flood the picture */
+  p+=side*position.x*wq; vQ=vec2(position.x*wq,(1.-position.y)*len); vLen=len; vW=w; vHue=aInf.w; vGlow=(.012+.03*lv*aInf.z+.55*fire+uRest*.05*(.35+.65*aInf.z)*br)*smoothstep(.3,5.,length(uCam-p));   /* beams aimed straight at you go dark, so the middle stays a black disc: that is the hole. And a beam passing right by the camera fades, so it cannot flood the picture */   /* a beam passing right by the camera fades, so it cannot flood the picture */
   gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.); }`,
     fragmentShader:`precision highp float; uniform vec3 uA,uB; uniform float uRand; varying vec2 vQ; varying float vLen,vW,vHue,vGlow;
 vec3 h2rgb(float h){ return clamp(abs(fract(h+vec3(0.,.6667,.3333))*6.-3.)-1.,0.,1.); }
@@ -97,7 +99,7 @@ void main(){ float core=exp(-vQ.x*vQ.x/(vW*vW)), along=1.-vQ.y/max(vLen,.001);  
 void main(){ int b=int(aInf.x+.5); float lv=uLev[b], sh=uShot[b]; float fire=smoothstep(.6+aInf.y*3.,.6+aInf.y*3.+.2,sh+uAll*.5);   /* few beams answer a soft sound, hundreds a hard one; never all of them, so each beam stays a line you can follow */
   vec3 toC=uCam-position; float dist=length(toC), face=max(0.,dot(aDir,toC/dist)); vHit=fire*pow(face,26.);     // this beam is firing and aimed at your face
   /* at rest (no music): points on the surface light up at random and fade again, with no beams. Each point has its own slow clock; on about one tick in twelve it glows, rising and falling smoothly */
-  float tk=uTime*.3+aInf.w*37., ph=fract(tk), pick=step(.86,fract(sin((floor(tk)+aInf.y*91.3)*127.1)*43758.5453)), tw=uRest*pick*pow(sin(3.14159*ph),2.);
+  float tk=uTime*.3+aInf.w*37., ph=fract(tk), pick=step(.86,fract(sin((floor(tk)+aInf.y*91.3)*127.1)*43758.5453)), tw=0.*uRest*pick*pow(sin(3.14159*ph),2.);   /* the twinkling points of the first rest state are switched off (the 0.) in favour of the needles; make it 1. to have both */
   float size=.15+.07*fire+1.1*vHit+.22*tw; vB=.02*lv+2.2*fire+1.2*vHit+4.5*tw; vHue=aInf.w;
   gl_PointSize=clamp(size*uPx*.9/dist,2.+2.5*tw,uPx*.4); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
     fragmentShader:`precision highp float; uniform vec3 uA,uB; uniform float uRand; varying float vB,vHit,vHue;
