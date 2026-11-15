@@ -275,7 +275,7 @@ With no music playing (`uRest` eases to 1), source points light up at random and
 
 ## 8u. Black hole lab: stars (2026-11-15), a trial
 
-3,500 faint stars 900 to 1,600 units out, tinted 30% towards the laser colour, turning very slowly; button "Stars" or key S switches them off. On by default so the owner can judge it; he has not decided whether to keep them. He decided against satellites; particles falling into the hole were suggested as the one worthwhile addition, not built.
+3,500 faint stars 900 to 1,600 units out, tinted 30% towards the laser colour, turning very slowly; button "Stars" or key S switches them off. The owner likes the depth and is keeping them. The hole's own turn is now -0.05 rad/s so that, with the camera's 0.07 orbit, hole and stars drift the same way on screen (they looked opposed before). On by default so the owner can judge it; he has not decided whether to keep them. He decided against satellites; particles falling into the hole were suggested as the one worthwhile addition, not built.
 
 ## 9. Coaster lab: full specification (state on 2026-11-14)
 

@@ -189,7 +189,7 @@ function frame(ms){ requestAnimationFrame(frame); const dt=Math.min(.05,(ms-last
   /* the hole swells on the beat and only on the beat: a kick sets the target, the size eases up to it and settles straight back */
   pulse+=(pulseT-pulse)*Math.min(1,dt*(pulseT>pulse?22:6)); pulseT*=Math.exp(-dt*9); { const sc=1+.1*pulse; hole.scale.setScalar(sc); ball.scale.setScalar(sc); }
   U.uRand.value+=((PALS[palI][0]==='random'?1:0)-U.uRand.value)*Math.min(1,dt*3);
-  stars.rotation.y+=dt*.004; hole.rotation.y+=dt*.11; hole.rotation.x=.25*Math.sin(U.uTime.value*.05); hole.updateMatrixWorld(); U.uCam.value.copy(camera.position).applyMatrix4(invM.copy(hole.matrixWorld).invert());   /* the shaders work in the hole's own turning frame */
+  stars.rotation.y-=dt*.004; hole.rotation.y-=dt*.05;   /* the view circles the hole at 0.07, which makes the stars drift one way; the hole now turns the same way as that drift, a little faster than the stars, never against them */ hole.rotation.x=.25*Math.sin(U.uTime.value*.05); hole.updateMatrixWorld(); U.uCam.value.copy(camera.position).applyMatrix4(invM.copy(hole.matrixWorld).invert());   /* the shaders work in the hole's own turning frame */
   U.uRest.value+=((playing?0:1)-U.uRest.value)*Math.min(1,dt*1.5);
   composer.render(); }
 requestAnimationFrame(frame);
