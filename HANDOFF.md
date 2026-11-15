@@ -473,3 +473,7 @@ User asked for a black-hole-like version inside the laser lab, behind a toggle. 
 
 ### 8z12. Laser lab sphere: beam origins fixed
 First sphere version started a whole fan from one surface point (`uE+c*RS`), so its outer beams ran sideways through and across the ball: wedge-shaped cut-outs, ball no longer looked round. Now each beam starts on the surface along its own direction (`p=uE+d*(RS*uSph+uv.y*190.)`), i.e. strictly radial. Checked in headless stills from front and side.
+
+
+### 8z13. Laser lab sphere: slow auto-rotation
+`U.uSpin` accumulates `dt*.09*uSph` (about 70 s a turn) and is added to every fan's yaw, so the whole set of beams turns with the ball. The ball is plain black, so the turn is only visible through the beams. Not tested (motion).

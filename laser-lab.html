@@ -65,7 +65,7 @@ const renderer=new THREE.WebGLRenderer({antialias:true}); document.body.prepend(
 const scene=new THREE.Scene(), camera=new THREE.PerspectiveCamera(62,1,.5,2000);
 const PALS=[['club',[.15,.35,1],[1,.1,.75],[.2,1,.35]],['violet',[.75,.15,1],[1,.2,.7],[.5,.2,1]],['red',[1,.05,.08],[1,.12,.2],[1,.05,.08]],['green',[.15,1,.3],[.6,1,.2],[.15,1,.3]],['rainbow',[1,.1,.1],[.2,1,.2],[.2,.3,1]],['white',[1,1,1],[.85,.9,1],[1,1,1]]]; let palI=0;
 const E=new THREE.Vector3(0,7,-70);
-const U={uLev:{value:new Float32Array(NB)},uShot:{value:new Float32Array(NB)},uTime:{value:0},uAll:{value:0},uBass:{value:0},uBeat:{value:0},uFan:{value:1},uCone:{value:1},uA:{value:new THREE.Vector3(...PALS[0][1])},uB:{value:new THREE.Vector3(...PALS[0][2])},uC:{value:new THREE.Vector3(...PALS[0][3])},uE:{value:E},uAx:{value:new THREE.Vector3(0,0,1)},uPx:{value:1},uSph:{value:0}};
+const U={uLev:{value:new Float32Array(NB)},uShot:{value:new Float32Array(NB)},uTime:{value:0},uAll:{value:0},uBass:{value:0},uBeat:{value:0},uFan:{value:1},uCone:{value:1},uA:{value:new THREE.Vector3(...PALS[0][1])},uB:{value:new THREE.Vector3(...PALS[0][2])},uC:{value:new THREE.Vector3(...PALS[0][3])},uE:{value:E},uAx:{value:new THREE.Vector3(0,0,1)},uPx:{value:1},uSph:{value:0},uSpin:{value:0}};
 const NOISE=`float h3(vec3 p){ return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453); }
 float n3(vec3 p){ vec3 i=floor(p), f=fract(p); f=f*f*(3.-2.*f); return mix(mix(mix(h3(i),h3(i+vec3(1,0,0)),f.x),mix(h3(i+vec3(0,1,0)),h3(i+vec3(1,1,0)),f.x),f.y),mix(mix(h3(i+vec3(0,0,1)),h3(i+vec3(1,0,1)),f.x),mix(h3(i+vec3(0,1,1)),h3(i+vec3(1,1,1)),f.x),f.y),f.z); }
 float fbm(vec3 p){ float a=.5, s=0.; for(int i=0;i<5;i++){ s+=a*n3(p); p=p*2.03+vec3(7.1,3.3,5.7); a*=.5; } return s; }
@@ -78,9 +78,9 @@ const fans=(()=>{ const g=new THREE.InstancedBufferGeometry(), base=new THREE.Pl
   for(let i=0;i<NFAN;i++){ a[i*4]=6.283*(i+rnd()*.8)/NFAN; a[i*4+1]=(rnd()-.5)*1.1;   /* aimed all the way round the projector, so the room is full of light from wherever you stand */ a[i*4+2]=rnd()*3.14; a[i*4+3]=.25+.5*rnd(); b[i*4]=Math.floor(rnd()*NB); b[i*4+1]=rnd(); b[i*4+2]=.15+.4*rnd(); b[i*4+3]=5+Math.floor(rnd()*10); }   /* yaw, pitch, roll, spread | band, hue, speed, beams */
   g.setAttribute('aA',new THREE.InstancedBufferAttribute(a,4)); g.setAttribute('aB',new THREE.InstancedBufferAttribute(b,4)); g.instanceCount=NFAN;
   const m=new THREE.Mesh(g,new THREE.ShaderMaterial({uniforms:U,transparent:true,depthWrite:false,depthTest:true,blending:THREE.AdditiveBlending,side:THREE.DoubleSide,
-    vertexShader:`const float RS=15.; uniform float uLev[${NB}],uShot[${NB}]; uniform float uTime,uAll,uBass,uFan,uSph; uniform vec3 uE; attribute vec4 aA,aB; varying vec3 vW; varying float vU,vV,vI,vHue,vN;
+    vertexShader:`const float RS=15.; uniform float uLev[${NB}],uShot[${NB}]; uniform float uTime,uAll,uBass,uFan,uSph,uSpin; uniform vec3 uE; attribute vec4 aA,aB; varying vec3 vW; varying float vU,vV,vI,vHue,vN;
 void main(){ int bi=int(aB.x+.5); float lv=uLev[bi], sh=uShot[bi], t=uTime*aB.z, ph=aB.y*6.283;
-  float yaw=aA.x+.55*sin(t*.7+ph)+.25*sin(t*.31+ph*2.), pitch=aA.y+.3*sin(t*.5+ph*1.7), roll=aA.z+t*.35+.6*sin(t*.23+ph);
+  float yaw=aA.x+uSpin+.55*sin(t*.7+ph)+.25*sin(t*.31+ph*2.), pitch=aA.y+.3*sin(t*.5+ph*1.7), roll=aA.z+t*.35+.6*sin(t*.23+ph);
   float spread=aA.w*(.45+.75*lv+.35*sh+.3*uAll);
   vec3 c=vec3(sin(yaw)*cos(pitch),sin(pitch),cos(yaw)*cos(pitch)), hz=normalize(cross(vec3(0.,1.,0.),c)), up=cross(c,hz), s=cos(roll)*hz+sin(roll)*up;
   float ang=position.x*spread; vec3 d=c*cos(ang)+s*sin(ang); vec3 p=uE+d*(RS*uSph+uv.y*190.);   /* sphere version: every beam leaves the surface straight outwards from its own spot, so none can cut through the ball */
@@ -167,7 +167,7 @@ function frame(ms){ requestAnimationFrame(frame); const dt=Math.min(.05,(ms-last
   orb.az+=(orb.azT-orb.az)*Math.min(1,dt*2.67); orb.el+=(orb.elT-orb.el)*Math.min(1,dt*2.67); orb.d+=(orb.dT-orb.d)*Math.min(1,dt*3);
   const ce=Math.cos(orb.el); camera.position.set(E.x+Math.sin(orb.az)*ce*orb.d,E.y-6+Math.sin(orb.el)*orb.d,E.z+Math.cos(orb.az)*ce*orb.d); camera.lookAt(E.x,E.y-1,E.z);
   { const want=tmpV.copy(camera.position).sub(E).normalize(); U.uAx.value.lerp(want,Math.min(1,dt*1.2)).normalize(); }   /* the tunnel of light turns, slowly, to stay around you */
-  U.uSph.value+=(sphT-U.uSph.value)*Math.min(1,dt*1.6); ball.scale.setScalar(Math.max(.0001,U.uSph.value)); ball.rotation.y+=dt*.05;   /* the switch grows or shrinks the ball, never snaps */
+  U.uSph.value+=(sphT-U.uSph.value)*Math.min(1,dt*1.6); ball.scale.setScalar(Math.max(.0001,U.uSph.value)); U.uSpin.value+=dt*.09*U.uSph.value;   /* the sphere turns slowly and carries every beam round with it (about 70 seconds a turn); the turn eases in and out with the switch */   /* the switch grows or shrinks the ball, never snaps */
   composer.render(); }
 requestAnimationFrame(frame);
 </script></body></html>
