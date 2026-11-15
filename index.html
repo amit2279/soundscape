@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Soundscape</title>
-<meta name="description" content="Drop in a song and fly through the world it builds: a neon city, a particle terrain, an ocean, a wormhole and a woven loom, all driven by the music.">
+<meta name="description" content="Drop in a song and ride the worlds it builds: a neon city, a particle terrain, tunnels, a roller coaster, a black hole firing lasers and a woven loom, all driven by the music.">
 <meta property="og:title" content="Soundscape">
 <meta property="og:description" content="Every song builds a world. Drop in a track and fly through it.">
 <meta name="theme-color" content="#06051a">
@@ -392,6 +392,12 @@ h1 .hollow{display:block;color:transparent;-webkit-text-stroke:2px var(--text)}
 /* one size for everything in the top bar: 13 px semi-bold text, 16 px icons, the same as the round tool buttons; the effect column's icons match */
 #worldSeg button,#planetSeg button,.vmt-rainbow-btn{font-size:13px;font-weight:600}.wi,.wi.globe,.vmt-rainbow-btn svg{width:16px;height:16px}.wi.globe{stroke-width:1.5}.pc span svg{width:16px;height:16px}
 #planetSeg button{color:#fff}#planetSeg button:hover{color:#fff;background:rgba(255,255,255,.12)}#planetSeg button[aria-pressed="true"]{color:#0b0618}   /* white, so it reads as a live button and not a disabled one */
+/* the guided tour */
+.tourring{position:absolute;z-index:70;border-radius:22px;border:2px solid #fff;box-shadow:0 0 0 9999px rgba(6,4,18,.55),0 0 24px rgba(255,255,255,.45);pointer-events:none;transition:left .35s ease,top .35s ease,width .35s ease,height .35s ease}
+.tourcard{position:absolute;z-index:71;width:290px;padding:16px 16px 14px;border-radius:18px;pointer-events:auto;transition:left .35s ease,top .35s ease}
+.tourcard small{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;opacity:.65;margin-bottom:4px}.tourcard strong{display:block;font-size:17px;margin-bottom:6px}.tourcard p{margin:0 0 12px;font-size:13.5px;line-height:1.45;opacity:.92}
+.tourbtn{display:flex;justify-content:flex-end;gap:8px}.tourbtn .btn{height:34px;padding:0 14px;font-size:13px}
+.tourring[hidden],.tourcard[hidden]{display:none}
 /* the views pill, above the music bar */
 #camSeg{position:absolute;left:50%;bottom:106px;transform:translateX(-50%);z-index:5;pointer-events:auto;white-space:nowrap}
 #camSeg button{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600}
@@ -401,6 +407,7 @@ h1 .hollow{display:block;color:transparent;-webkit-text-stroke:2px var(--text)}
 #app .keypad{bottom:186px}
 #sign{display:none!important}   /* the district signs ("Now entering ...") are switched off */
 #app[data-state="landing"] .legend{display:none}
+#btnHouse{display:none}
 /* the simplified top bar */
 .morewrap{position:relative;display:inline-flex}
 .moremenu{position:absolute;right:0;top:calc(100% + 8px);display:flex;flex-direction:column;gap:2px;padding:6px;border-radius:16px;min-width:214px;z-index:30;pointer-events:auto}
@@ -592,7 +599,7 @@ h1 .hollow{display:block;color:transparent;-webkit-text-stroke:2px var(--text)}
     <div class="landing-in">
       <p class="eyebrow">Every song builds a world</p>
       <h1><span class="solid">Sound</span><span class="hollow">Scape</span></h1>
-      <p class="lede">Drop in a song and fly through the world it builds. In City, loud passages raise neon skyscrapers. In Terrain, the music sculpts mountains and valleys as it plays.</p>
+      <p class="lede">Drop in a song and ride the worlds it builds: a neon city, a roller coaster, a black hole firing lasers, and more. Everything you see moves to your music.</p>
       <div class="cta">
         <button class="btn primary" id="btnDemo" disabled>
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg>
@@ -2615,11 +2622,11 @@ const swBox=$('#swatches');
 function cutTo(fn){ const c=$('#cut'); if(RM){ fn(); return; } c.classList.add('on'); setTimeout(()=>{ fn(); requestAnimationFrame(()=>c.classList.remove('on')); },330); }
 function startRide(){ ensureCtx(); const p=actx.resume(); if(p&&p.catch) p.catch(()=>{});
   cutTo(()=>{ offset=0; secIdx=-1; started=true; setState('riding'); snapCam=true; play();
-    const h=$('#hint'); h.classList.add('on'); setTimeout(()=>h.classList.remove('on'),7000); }); }
+    const h=$('#hint'); if(window.__tourSeen){ h.classList.add('on'); setTimeout(()=>h.classList.remove('on'),7000); } }); }   /* the shortcuts appear on their own only once the guided tour has been seen; before that the tour does the explaining */
 
 $('#play').addEventListener('click',()=>{ if(playing) pause(); else { if(app.dataset.state==='ended') setState('riding'); play(); } });
 $('#vol').addEventListener('input',e=>{ if(gainNode) gainNode.gain.value=+e.target.value; });
-$('#btnDemo').addEventListener('click',()=>{ if(!buffer) return; if(!isDemo){ loadDemo(true); return; } startRide(); });
+$('#btnDemo').addEventListener('click',()=>{ if(!buffer) return; PL.q=DEMOS.slice(); PL.i=0; plShow(); if(!isDemo){ loadDemo(true,true); return; } startRide(); });   /* one button: the built-in tracks, one after another */
 const pick=()=>{ ensureCtx(); const p=actx.resume(); if(p&&p.catch) p.catch(()=>{}); $('#file').click(); };
 $('#btnPick').addEventListener('click',pick); $('#btnLoad').addEventListener('click',pick); $('#btnOther').addEventListener('click',pick);
 $('#btnAgain').addEventListener('click',()=>{ offset=0; secIdx=-1; setState('riding'); play(); });
@@ -2627,8 +2634,11 @@ $('#tap').addEventListener('click',()=>{ if(actx) actx.resume().then(()=>app.cla
 /* a playlist: up to ten songs chosen or dropped together play one after another. The files stay in this browser; nothing is uploaded */
 const PL={q:[],i:0};
 function plShow(){ const el=$('#pl'), on=PL.q.length>1; el.hidden=!on; el.style.display=on?'flex':'none'; if(on) $('#plTxt').textContent='Song '+(PL.i+1)+' of '+PL.q.length; }
-function plGo(i){ if(i<0||i>=PL.q.length) return false; PL.i=i; plShow(); loadFile(PL.q[i]); return true; }
-function plAdd(list){ const fs=Array.from(list||[]).filter(f=>/^audio\//.test(f.type)||/\.(mp3|wav|m4a|ogg|flac|aac)$/i.test(f.name)); if(!fs.length) return;
+/* an entry is a file, or the name of a built-in track ('late', 'house'): the demo playlist. Add a built-in here and in DEMOS to grow it */
+const DEMOS=['late','house'];
+function plGo(i){ if(i<0||i>=PL.q.length) return false; PL.i=i; plShow(); const q=PL.q[i]; if(q==='late') loadDemo(true,true); else if(q==='house') loadHouse(true); else loadFile(q); return true; }
+function plAdd(list){ if(PL.q.some(x=>typeof x==='string')){ PL.q=[]; PL.i=0; }   /* your own songs replace the demo playlist */
+  const fs=Array.from(list||[]).filter(f=>/^audio\//.test(f.type)||/\.(mp3|wav|m4a|ogg|flac|aac)$/i.test(f.name)); if(!fs.length) return;
   if(fs.length===1&&PL.q.length<2){ PL.q=[fs[0]]; PL.i=0; plShow(); loadFile(fs[0]); return; }          /* one song on its own: just play it */
   const fresh=PL.q.length<2&&fs.length>1; if(fresh){ PL.q=[]; PL.i=0; }
   const room=10-PL.q.length, take=fs.slice(0,Math.max(0,room)); PL.q.push(...take);
@@ -2838,19 +2848,19 @@ async function install(buf, name, seed, demo){
   { let mxH=0; for(let r=0;r<ROWS;r++) mxH=Math.max(mxH,rowProfile[r]); skyY=clamp(mxH*.75+170,240,520); }
   U.uGrowC.value.set(0,0,-attract.a); U.uGrow.value=RM?1:0; growT=0; snapCam=true;
 }
-async function loadDemo(thenRide){ PL.q=[]; plShow();
+async function loadDemo(thenRide,keep){ if(keep!==true){ PL.q=[]; plShow(); }
   const tk=++loadToken;
   try{
     if(!demoBuf) demoBuf=await renderDemo();
     if(tk!==loadToken) return;
     if(thenRide) setState('loading');
     await install(demoBuf,'Late Line (built-in demo track)',20261110,true);
-    const b=$('#btnDemo'); b.disabled=false; $('#btnDemoTxt').textContent='Ride the demo track';
+    const b=$('#btnDemo'); b.disabled=false; $('#btnDemoTxt').textContent='Play demo tracks';
     if(thenRide) startRide(); else if(app.dataset.state==='loading') setState('landing');
   }catch(e){ console.error(e); $('#btnDemoTxt').textContent='Demo track unavailable'; toast('The demo track could not be generated in this browser. You can still choose a song of your own.'); }
 }
 let houseBuf=null;
-async function loadHouse(){ PL.q=[]; plShow();
+async function loadHouse(keep){ if(keep!==true){ PL.q=[]; plShow(); }
   const tk=++loadToken, prev=app.dataset.state;
   try{
     ensureCtx(); const p=actx.resume(); if(p&&p.catch) p.catch(()=>{});
@@ -2880,7 +2890,7 @@ async function loadFile(file){
     const name=file.name.replace(/\.[a-z0-9]{2,5}$/i,'').replace(/[_]+/g,' ');
     await install(buf,name,hashStr(file.name+'|'+Math.round(buf.duration*10)),false);
     if(tk!==loadToken) return;
-    $('#btnDemoTxt').textContent='Ride the demo track';
+    $('#btnDemoTxt').textContent='Play demo tracks';
     startRide();
   }catch(e){
     console.error(e); if(tk!==loadToken) return;
@@ -2907,6 +2917,34 @@ async function loadFile(file){
     wrap.append(mb,menu); tools.append(wrap); const fs=$('#btnFs'); if(fs) wrap.before(fs);
     mb.addEventListener('click',e=>{ e.stopPropagation(); menu.hidden=!menu.hidden; mb.setAttribute('aria-expanded',String(!menu.hidden)); });
     document.addEventListener('click',e=>{ if(!wrap.contains(e.target)) shut(); }); } }
+
+/* ================= a short guided tour, the first time a ride starts =================
+   Five steps, each ringing one part of the screen with a line on what it does. Skip or Next; it never comes back by itself once seen
+   (remembered in this browser), and "Show me around" in the More menu replays it. The music keeps playing underneath. */
+window.__tourSeen=false; try{ window.__tourSeen=localStorage.getItem('ss_tour')==='1'; }catch(e){}
+{ const appEl=$('#app'), ring=document.createElement('div'), card=document.createElement('div'); ring.className='tourring'; card.className='tourcard plate'; card.setAttribute('role','dialog'); card.setAttribute('aria-live','polite'); ring.hidden=card.hidden=true; appEl.append(ring,card);
+  const STEPS=[['#worldSeg','Pick a world','Each tab is a different world built from your song. Switch whenever you like; the music carries on.'],
+    ['#camSeg','Change the view','Cruise flies for you, Fly lets you steer, Skyline pulls back, and Planet rolls the world into a ball.'],
+    ['.fxstack','Turn on effects','The bolt is Amplify: everything moves harder with the sound. The others add sparks and a kaleidoscope.'],
+    ['.tools','Your song, colours, shuffle','Upload your own song, change the colours, or shuffle everything. The three dots hold snapshots and settings.'],
+    ['.dock','The music','Pause, jump along the timeline, set the volume. Press H to hide everything and just watch.']];
+  let i=-1, list=[];
+  const vis=el=>{ if(!el) return false; const r=el.getBoundingClientRect(), cs=getComputedStyle(el); return r.width>30&&r.height>20&&cs.display!=='none'&&+cs.opacity>.5&&!el.classList.contains('gone'); };
+  function place(){ if(i<0) return; const [sel,title,text]=list[i], el=document.querySelector(sel); if(!vis(el)){ next(); return; }
+    const r=el.getBoundingClientRect(), a=appEl.getBoundingClientRect(), pad=8; ring.style.cssText='left:'+(r.left-a.left-pad)+'px;top:'+(r.top-a.top-pad)+'px;width:'+(r.width+2*pad)+'px;height:'+(r.height+2*pad)+'px';
+    card.innerHTML='<small>'+(i+1)+' of '+list.length+'</small><strong></strong><p></p><div class="tourbtn"><button class="btn" data-t="skip">Skip</button><button class="btn primary" data-t="next">'+(i===list.length-1?'Got it':'Next')+'</button></div>';
+    card.querySelector('strong').textContent=title; card.querySelector('p').textContent=text; ring.hidden=card.hidden=false;
+    const cw=card.offsetWidth, ch=card.offsetHeight, below=r.top-a.top+r.height/2<a.height/2; let x=r.left-a.left+r.width/2-cw/2, y=below?r.bottom-a.top+pad+14:r.top-a.top-pad-14-ch;
+    if(r.height>a.height*.5){ y=r.top-a.top+r.height/2-ch/2; x=r.left-a.left-cw-pad-14; }                    /* a tall target (the effects column): the card goes beside it */
+    card.style.left=Math.max(12,Math.min(a.width-cw-12,x))+'px'; card.style.top=Math.max(12,Math.min(a.height-ch-12,y))+'px'; }
+  function end(){ i=-1; ring.hidden=card.hidden=true; window.__tourSeen=true; try{ localStorage.setItem('ss_tour','1'); }catch(e){} }
+  function next(){ i++; if(i>=list.length){ end(); return; } place(); }
+  function start(){ list=STEPS.filter(s=>vis(document.querySelector(s[0]))); if(!list.length) return; appEl.classList.remove('nohud'); i=-1; next(); }
+  card.addEventListener('click',e=>{ if(i<0) return; const t=e.target&&e.target.dataset&&e.target.dataset.t; if(t==='skip') end(); else if(t==='next') next(); });
+  addEventListener('resize',place); addEventListener('keydown',e=>{ if(i>=0&&e.key==='Escape') end(); });
+  new MutationObserver(()=>{ if(appEl.dataset.state==='riding'&&!window.__tourSeen&&i<0){ window.__tourSeen=true; setTimeout(()=>{ if(appEl.dataset.state==='riding') start(); },1400); } if(i>=0&&appEl.dataset.state!=='riding') end(); }).observe(appEl,{attributes:true,attributeFilter:['data-state']});
+  const menu=document.querySelector('.moremenu'); if(menu){ const b=document.createElement('button'); b.className='tbtn icon'; b.id='btnTour'; b.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M15.500 8.500l-2 5-5 2 2-5z"/></svg><span>Show me around</span>'; b.addEventListener('click',()=>{ menu.hidden=true; setTimeout(start,150); }); menu.append(b); }
+  window.__tour=start; }
 
 /* ================= Coaster: a roller coaster in the void =================
    Generated by tools/port_coaster.py from coaster-lab.html (see HANDOFF.md, sections 8 and 9). Do not edit the copied parts here: change the
