@@ -320,6 +320,12 @@ The owner reversed section 8j: **the bioluminescent blue is reserved for the ins
 - `#hint` is rebuilt at startup as a centred "Keyboard shortcuts" card in six groups (Music, Worlds, Views, Driving, Effects, Screen). It never opens by itself; More menu or `?` opens it, Esc, the cross or a click outside closes it.
 - Every pop-up fades and slides in about 0.2 to 0.3 s: shortcuts, More menu, tour card, end card, toast, snapshot view, playlist box. They are now always laid out and hidden with opacity/visibility/transform instead of `display:none` (rules under "every pop-up fades and slides"); the old `#app.endclosed .endcard{display:none!important}` was removed for this.
 
+## 8z5. Reset, shuffle colours, small fixes (2026-11-15 noon)
+
+- **Reset** `#btnResetAll` (top bar, after Shuffle; key R; `resetAll()`): stops shuffle, default colours (`auto`), Amplify and both kaleidoscopes off, other effect toggles and sliders to defaults, view to Cruise, zoom to 1. World and song unchanged.
+- **Shuffle** now picks one of the named colour swatches at random (not a generated palette), so the active swatch is marked.
+- Coaster map and dial are forced off outside the Coaster by CSS. Icons on active toggles are white for blue themes too (hue 205 and up).
+
 ## 8zz. Phase 2 ideas, analysed only, nothing built (2026-11-15)
 
 The owner sent references and asked for analysis to keep for later. Suggested order: 1, 2, 3, 4.

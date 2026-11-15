@@ -414,6 +414,7 @@ h1 .hollow{display:block;color:transparent;-webkit-text-stroke:2px var(--text)}
 .snapview[hidden]{opacity:0;visibility:hidden;pointer-events:none;transition:opacity .18s ease,visibility 0s .18s}.snapview[hidden] .snapbox{transform:translateY(20px) scale(.98)}
 #plBox,#plBox[hidden]{display:flex}#plBox[hidden]{opacity:0;visibility:hidden;pointer-events:none;transform:translateY(14px)}
 @media (prefers-reduced-motion:reduce){#hint,.moremenu,.tourcard,.endcard,.toast,.snapview,.snapview .snapbox,#plBox{transition:none!important}}
+#app:not([data-world="coast"]) .cinst{display:none!important}   /* the coaster's map and dial never show in another mode */
 /* the playlist box */
 #plBox{position:absolute;right:16px;bottom:110px;width:230px;max-height:178px;overflow:auto;padding:10px 8px 8px;border-radius:20px;z-index:5;display:flex;flex-direction:column;gap:2px;pointer-events:auto;transition:opacity .28s ease,transform .42s cubic-bezier(.2,.8,.2,1)}
 #plBox .plhead{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;opacity:.6;padding:0 8px 4px}
@@ -2175,7 +2176,7 @@ function applyTheme(){
   if(!themeInit){ themeInit=true; for(const k in TT) U[k].value.copy(TT[k]); U.uNeon.value=neonT; U.uDay.value=dayT; }
   const st = document.documentElement.style;
   st.setProperty('--a', t.a); st.setProperty('--b', t.b); st.setProperty('--warm', t.warm);
-  { const hs={}; C(t.a).getHSL(hs); const hd=hs.h*360; st.setProperty('--on',((hs.s>.25&&hs.l<.8&&(hd>=255||hd<=45))||hs.l<.3)?'#ffffff':'#0b0618'); }
+  { const hs={}; C(t.a).getHSL(hs); const hd=hs.h*360; st.setProperty('--on',((hs.s>.25&&hs.l<.8&&(hd>=205||hd<=45))||hs.l<.3)?'#ffffff':'#0b0618'); }
   curFilter=t.filter||''; canvas.style.filter=curFilter; app.classList.toggle('paper',!!t.paper); U.uAtmo.value=t.paper?.06:1; paperK=t.paper?.3:1;
   document.querySelectorAll('.sw').forEach(b => b.setAttribute('aria-pressed', String(b.id==='btnShuffle' ? autoShuf : b.dataset.k === ((themeKey==='auto'&&autoTheme.a===THEMES.rain.a&&autoTheme.b===THEMES.rain.b)?'rain':themeKey))));
   const auto = document.querySelector('.sw[data-k="auto"]');
@@ -2812,10 +2813,7 @@ function fadeRoll(){ if(RM){ rollAll(); return; } if(fading) return; fading=true
 function stopShuffle(){ if(!autoShuf) return; autoShuf=false; applyTheme(); }
 document.addEventListener('click',e=>{ if(autoShuf&&e.target.closest&&e.target.closest('#worldSeg button,.dock .seg button,#btnNitro,.ptog .pc')) stopShuffle(); },true);
 function rollAll(){
-  const h=Math.random()*360, t=themeFromHue(h); t.name='Random';
-  t.b=hsl(h+110+Math.random()*140,.95,.58); t.warm=hsl(h+40+Math.random()*60,1,.7);
-  if(Math.random()<.4){ t.top='#000002'; t.mid=hsl(h-30,.5,.03); t.hor=hsl(h+14,.7,.24); t.fac='#020204'; t.neon=1; }
-  THEMES.rand=t; themeKey='rand'; applyTheme();
+  { const ks=[...document.querySelectorAll('.sw[data-k]')].map(b=>b.dataset.k).filter(k=>k!=='auto'&&k!==themeKey&&THEMES[k]); if(ks.length){ themeKey=ks[(Math.random()*ks.length)|0]; applyTheme(); } }   /* one of the named colour modes, so its swatch is marked as the active one */
   const pick=a=>a[(Math.random()*a.length)|0], flip=p=>Math.random()<p;
   if(flip(.4)){ setWorld(pick(['city','terrain'])); setMode('planet'); }   // Planet only exists for City and Terrain, so pick them together
   else { setWorld(pick(WORLDS)); setMode(pick(['cruise','surf','skyline'])); }
@@ -2961,6 +2959,16 @@ async function loadFile(file){
     mb.addEventListener('click',e=>{ e.stopPropagation(); menu.hidden=!menu.hidden; mb.setAttribute('aria-expanded',String(!menu.hidden)); });
     document.addEventListener('click',e=>{ if(!wrap.contains(e.target)) shut(); }); } }
 
+/* ================= Reset, always in the top bar =================
+   Stops the shuffle and puts everything back: colours, effects, sliders, view and zoom. The world and the song stay as they are. */
+function resetAll(){ autoShuf=false; themeKey='auto'; applyTheme(); setNitro(false);
+  for(const [id,v] of [['cKal',false],['cGem',false],['cCry',true],['cRay',true],['cFx',true],['cPl',true]]){ const el=$('#'+id); if(el){ el.checked=v; el.dispatchEvent(new Event('change')); } }
+  setKal(false); $('#btnReset').click(); if(mode!=='cruise') setMode('cruise'); zoomT=1; toast('Everything is back to normal.'); }
+{ const tools=document.querySelector('.tools'), sh=$('#btnShuffle'); if(tools){ const b=document.createElement('button'); b.className='tbtn icon plate'; b.id='btnResetAll'; b.title='Reset colours, effects and view (R)'; b.setAttribute('aria-label','Reset everything');
+    b.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.600-5.900M4 4v4.500h4.500"/></svg>'; b.addEventListener('click',resetAll);
+    const anchor=(sh&&sh.closest('.tools')===tools)?(sh.closest('.swwrap')||sh):null; if(anchor&&anchor.parentElement===tools) anchor.after(b); else { const fs=$('#btnFs'); if(fs) fs.before(b); else tools.append(b); } }
+  addEventListener('keydown',e=>{ if((e.key==='r'||e.key==='R')&&!e.metaKey&&!e.ctrlKey&&!e.altKey&&!(e.target&&/INPUT|TEXTAREA/.test(e.target.tagName))) resetAll(); }); }
+
 /* ================= keyboard shortcuts: a tidy overlay, never shown by itself =================
    Opened from the More menu or with ?; closed with Esc, the cross, or a click outside. */
 { const h=$('#hint'), G=[
@@ -2968,7 +2976,7 @@ async function loadFile(file){
     ['Worlds',[['T','Next world'],['G','Next pattern (Tunnel)'],['L','Laser colour (Black hole)']]],
     ['Views',[['1 2 3','Cruise, Fly, Skyline'],['4','Planet'],['Scroll','Zoom'],['0','Reset zoom']]],
     ['Driving',[['↑ ↓ ← →','Drive (or W A S D)'],['Q E','Lower, higher'],['Shift','Boost']]],
-    ['Effects',[['N','Amplify'],['K','Kaleidoscope']]],
+    ['Effects',[['N','Amplify'],['K','Kaleidoscope'],['R','Reset everything']]],
     ['Screen',[['H','Hide the interface'],['F','Full screen'],['P','Save a snapshot'],['C','Controls'],['?','This list']]]];
   h.innerHTML='<button class="kclose" aria-label="Close">&times;</button><h3>Keyboard shortcuts</h3><div class="kgrid">'+G.map(g=>'<section><h4>'+g[0]+'</h4>'+g[1].map(r=>'<div class="krow"><span>'+r[1]+'</span><span class="kk">'+r[0].split(' ').map(k=>'<kbd>'+k+'</kbd>').join('')+'</span></div>').join('')+'</section>').join('')+'</div>';
   h.setAttribute('role','dialog'); h.setAttribute('aria-label','Keyboard shortcuts');
