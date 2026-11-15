@@ -336,6 +336,14 @@ The owner reversed section 8j: **the bioluminescent blue is reserved for the ins
 - The main script is not global scope: tests reach it through `window.__st` (`renderTo`, `seek`, `ST`, `draw`, `info`).
 - Not checked: the real fonts (blocked in the test browser, so it fell back to Arial), a full-size 3840 render, the download itself, Collector on desktop in worlds other than the Black hole. Owner has not reviewed the layouts yet; expect typography rounds.
 
+## 8z7. Bloom lab (2026-11-15 night): the diamond kaleidoscope as a 3D object
+
+`bloom-lab.html`, its own test page (artifact "Bloom lab"); not in the main app. Owner's rules: **petals in all directions, big and small, always moving, and symmetrical from whichever side you look.**
+- Petals sit on the symmetry axes of an icosahedron: rings of 5 big petals at its 12 corners, 3 middling at its 20 faces, pairs of small at its 30 edges (180 instanced petals; `AX`, `shell(axes,fold,len,wid,tier)`). Each ring starts towards a neighbouring corner (`aRef`) so the frames agree across the symmetry.
+- Every petal of one kind moves identically (ring twist `tw`, opening angle `open`, length, cup, curl, pane pattern), which keeps the symmetry while the outline changes; the three kinds use different speeds and bands. The whole object turns as one piece. A first version with randomly placed, individually swaying petals was rejected as asymmetrical.
+- Petals are opaque and mirror left to right; lit "panes" are switched on by the 48-band analysis (same `analyse` as the Black hole lab). Heart ball, stars, heavy drag, scroll zoom, six colour sets (button or C).
+- Not done: showing the live world on the petals (the flat diamond kaleidoscope does; here the panes are procedural), the faceted-crystal variant from the owner's second reference, the rest state (currently dim). Stills only.
+
 ## 8zz. Phase 2 ideas, analysed only, nothing built (2026-11-15)
 
 The owner sent references and asked for analysis to keep for later. Suggested order: 1, 2, 3, 4.

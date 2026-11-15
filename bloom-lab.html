@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bloom lab</title>
+<style>
+html,body{margin:0;height:100%;background:#000;color:#e8ecf5;font:13px/1.4 ui-monospace,Menlo,Consolas,monospace;overflow:hidden}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block;cursor:grab}
+#bar{position:fixed;left:12px;right:12px;bottom:12px;display:flex;gap:10px;align-items:center;z-index:2;background:rgba(10,12,20,.6);border:1px solid rgba(255,255,255,.14);border-radius:14px;padding:8px 12px;backdrop-filter:blur(8px)}
+button,label.b{font:inherit;color:#fff;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:9px;padding:6px 12px;cursor:pointer;white-space:nowrap}
+button:hover,label.b:hover{background:rgba(255,255,255,.2)}
+#seek{flex:1;min-width:60px}
+#hud{position:fixed;left:14px;top:12px;z-index:2;text-shadow:0 1px 3px #000;white-space:pre;pointer-events:none;opacity:.7}
+#msg{position:fixed;left:50%;top:45%;transform:translate(-50%,-50%);z-index:3;text-align:center;font-size:15px;max-width:80vw}
+</style></head><body>
+<div id="hud"></div>
+<div id="msg">Bloom lab<br><br><button id="demo">Play the demo track</button> <label class="b">Upload a song<input id="file" type="file" accept="audio/*" hidden></label></div>
+<div id="bar"><button id="pp">Play</button><button id="col" title="Next colour (C)">Colour: jewel</button><input id="seek" type="range" min="0" max="1" step="0.001" value="0"><span id="tm">0:00</span><label class="b">Song<input id="file2" type="file" accept="audio/*" hidden></label></div>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/shaders/CopyShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+<script>
+/* Bloom lab: a test bench for a possible Soundscape mode, the diamond kaleidoscope as a real object.
+   A flower-crystal floating in space: petals pointing in every direction from one heart, in three sizes (a few big, more middling, many small).
+   Each size is its own shell and the shells turn against one another about different axes, so the outline never repeats; every petal also sways,
+   rolls, opens and closes by itself. Nothing is ever still. The petals are solid and hide one another, and each carries a mirrored pattern of lit
+   panes (left half and right half the same, as in a kaleidoscope) that the sound switches on, band by band. Lengths and openings follow the
+   song's 48 bands; every value is eased. Drag to turn it (heavy, slow to settle), scroll to move in and out. */
+const $=s=>document.querySelector(s), clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const NB=48;
+
+/* ---------------- audio: demo synth and the fine analysis ---------------- */
+function synthDemo(){ const sr=22050, bpm=126, beat=60/bpm, bar=beat*4, dur=bar*50, n=Math.floor(sr*dur), d=new Float32Array(n); let sd=7; const rnd=()=>((sd=(sd*1664525+1013904223)>>>0)/4294967296)*2-1;
+  const sect=t=>{ const b=t/bar; return b<4?0:b<8?1:b<24?2:b<28?0:b<32?1:b<48?2:0; };   // 0 quiet, 1 build, 2 full
+  for(let i=0;i<n;i++){ const t=i/sr, s=sect(t), bt=t%beat, b8=t%(beat/2), bb=(t/bar)%4; let v=0;
+    v+=.10*Math.sin(6.283*110*t)*(.6+.4*Math.sin(t*.7))+.07*Math.sin(6.283*164.8*t);                         // pad
+    if(s===2){ v+=.95*Math.sin(6.283*(45*bt+ (75/28)*(1-Math.exp(-bt*28))))*Math.exp(-bt*7);                  // kick
+      const ob=(t+beat/2)%beat; v+=.33*(2*((55*t)%1)-1)*Math.exp(-ob*5)*(ob<beat*.45?1:0); }                 // off-beat bass
+    if(s>=1){ const hb=(t+beat/4)%(beat/2); v+=.16*rnd()*Math.exp(-hb*60); }                                  // hats
+    if(s===1){ const p=(t/bar)%4/4; const rb=t%(beat/(p>.5?4:2)); v+=(.1+.35*p)*rnd()*Math.exp(-rb*30)+.12*p*p*rnd(); }   // snare roll and riser
+    d[i]=v*.7; }
+  return {data:d,sr,dur}; }
+
+function fft(re,im){ const n=re.length; for(let i=1,j=0;i<n;i++){ let bit=n>>1; for(;j&bit;bit>>=1) j^=bit; j^=bit; if(i<j){ let t=re[i]; re[i]=re[j]; re[j]=t; t=im[i]; im[i]=im[j]; im[j]=t; } }
+  for(let len=2;len<=n;len<<=1){ const ang=-2*Math.PI/len, wr=Math.cos(ang), wi=Math.sin(ang); for(let i=0;i<n;i+=len){ let cr=1, ci=0; for(let k=0;k<len/2;k++){ const a=i+k, b=a+len/2, xr=re[b]*cr-im[b]*ci, xi=re[b]*ci+im[b]*cr; re[b]=re[a]-xr; im[b]=im[a]-xi; re[a]+=xr; im[a]+=xi; const t=cr*wr-ci*wi; ci=cr*wi+ci*wr; cr=t; } } } }
+/* 48 bands spaced by ear (logarithmically) from 40 Hz to 16 kHz, about 43 readings a second. For each band: its level, and its onsets
+   (how sharply it rose), each scaled by that band's own loud moments, so a quiet hi-hat counts as much as a loud kick */
+function analyse(data,sr){ const N=2048, hop=1024, F=Math.max(1,Math.floor((data.length-N)/hop)), fps=sr/hop, lev=new Float32Array(F*NB), on=new Float32Array(F*NB), win=new Float32Array(N), re=new Float32Array(N), im=new Float32Array(N);
+  for(let i=0;i<N;i++) win[i]=.5-.5*Math.cos(2*Math.PI*i/(N-1));
+  const edge=[]; for(let b=0;b<=NB;b++) edge.push(Math.min(N/2-1,Math.max(1,Math.round(40*Math.pow(16000/40,b/NB)/sr*N))));
+  for(let f=0;f<F;f++){ const o=f*hop; for(let i=0;i<N;i++){ re[i]=data[o+i]*win[i]; im[i]=0; } fft(re,im);
+    for(let b=0;b<NB;b++){ let s=0, c=0; for(let k=edge[b];k<=Math.max(edge[b],edge[b+1]-1);k++){ s+=Math.sqrt(re[k]*re[k]+im[k]*im[k]); c++; } lev[f*NB+b]=Math.log(1+s/c*6); } }
+  const tmp=new Float32Array(F); let loud=new Float32Array(F);
+  for(let b=0;b<NB;b++){ for(let f=0;f<F;f++) tmp[f]=lev[f*NB+b]; const srt=Float32Array.from(tmp).sort(), hi=srt[Math.floor(F*.97)]||1e-6; for(let f=0;f<F;f++) lev[f*NB+b]=Math.min(1.3,tmp[f]/Math.max(hi,1e-6));
+    for(let f=1;f<F;f++) tmp[f]=Math.max(0,lev[f*NB+b]-lev[(f-1)*NB+b]); tmp[0]=0; const s2=Float32Array.from(tmp).sort(), h2=s2[Math.floor(F*.985)]||1e-6; for(let f=0;f<F;f++) on[f*NB+b]=Math.min(1.5,tmp[f]/Math.max(h2,1e-6)); }
+  for(let f=0;f<F;f++){ let s=0; for(let b=0;b<NB;b++) s+=lev[f*NB+b]; loud[f]=s/NB; }
+  /* big moments: where the whole spectrum jumps at once */
+  const hits=[]; let last=-9; for(let f=2;f<F;f++){ let s=0; for(let b=0;b<NB;b++) s+=on[f*NB+b]; s/=NB; if(s>.42&&f/fps-last>.9){ hits.push({t:f/fps,s:Math.min(1,s)}); last=f/fps; } }
+  return {fps,F,dur:data.length/sr,lev,on,loud,hits}; }
+
+
+/* ---------------- rendering ---------------- */
+const renderer=new THREE.WebGLRenderer({antialias:true}); document.body.prepend(renderer.domElement);
+const scene=new THREE.Scene(), camera=new THREE.PerspectiveCamera(50,1,.5,4000);
+const PALS=[['jewel',[.35,.9,.85],[.6,.45,1],[1,.85,.55]],['ember',[1,.35,.1],[1,.1,.35],[1,.8,.3]],['ice',[.3,.75,1],[.5,.95,.9],[.9,.95,1]],['acid',[.5,1,.15],[.1,.9,.6],[1,1,.3]],['rose',[1,.3,.6],[.75,.3,1],[1,.75,.8]],['mono',[.9,.9,.9],[.6,.6,.65],[1,1,1]]]; let palI=0;
+const U={uLev:{value:new Float32Array(NB)},uShot:{value:new Float32Array(NB)},uTime:{value:0},uAll:{value:0},uBass:{value:0},uBeat:{value:0},uA:{value:new THREE.Vector3(...PALS[0][1])},uB:{value:new THREE.Vector3(...PALS[0][2])},uC:{value:new THREE.Vector3(...PALS[0][3])},uCam:{value:new THREE.Vector3()},uPx:{value:1}};
+let sd=5; const rnd=()=>((sd=(sd*1664525+1013904223)>>>0)/4294967296);
+/* Symmetry: the petals sit on the axes of an icosahedron, so the object looks symmetrical from every side. Its 12 corners carry rings of five
+   big petals, its 20 faces rings of three middling ones, its 30 edges pairs of small ones (180 petals). Every petal of one kind moves exactly
+   alike (same opening, twist, length and pattern), so the symmetry holds while the shape keeps changing. */
+const PHI=(1+Math.sqrt(5))/2, VTX=[]; for(const a of [-1,1]) for(const b of [-PHI,PHI]){ VTX.push([0,a,b],[a,b,0],[b,0,a]); }
+const nrm=v=>{ const l=Math.hypot(...v); return v.map(x=>x/l); }, dist=(p,q)=>Math.hypot(p[0]-q[0],p[1]-q[1],p[2]-q[2]), adj=(i,j)=>Math.abs(dist(VTX[i],VTX[j])-2)<.01;
+const AX={v:[],f:[],e:[]};
+for(let i=0;i<12;i++){ let j=0; while(!adj(i,j)) j++; AX.v.push([nrm(VTX[i]),VTX[j]]); }
+for(let i=0;i<12;i++) for(let j=i+1;j<12;j++) if(adj(i,j)){ AX.e.push([nrm(VTX[i].map((x,k)=>x+VTX[j][k])),VTX[i]]); for(let k=j+1;k<12;k++) if(adj(i,k)&&adj(j,k)) AX.f.push([nrm(VTX[i].map((x,q)=>x+VTX[j][q]+VTX[k][q])),VTX[i]]); }
+function shell(axes,fold,len,wid,tier){ const n=axes.length*fold, g=new THREE.InstancedBufferGeometry(), base=new THREE.PlaneGeometry(2,1,10,18); g.setAttribute('position',base.getAttribute('position')); g.setAttribute('uv',base.getAttribute('uv')); g.setIndex(base.getIndex());
+  const dir=new Float32Array(n*3), ref=new Float32Array(n*3), inf=new Float32Array(n*4); let q=0;
+  for(const [d,toward] of axes){ const dt=d[0]*toward[0]+d[1]*toward[1]+d[2]*toward[2], t=nrm(toward.map((x,k)=>x-d[k]*dt));   /* the ring starts towards a neighbouring corner, which is the same for every axis of its kind */
+    for(let k=0;k<fold;k++,q++){ dir.set(d,q*3); ref.set(t,q*3); inf[q*4]=tier*.31+.1; inf[q*4+1]=tier*13+3; inf[q*4+2]=6.283*k/fold; inf[q*4+3]=1; } }
+  g.setAttribute('aRef',new THREE.InstancedBufferAttribute(ref,3));
+  g.setAttribute('aDir',new THREE.InstancedBufferAttribute(dir,3)); g.setAttribute('aInf',new THREE.InstancedBufferAttribute(inf,4)); g.instanceCount=n;
+  const m=new THREE.Mesh(g,new THREE.ShaderMaterial({uniforms:Object.assign({uLen:{value:len},uWid:{value:wid},uTier:{value:tier}},U),side:THREE.DoubleSide,
+    vertexShader:`uniform float uLev[${NB}],uShot[${NB}]; uniform float uTime,uAll,uBass,uBeat,uLen,uWid,uTier; attribute vec3 aDir,aRef; attribute vec4 aInf; varying vec2 vP; varying vec3 vN,vW; varying float vBand,vPh,vOpen;
+void main(){ int b=int(aInf.y+.5); float lv=uLev[b], sh=uShot[b], ph=aInf.x*6.283, v=uv.y, u=position.x;
+  float wv=pow(sin(3.14159*pow(v,.72)),.85);                                             // the leaf outline: narrow at the root, widest past the middle, a point at the tip
+  float t=uTime*(.35+.25*aInf.x);
+  float len=uLen*aInf.w*(1.05+.25*sin(t*.9+ph)+.2*lv+.35*sh+.25*uAll), wid=uWid*aInf.w*(.8+.2*sin(t*.7+ph*1.7)+.25*uBass);
+  float cup=.55+.45*sin(t*.8+ph*2.3)+.6*uBeat, curl=.35*sin(t*.6+ph*.7)+.5*sh;          // each petal cups and curls by itself, and flicks when its sound hits
+  vec3 q=vec3(u*wv*wid, v*len, cup*(u*wv)*(u*wv)*wid*.9+curl*v*v*len*.5);
+  /* the petal's frame: its ring turns about the axis, and it leans away from the axis by an opening angle; both the same for every petal of its kind */
+  vec3 d=normalize(aDir), t1=normalize(aRef), t2=cross(d,t1);
+  float tw=aInf.z+t*(.22+.12*uTier)*(mod(uTier,2.)<1.?1.:-1.)+.9*sin(t*.37+ph)+.5*sh;
+  float open=.55+.42*sin(t*.5+ph*3.)+.3*lv-.25*sh+.2*uBeat;
+  vec3 r=cos(tw)*t1+sin(tw)*t2, ax=normalize(d*cos(open)+r*sin(open)), wx=cross(d,r), wz=cross(wx,ax);
+  vec3 p=d*(1.1+.5*uTier)+ax*q.y+wx*q.x+wz*q.z;
+  /* the normal, from the same bend */
+  vec3 nl=normalize(vec3(-2.*cup*u*wv*.9, -curl*v, 1.)); vN=normalize(normalMatrix*(wx*nl.x+ax*nl.y+wz*nl.z));
+  vec4 mv=modelViewMatrix*vec4(p,1.); vW=mv.xyz; vP=vec2(u,v); vBand=aInf.y; vPh=aInf.x; vOpen=lv+sh;
+  gl_Position=projectionMatrix*mv; }`,
+    fragmentShader:`precision highp float; uniform float uLev[${NB}],uShot[${NB}]; uniform float uTime,uTier,uAll,uBeat; uniform vec3 uA,uB,uC; varying vec2 vP; varying vec3 vN,vW; varying float vBand,vPh,vOpen;
+float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+void main(){ float a=abs(vP.x), v=vP.y;                                                  // a = distance from the petal's midline: both halves mirror
+  vec3 n=normalize(vN)*(gl_FrontFacing?1.:-1.), e=normalize(-vW); float fr=pow(1.-max(dot(n,e),0.),2.5), lit=.35+.65*max(dot(n,normalize(vec3(.3,.6,.7))),0.);
+  /* panes: a grid that tightens towards the tip, each pane lit by one of the song's bands */
+  vec2 g=vec2(a*(3.+2.*uTier), v*(5.+3.*uTier)+vPh*3.); vec2 id=floor(g), f=fract(g); float h=hash(id+vBand);
+  int bi=int(mod(vBand+id.x*5.+id.y*3.,${NB}.)); float lv=uLev[bi], sh=uShot[bi];
+  float pane=smoothstep(.07,.14,f.x)*smoothstep(.07,.14,f.y)*smoothstep(.07,.14,1.-f.x)*smoothstep(.07,.14,1.-f.y);
+  float on=max(smoothstep(.35,.8,lv*.8+sh*.8+uAll*.3-h*.55), .6*step(.6,fract(h*7.+floor(uTime*.25+h*5.)*.37)));   /* the sound switches panes on; at rest a few glow softly and change now and then */
+  vec3 tint=mix(mix(uA,uB,h),uC,step(.8,hash(id*1.7+3.)));
+  vec3 body=mix(vec3(.02,.022,.045),tint*.16,.5+.5*sin(v*6.+vPh*9.))*lit;                 // a dark, faintly coloured petal
+  vec3 c=body+tint*pane*on*(.42+.3*sh+.12*uBeat)*(.55+.45*lit);
+  float vein=exp(-a*a*90.)*smoothstep(0.,.2,v)*(1.-v), rim=smoothstep(.86,.99,a)+smoothstep(.93,1.,v);   // a pale midline and a pale edge, like cut glass
+  c+=uC*(vein*.1+rim*(.2+.12*min(vOpen,1.)))+mix(uA,uB,.5)*fr*.16;
+  gl_FragColor=vec4(c,1.); }`}));
+  m.frustumCulled=false; scene.add(m); return m; }
+const big=shell(AX.v,5,7.5,2.6,0), mid=shell(AX.f,3,4.6,1.7,1), small=shell(AX.e,2,2.6,1.,2);
+/* the heart: a small bright ball with a turning star pattern */
+const heart=new THREE.Mesh(new THREE.SphereGeometry(1.25,48,32),new THREE.ShaderMaterial({uniforms:U,vertexShader:`varying vec3 vN; void main(){ vN=normal; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
+  fragmentShader:`precision highp float; uniform float uTime,uBass,uBeat,uAll; uniform vec3 uA,uB,uC; varying vec3 vN; void main(){ vec3 n=normalize(vN); float a=atan(n.z,n.x), y=n.y; float k=abs(fract(a/6.283*8.+uTime*.05)-.5)*2.; float st=smoothstep(.2,.9,k*(1.-abs(y)))+.5*sin(y*18.+uTime)*.5; gl_FragColor=vec4(mix(uA,uC,st)*(.3+.5*st)*(.7+.4*uBass+.5*uBeat+.4*uAll),1.); }`})); scene.add(heart);
+const stars=(()=>{ const n=3500, pos=new Float32Array(n*3), s1=new Float32Array(n); for(let i=0;i<n;i++){ const y=2*rnd()-1, a=rnd()*6.283, k=Math.sqrt(1-y*y), d=900+700*rnd(); pos[i*3]=k*Math.cos(a)*d; pos[i*3+1]=y*d; pos[i*3+2]=k*Math.sin(a)*d; s1[i]=rnd(); }
+  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3)); g.setAttribute('aS',new THREE.BufferAttribute(s1,1));
+  const m=new THREE.Points(g,new THREE.ShaderMaterial({uniforms:U,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,vertexShader:`uniform float uPx,uTime; attribute float aS; varying float vB; void main(){ vB=(.4+1.6*aS*aS*aS)*(.8+.2*sin(uTime*(.5+aS)+aS*40.)); gl_PointSize=max(2.,uPx*(.0026+.004*aS*aS)); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
+    fragmentShader:`precision highp float; varying float vB; void main(){ vec2 q=(gl_PointCoord-.5)*2.; float d2=dot(q,q); if(d2>1.) discard; gl_FragColor=vec4(vec3(.8,.85,1.)*exp(-d2*4.)*vB,1.); }`})); m.frustumCulled=false; scene.add(m); return m; })();
+const composer=new THREE.EffectComposer(renderer); composer.addPass(new THREE.RenderPass(scene,camera)); const bloom=new THREE.UnrealBloomPass(new THREE.Vector2(1,1),.55,.6,.5); composer.addPass(bloom);
+function resize(){ const w=innerWidth,h=innerHeight, pr=Math.min(1.5,devicePixelRatio||1); renderer.setPixelRatio(pr); renderer.setSize(w,h,false); composer.setSize(w*pr,h*pr); camera.aspect=w/h; camera.updateProjectionMatrix(); U.uPx.value=h*pr; } addEventListener('resize',resize); resize();
+
+/* ---------------- transport ---------------- */
+let actx=null, buf=null, src=null, t0=0, off=0, playing=false, A=null;
+const now=()=>playing?clamp(actx.currentTime-t0,0,A.dur):off;
+function play(){ if(!buf||playing) return; src=actx.createBufferSource(); src.buffer=buf; src.connect(actx.destination); src.start(0,off); t0=actx.currentTime-off; playing=true; $('#pp').textContent='Pause'; src.onended=()=>{ if(playing&&now()>=A.dur-.05){ playing=false; off=0; $('#pp').textContent='Play'; } }; }
+function pause(){ if(!playing) return; off=now(); playing=false; src.onended=null; try{ src.stop(); }catch(e){} $('#pp').textContent='Play'; }
+function seek(t){ const was=playing; pause(); off=clamp(t,0,A.dur-.05); if(was) play(); }
+function start(data,sr){ $('#msg').textContent='Listening to the song…'; setTimeout(()=>{ A=analyse(data,sr); actx=actx||new (window.AudioContext||window.webkitAudioContext)(); buf=actx.createBuffer(1,data.length,sr); buf.copyToChannel(data,0); off=0; $('#msg').style.display='none';
+  window.__lab={A,seek,play,pause}; console.warn('BLOOM '+JSON.stringify({dur:+A.dur.toFixed(1),fps:+A.fps.toFixed(1),frames:A.F,bigHits:A.hits.length})); actx.resume(); play(); },30); }
+$('#demo').onclick=()=>{ const d=synthDemo(); start(d.data,d.sr); };
+const onFile=async e=>{ const f=e.target.files[0]; if(!f) return; pause(); $('#msg').style.display=''; $('#msg').textContent='Reading the song…'; actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+  try{ const b=await actx.decodeAudioData(await f.arrayBuffer()), n=b.length; if(b.duration>720){ $('#msg').textContent='That one is longer than 12 minutes. Pick a shorter song.'; return; } const d=new Float32Array(n); for(let c=0;c<b.numberOfChannels;c++){ const ch=b.getChannelData(c); for(let i=0;i<n;i++) d[i]+=ch[i]/b.numberOfChannels; } start(d,b.sampleRate); }catch(err){ $('#msg').textContent='That file could not be read as audio.'; } };
+$('#file').onchange=onFile; $('#file2').onchange=onFile;
+$('#pp').onclick=()=>{ if(!A) return; actx.resume(); playing?pause():play(); };
+$('#seek').oninput=e=>{ if(A) seek(e.target.value*A.dur); };
+function nextCol(){ palI=(palI+1)%PALS.length; $('#col').textContent='Colour: '+PALS[palI][0]; } $('#col').onclick=nextCol;
+addEventListener('keydown',e=>{ if(e.code==='KeyC') nextCol(); if(e.code==='Space'&&A){ e.preventDefault(); playing?pause():play(); } });
+
+/* ---------------- camera: a slow orbit; heavy to drag, slow to settle; scroll moves in and out ---------------- */
+const orb={az:.6,el:.3,d:34,azT:.6,elT:.3,dT:34,drag:false,x:0,y:0,idle:9};
+renderer.domElement.addEventListener('pointerdown',e=>{ orb.drag=true; orb.x=e.clientX; orb.y=e.clientY; renderer.domElement.setPointerCapture(e.pointerId); });
+renderer.domElement.addEventListener('pointermove',e=>{ if(!orb.drag) return; orb.azT-=(e.clientX-orb.x)*.0025; orb.elT=clamp(orb.elT+(e.clientY-orb.y)*.002,-1.35,1.35); orb.x=e.clientX; orb.y=e.clientY; orb.idle=0; });
+addEventListener('pointerup',()=>orb.drag=false);
+renderer.domElement.addEventListener('wheel',e=>{ e.preventDefault(); orb.dT=clamp(orb.dT*Math.exp(e.deltaY*.001),12,120); },{passive:false});
+
+/* ---------------- frame ---------------- */
+const lev=U.uLev.value, shot=U.uShot.value, cA=new THREE.Vector3(), cB=new THREE.Vector3(), cC=new THREE.Vector3(); let last=performance.now(), hitI=0, prevT=0, allT=0, beatT=0, lastKick=-9, spin=1;
+function frame(ms){ requestAnimationFrame(frame); const dt=Math.min(.05,(ms-last)/1000); last=ms; U.uTime.value+=dt; let bass=0, kick=0;
+  if(A){ const t=now(), live=playing, fr=clamp(t*A.fps,0,A.F-1), f0=fr|0, f1=Math.min(A.F-1,f0+1), k=fr-f0;
+    for(let b=0;b<NB;b++){ const L=live?A.lev[f0*NB+b]*(1-k)+A.lev[f1*NB+b]*k:0, O=live?Math.max(A.on[f0*NB+b],A.on[f1*NB+b]):0;
+      lev[b]+=(L-lev[b])*Math.min(1,dt*8); shot[b]+=(O-shot[b])*Math.min(1,dt*(O>shot[b]?18:2.2)); if(b<6&&live) kick=Math.max(kick,O); if(b<8) bass+=lev[b]/8; }
+    if(kick>.62&&t-lastKick>.18){ lastKick=t; beatT=1; } if(t<lastKick) lastKick=t-1;
+    if(Math.abs(t-prevT)>.5) hitI=0; while(hitI<A.hits.length&&A.hits[hitI].t<prevT) hitI++;
+    if(live) while(hitI<A.hits.length&&A.hits[hitI].t<=t){ allT=Math.max(allT,A.hits[hitI].s); hitI++; } prevT=t;
+    if(document.activeElement!==$('#seek')) $('#seek').value=t/A.dur; $('#tm').textContent=`${(t/60)|0}:${String((t%60)|0).padStart(2,'0')}`; }
+  U.uBass.value+=(bass-U.uBass.value)*Math.min(1,dt*8); allT*=Math.exp(-dt*2.2); U.uAll.value+=(allT-U.uAll.value)*Math.min(1,dt*12);
+  U.uBeat.value+=(beatT-U.uBeat.value)*Math.min(1,dt*(beatT>U.uBeat.value?20:5)); beatT*=Math.exp(-dt*8);
+  U.uA.value.lerp(cA.set(...PALS[palI][1]),Math.min(1,dt*3)); U.uB.value.lerp(cB.set(...PALS[palI][2]),Math.min(1,dt*3)); U.uC.value.lerp(cC.set(...PALS[palI][3]),Math.min(1,dt*3));
+  
+  spin+=((1+2.2*U.uBass.value)-spin)*Math.min(1,dt*2);
+  for(const o of [big,mid,small]){ o.rotation.y+=dt*.07*spin; o.rotation.x+=dt*.03*spin; } heart.rotation.y+=dt*.3;   /* the whole object turns as one piece, so the three kinds stay locked in symmetry */
+  const sc=1+.07*U.uBeat.value; big.scale.setScalar(sc); mid.scale.setScalar(sc); small.scale.setScalar(sc); stars.rotation.y-=dt*.004;
+  orb.idle+=dt; if(!orb.drag&&orb.idle>1.5) orb.azT+=dt*.06;
+  orb.az+=(orb.azT-orb.az)*Math.min(1,dt*2.67); orb.el+=(orb.elT-orb.el)*Math.min(1,dt*2.67); orb.d+=(orb.dT-orb.d)*Math.min(1,dt*3);
+  const ce=Math.cos(orb.el); camera.position.set(Math.sin(orb.az)*ce*orb.d,Math.sin(orb.el)*orb.d,Math.cos(orb.az)*ce*orb.d); camera.lookAt(0,0,0);
+  composer.render(); }
+requestAnimationFrame(frame);
+</script></body></html>
