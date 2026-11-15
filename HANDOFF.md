@@ -264,6 +264,13 @@ In the lab: palette entry A is the colour at the surface, B the colour further o
 
 With no music playing (`uRest` eases to 1), source points light up at random and fade again with **no beams**: each point has its own slow clock (`uTime*0.3`), and on about one tick in seven it rises and falls as `sin²`. The beams and points now sit in a group `hole` that always turns (0.11 rad/s about Y with a slow nod), so the shaders work in the group's frame: they use `modelViewMatrix`, and `uCam` is the camera position in the group's space.
 
+## 8t. Black hole lab: smoke, beat pulse, random colours (2026-11-15)
+
+- **Smoke:** 3,200 soft noisy puffs (`THREE.Points`), each tied to one beam, drifting slowly out along it, spreading and thinning. `uSmoke[band]` follows `uShot` up at 2.4/s and down at 0.3/s, so the amount follows how hard the lasers fired and then hangs and decays. A puff shows only if its beam has been firing (`had`) and is about six times brighter while that beam is firing now (`lit`): the laser lights its own smoke. Same colour as the beam. Additive, so it is glowing haze; dark smoke cannot show on black.
+- **Beat pulse:** a kick (strongest onset in the six lowest bands above 0.62, at most one per 0.18 s) sets `pulseT`; the hole's scale eases up to 1.1 and straight back. No scaling between beats.
+- **Random colours:** last entry of the colour button; `uRand` eases to 1 and every beam, source point and puff takes its own hue (`h2rgb(aInf.w)`). Many hues piled up add to white, so this mode runs at half strength with coloured sources.
+- Checked on stills. Not checked in motion: the smoke's drift, the pulse's feel.
+
 ## 9. Coaster lab: full specification (state on 2026-11-14)
 
 File `coaster-lab.html`, about 300 lines, standalone. Artifact "Coaster lab", slug `c68270d2-057b-4b14-83d6-67b9296d41d3`. The owner rides it and loves it ("vertigo-inducing"); it is the benchmark. When he says so, port it into `index.html` in place of `coastPlan`/`coastStep`/`coastCam`.
