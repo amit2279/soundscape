@@ -83,7 +83,7 @@ void main(){ int bi=int(aB.x+.5); float lv=uLev[bi], sh=uShot[bi], t=uTime*aB.z,
   float yaw=aA.x+.55*sin(t*.7+ph)+.25*sin(t*.31+ph*2.), pitch=aA.y+.3*sin(t*.5+ph*1.7), roll=aA.z+t*.35+.6*sin(t*.23+ph);
   float spread=aA.w*(.45+.75*lv+.35*sh+.3*uAll);
   vec3 c=vec3(sin(yaw)*cos(pitch),sin(pitch),cos(yaw)*cos(pitch)), hz=normalize(cross(vec3(0.,1.,0.),c)), up=cross(c,hz), s=cos(roll)*hz+sin(roll)*up;
-  float ang=position.x*spread; vec3 d=c*cos(ang)+s*sin(ang); vec3 p=uE+c*(RS*uSph)+d*uv.y*190.;   /* sphere version: each fan leaves from its own spot on the surface */
+  float ang=position.x*spread; vec3 d=c*cos(ang)+s*sin(ang); vec3 p=uE+d*(RS*uSph+uv.y*190.);   /* sphere version: every beam leaves the surface straight outwards from its own spot, so none can cut through the ball */
   vW=p; vU=position.x; vV=uv.y; vHue=aB.y; vN=aB.w; vI=uFan*(.02+.11*lv+.42*sh+.15*uAll)*smoothstep(.25,.6,lv*.7+sh+uAll*.5+aB.y*.25);   /* a fan lights when its own sound is present; several are dark at any moment */
   gl_Position=projectionMatrix*viewMatrix*vec4(p,1.); }`,
     fragmentShader:`precision highp float; uniform float uTime,uSph; uniform vec3 uA,uB,uC; varying vec3 vW; varying float vU,vV,vI,vHue,vN;

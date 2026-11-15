@@ -469,3 +469,7 @@ User rule: smoke must flow freely and organically; music may drive only colour a
 
 ### 8z11. Laser field lab: sphere source toggle
 User asked for a black-hole-like version inside the laser lab, behind a toggle. Button `#srcB` (key B) switches `sphT`; `U.uSph` eases 0→1. In sphere mode a black ball (`ball`, radius 15, writes depth) grows in place of the projector, each fan starts at its own spot on the surface (`p=uE+c*(RS*uSph)+d*uv.y*190.`), fans get a hot spot where they leave the surface, the cone starts at the surface, the lamp point shrinks away. Fans, cone and lamp now use `depthTest:true` so the ball hides what is behind it. Checked in headless stills (mix and fans scenes, front view); motion and other angles not checked.
+
+
+### 8z12. Laser lab sphere: beam origins fixed
+First sphere version started a whole fan from one surface point (`uE+c*RS`), so its outer beams ran sideways through and across the ball: wedge-shaped cut-outs, ball no longer looked round. Now each beam starts on the surface along its own direction (`p=uE+d*(RS*uSph+uv.y*190.)`), i.e. strictly radial. Checked in headless stills from front and side.
