@@ -3019,21 +3019,18 @@ function stDraw(g,W,H,tpl,I){ if(tpl==='clean') return; const port=H>W, u=Math.m
   g.save(); g.textBaseline='alphabetic';
   const scrim=(y0,y1,a0,a1)=>{ const gr=g.createLinearGradient(0,y0,0,y1); gr.addColorStop(0,'rgba(0,0,0,'+a0+')'); gr.addColorStop(1,'rgba(0,0,0,'+a1+')'); g.fillStyle=gr; g.fillRect(0,Math.min(y0,y1),W,Math.abs(y1-y0)); };
   if(tpl==='poster'){
-    scrim(0,H*.3,.5,0); scrim(H*.56,H,0,.82);
-    /* the diagonal band, in the scene's own colour */
-    g.save(); g.globalAlpha=.8; g.fillStyle=I.a; g.translate(W*(port?.66:.7),H*(port?.2:.3)); g.rotate(-Math.PI/4); g.fillRect(-W*2,-(port?.07:.05)*W,W*4,(port?.14:.1)*W); g.globalAlpha=.55; g.fillStyle=I.b; g.fillRect(-W*2,(port?.09:.065)*W,W*4,(port?.018:.012)*W); g.restore();
-    /* the world's name, as large as the width allows; long names take two lines on a phone */
-    const lines=port&&I.world.includes(' ')?I.world.split(' '):[I.world]; let y=port?H*.13:H*.2;
-    for(const ln of lines){ const px=stFit(g,ln,'900',DISP,W-2*m,port?W*.62:H*.5,-.01); g.font='900 '+Math.round(px)+'px '+DISP; y+=px*.78;
-      g.globalCompositeOperation='overlay'; g.fillStyle='rgba(255,255,255,.95)'; stText(g,ln,W/2,y,-.01*px,'center'); g.globalCompositeOperation='source-over'; g.fillStyle='rgba(255,255,255,.3)'; stText(g,ln,W/2,y,-.01*px,'center'); y+=px*.06; }
-    g.fillStyle='rgba(255,255,255,.92)'; g.font='700 '+Math.round(20*u)+'px '+SANS; stText(g,'SOUNDSCAPE',W/2,m+6*u,9*u,'center');
-    /* the song, then the figures */
-    const yb=H-m; const cols=I.figs.length, cw=(W-2*m)/cols;
-    I.figs.forEach((f,i)=>{ const cx=m+cw*(i+.5); g.fillStyle='rgba(255,255,255,.6)'; g.font='600 '+Math.round((port?15:14)*u)+'px '+SANS; stText(g,f[0],cx,yb-(port?70:62)*u,2.4*u,'center');
-      g.fillStyle='#fff'; g.font='800 '+Math.round((port?52:50)*u)+'px '+DISP; stText(g,f[1],cx,yb-14*u,.5*u,'center'); g.fillStyle=I.a; g.font='700 '+Math.round(13*u)+'px '+SANS; if(f[2]) stText(g,f[2],cx,yb+8*u,2.2*u,'center');
-      if(i){ g.fillStyle='rgba(255,255,255,.22)'; g.fillRect(m+cw*i,yb-78*u,Math.max(1,u),86*u); } });
-    const ty=yb-(port?150:128)*u; const tp=stFit(g,I.track,'800',DISP,W-2*m,(port?74:66)*u,.04); g.font='800 '+Math.round(tp)+'px '+DISP; g.fillStyle='#fff'; stText(g,I.track,W/2,ty,.04*tp,'center');
-    g.fillStyle='rgba(255,255,255,.7)'; g.font='500 '+Math.round(15*u)+'px '+SANS; stText(g,'MADE FROM THE SOUND  ·  '+I.colour+'  ·  '+I.ed.toUpperCase(),W/2,ty+34*u,4.2*u,'center');
+    /* everything sits in one column at the bottom left, so the artwork stays clear: the Soundscape mark, the world's name, the song, the figures.
+       Behind it a black gradient rises from the bottom (and, on a wide picture, in from the left) so the type always reads */
+    const colW=port?W-2*m:Math.min(W*.44,W-2*m), lg=(port?50:46)*u, fz=(port?46:42)*u, cols=I.figs.length, cw=colW/cols;
+    const wp=stFit(g,I.world,'900',DISP,colW,(port?190:170)*u,0), total=lg*1.72+26*u+wp*.8+30*u+22*u+44*u+fz+34*u, y0=H-m-total;
+    scrim(y0-3*m,y0+total*.35,0,.8); g.fillStyle='rgba(0,0,0,.8)'; g.fillRect(0,y0+total*.35-1,W,H-(y0+total*.35)+1); scrim(H-total*.5,H,0,.25);   /* a smooth black rise from the bottom, darkest behind the type */
+    let y=y0+lg*.8; g.font='900 '+Math.round(lg)+'px '+DISP; g.fillStyle='#fff'; g.textAlign='left'; g.fillText('SOUND',m,y);
+    y+=lg*.86; g.lineWidth=Math.max(1.5,2.2*u); g.strokeStyle='#fff'; g.lineJoin='round'; g.strokeText('SCAPE',m,y);
+    y+=26*u; g.fillStyle=I.a; g.fillRect(m,y-8*u,54*u,Math.max(3,4*u));
+    y+=wp*.8; g.font='900 '+Math.round(wp)+'px '+DISP; g.fillStyle='#fff'; g.fillText(I.world,m,y);
+    y+=30*u+22*u; g.fillStyle='rgba(255,255,255,.8)'; g.font='600 '+Math.round(17*u)+'px '+SANS; stText(g,I.track+'  ·  '+I.colour+'  ·  '+I.ed.toUpperCase(),m,y,3.4*u,'left');
+    y+=44*u; I.figs.forEach((f,i)=>{ const x=m+cw*i; g.fillStyle='rgba(255,255,255,.6)'; g.font='600 '+Math.round(13*u)+'px '+SANS; stText(g,f[0],x,y,2.2*u,'left');
+      g.fillStyle='#fff'; g.font='800 '+Math.round(fz)+'px '+DISP; const w=stText(g,f[1],x,y+fz*.95,.5*u,'left'); if(f[2]){ g.fillStyle=I.a; g.font='700 '+Math.round(12*u)+'px '+SANS; stText(g,f[2],x+w+6*u,y+fz*.95,1.6*u,'left'); } });
   } else {
     scrim(0,H*.22,.45,0); scrim(H*.6,H,0,.8);
     const b=m*.62; g.strokeStyle='rgba(255,255,255,.7)'; g.lineWidth=Math.max(1,1.5*u); g.strokeRect(b,b,W-2*b,H-2*b);
